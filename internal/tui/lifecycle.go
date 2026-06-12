@@ -3,50 +3,26 @@
 // performs no network I/O — it only visualizes already-parsed local state.
 package tui
 
-import "github.com/roshbhatia/specutil/internal/ir"
+import (
+	"github.com/roshbhatia/specutil/internal/ir"
+	"github.com/roshbhatia/specutil/internal/lifecycle"
+)
 
-// Lifecycle is the workstream-level status shown as a kanban column. OpenSpec
-// tasks are only done/not-done, so lifecycle is derived from task progress
-// rather than read from a status field.
-type Lifecycle string
+// Lifecycle and its states are re-exported from the shared lifecycle package so
+// the TUI and the detail feed classify workstreams identically.
+type Lifecycle = lifecycle.Lifecycle
 
 const (
-	// Proposed: no tasks exist yet, or none are complete — planning stage.
-	Proposed Lifecycle = "proposed"
-	// Active: some but not all tasks are complete — in progress.
-	Active Lifecycle = "active"
-	// Archived: every task is complete — work is finished.
-	Archived Lifecycle = "archived"
+	Proposed = lifecycle.Proposed
+	Active   = lifecycle.Active
+	Archived = lifecycle.Archived
 )
 
 // LifecycleOrder is the left-to-right column order of the kanban board.
-var LifecycleOrder = []Lifecycle{Proposed, Active, Archived}
+var LifecycleOrder = lifecycle.Order
 
 // Progress counts completed and total task items across all phases.
-func Progress(c *ir.Change) (done, total int) {
-	if c.Tasks == nil {
-		return 0, 0
-	}
-	for _, p := range c.Tasks.Phases {
-		for _, it := range p.Items {
-			total++
-			if it.Done {
-				done++
-			}
-		}
-	}
-	return done, total
-}
+func Progress(c *ir.Change) (done, total int) { return lifecycle.Progress(c) }
 
 // Classify derives a change's lifecycle from its task progress.
-func Classify(c *ir.Change) Lifecycle {
-	done, total := Progress(c)
-	switch {
-	case total == 0 || done == 0:
-		return Proposed
-	case done == total:
-		return Archived
-	default:
-		return Active
-	}
-}
+func Classify(c *ir.Change) Lifecycle { return lifecycle.Classify(c) }

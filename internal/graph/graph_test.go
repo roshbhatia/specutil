@@ -2,6 +2,7 @@ package graph
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -81,6 +82,41 @@ func TestJSONStable(t *testing.T) {
 	// Nodes must be sorted regardless of input order.
 	if !strings.Contains(string(a), `"id": "A"`) || strings.Index(string(a), `"A"`) > strings.Index(string(a), `"B"`) {
 		t.Errorf("nodes not sorted: %s", a)
+	}
+}
+
+func TestJSONFeedStaysPureDependencyContract(t *testing.T) {
+	// The graph feed must carry only the dependency DAG — nodes (id/label) and
+	// edges (from/to) — and MUST NOT leak task-level detail. Detail lives in the
+	// separate detail.json projection; consumers derive dependsOn/blocks from
+	// these edges client-side.
+	m := &Manifest{Changes: map[string]ManifestEntry{"B": {DependsOn: []string{"A"}}}}
+	g, _ := Build(changes("B", "A"), m)
+	out, err := g.Project("json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var parsed struct {
+		Nodes []map[string]json.RawMessage `json:"nodes"`
+		Edges []map[string]json.RawMessage `json:"edges"`
+	}
+	if err := json.Unmarshal(out, &parsed); err != nil {
+		t.Fatalf("graph json did not parse: %v\n%s", err, out)
+	}
+	for _, n := range parsed.Nodes {
+		for k := range n {
+			if k != "id" && k != "label" {
+				t.Errorf("node carries unexpected key %q — graph feed must stay workstream-level", k)
+			}
+		}
+	}
+	for _, e := range parsed.Edges {
+		for k := range e {
+			if k != "from" && k != "to" {
+				t.Errorf("edge carries unexpected key %q — graph feed must stay workstream-level", k)
+			}
+		}
 	}
 }
 

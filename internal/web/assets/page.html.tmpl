@@ -4,88 +4,533 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>specutil — workstream graph</title>
+<!-- system.css (classic Mac OS theme), vendored and fully inlined: its four
+     woff2 fonts and two button border-image SVGs are base64 data URIs, so the
+     page fetches nothing. Provides the window/title-bar/button chrome. -->
+<style>{{.SystemCSS}}</style>
 <style>
-  :root { color-scheme: light dark; }
-  body {
-    margin: 0;
-    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    background: #0d1117;
-    color: #c9d1d9;
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { overflow: hidden; }
+
+  /* The whole app is one classic Mac window filling the desktop. */
+  #app {
+    position: absolute; inset: 0;
+    margin: 12px;
+    display: flex; flex-direction: column;
+    background: #fff;
   }
-  header {
-    padding: 12px 20px;
-    border-bottom: 1px solid #21262d;
+  #app .title-bar .title { font-size: 1.3rem; }
+
+  /* Toolbar strip under the title bar: change selector, fit, legend, search. */
+  .toolbar {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 10px;
+    border-bottom: 2px solid #000;
+    font-family: Chicago_12, "Helvetica Neue", Arial, sans-serif;
   }
-  header h1 { margin: 0; font-size: 16px; font-weight: 600; }
-  header p { margin: 4px 0 0; font-size: 12px; color: #8b949e; }
-  main { padding: 20px; }
-  #diagram { display: flex; justify-content: center; }
+  .toolbar .spacer { flex: 1; }
+  .toolbar label { font-family: Chicago_12, monospace; font-size: 13px; }
+  .toolbar .btn { font-size: 13px; min-height: 16px; min-width: 0; padding: 0 12px; border-width: 4px; }
+  #change-select, #search {
+    font-family: Chicago_12, "Helvetica Neue", Arial, sans-serif; font-size: 13px;
+    border: 2px solid #000; background: #fff; color: #000;
+    padding: 3px 8px; border-radius: 0;
+  }
+  #change-select { min-width: 200px; cursor: pointer; }
+  #search { width: 170px; }
+  #search:focus, #change-select:focus { outline: none; box-shadow: 1px 1px 0 #000; }
+  .legend { display: flex; gap: 12px; font-size: 13px; align-items: center; font-family: "Helvetica Neue", Arial, sans-serif; }
+  .legend .dot {
+    display: inline-block; width: 10px; height: 10px; border: 1.5px solid #000;
+    margin-right: 4px; vertical-align: middle;
+  }
+  .legend .sep { width: 2px; height: 18px; background: #000; }
+
+  main { flex: 1; position: relative; overflow: hidden; }
+  /* Faint engineering-paper grid behind the graph, echoing the Mac desktop
+     pattern but light enough to read nodes over. */
+  #cy {
+    position: absolute; inset: 0;
+    background-color: #fff;
+    background-image:
+      linear-gradient(90deg, #ededed 1px, transparent 1px),
+      linear-gradient(#ededed 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
   #empty {
-    margin: 40px auto;
-    max-width: 480px;
-    text-align: center;
-    color: #8b949e;
+    position: absolute; top: 38%; left: 50%; transform: translateX(-50%);
+    max-width: 540px; text-align: center;
+    font-family: "Helvetica Neue", Arial, sans-serif; font-size: 15px; line-height: 1.5;
   }
-  #empty code {
-    background: #161b22;
-    padding: 2px 6px;
-    border-radius: 4px;
-    color: #c9d1d9;
+  #empty code, .toolbar code, #edgeless code {
+    font-family: Monaco, monospace; background: #000; color: #fff; padding: 1px 5px;
   }
+  #edgeless {
+    position: absolute; left: 14px; bottom: 14px; display: none;
+    background: #fff; border: 2px solid #000; box-shadow: 2px 2px 0 #000;
+    padding: 8px 12px; font-family: "Helvetica Neue", Arial, sans-serif; font-size: 13px; max-width: 60%;
+  }
+  .hint {
+    position: absolute; right: 14px; bottom: 12px;
+    font-family: "Helvetica Neue", Arial, sans-serif; font-size: 12px; color: #444;
+    background: rgba(255,255,255,0.82); padding: 2px 6px;
+  }
+
+  /* Ticket drawer: a modeless Mac window that slides in from the right. */
+  #drawer {
+    position: absolute; top: 10px; right: 10px; bottom: 10px;
+    width: 380px; max-width: 92%;
+    background: #fff; border: 2px solid #000; box-shadow: -3px 3px 0 rgba(0,0,0,0.35);
+    display: flex; flex-direction: column;
+    transform: translateX(calc(100% + 20px)); transition: transform 0.18s ease-out;
+    z-index: 10;
+  }
+  #drawer.open { transform: translateX(0); }
+  #drawer .title-bar .title { font-size: 1.1rem; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #drawer-body {
+    flex: 1; overflow-y: auto; padding: 14px 18px;
+    font-family: "Helvetica Neue", Arial, sans-serif; font-size: 14px; line-height: 1.45;
+  }
+  #drawer-body h2 { font-family: Chicago_12, monospace; font-size: 18px; margin: 0 0 10px; word-break: break-word; }
+  #drawer-body h3 {
+    font-family: Chicago_12, monospace; font-size: 13px; margin: 18px 0 6px;
+    border-bottom: 1.5px solid #000; padding-bottom: 2px;
+  }
+  .badge {
+    display: inline-block; padding: 2px 10px; border: 2px solid #000;
+    font-family: Chicago_12, monospace; font-size: 13px;
+  }
+  .badge.proposed { background: #8b949e; color: #000; }
+  .badge.active   { background: #d29922; color: #000; }
+  .badge.archived { background: #3fb950; color: #000; }
+  .bar { height: 14px; border: 2px solid #000; margin: 10px 0 4px; background: #fff; }
+  .bar > span {
+    display: block; height: 100%; background: #000;
+    background-image: repeating-linear-gradient(45deg, #000 0 4px, #444 4px 8px);
+  }
+  .muted { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 12px; color: #555; }
+  .phase { font-family: Chicago_12, monospace; font-size: 14px; margin: 14px 0 6px; }
+  ul.tasks { list-style: none; padding: 0; margin: 0; }
+  ul.tasks li { padding: 4px 6px; display: flex; gap: 8px; align-items: baseline; }
+  ul.tasks li.hl { background: #000; color: #fff; }
+  ul.tasks li.hl .tkey { background: #fff; color: #000; }
+  .tkey {
+    flex: 0 0 auto; min-width: 26px; text-align: center;
+    font-family: Monaco, monospace; font-size: 11px;
+    border: 1.5px solid #000; padding: 0 4px;
+  }
+  .glyph { flex: 0 0 auto; font-family: "Helvetica Neue", Arial, sans-serif; }
+  .txt { flex: 1; }
+  ul.tasks li.done .txt { text-decoration: line-through; color: #555; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    border: 2px solid #000; background: #fff; padding: 2px 10px; cursor: pointer;
+    font-family: "Helvetica Neue", Arial, sans-serif; font-size: 13px;
+  }
+  .chip:active { background: #000; color: #fff; }
 </style>
 </head>
 <body>
-<header>
-  <h1>specutil — workstream graph</h1>
-  <p>Cross-change dependency DAG. Self-contained; renders offline.</p>
-</header>
-<main>
-{{if .Empty}}
-  <div id="empty">
-    <p>No workstreams to display.</p>
-    <p>Define dependencies in <code>openspec/specutil.yaml</code>
-    (or run <code>specutil graph --suggest</code>), then regenerate this page.</p>
+<div id="app" class="window">
+  <div class="title-bar">
+    <h1 class="title">specutil — workstream graph</h1>
   </div>
+{{if .Empty}}
+  <main>
+    <div id="empty">
+      <p>No workstreams to display.</p>
+      <p>Create changes under <code>openspec/changes/&lt;name&gt;/</code>, define dependencies in
+      <code>openspec/specutil.yaml</code> (or run <code>specutil graph --suggest</code>), then regenerate this page.</p>
+    </div>
+  </main>
 {{else}}
-  <div id="diagram"></div>
+  <div class="toolbar">
+    <label for="change-select">Change:</label>
+    <select id="change-select"></select>
+    <button class="btn" id="btn-fit">Fit</button>
+    <span class="spacer"></span>
+    <div class="legend">
+      <span><span class="dot" style="background:#8b949e"></span>proposed</span>
+      <span><span class="dot" style="background:#d29922"></span>active</span>
+      <span><span class="dot" style="background:#3fb950"></span>archived</span>
+      <span class="sep"></span>
+    </div>
+    <input id="search" type="search" placeholder="Search tasks…" autocomplete="off">
+  </div>
+  <main>
+    <div id="cy"></div>
+    <div class="hint">Pick a change to drill in · click a task for details · drag to pan · scroll to zoom</div>
+    <div id="edgeless">
+      No cross-change dependencies defined yet. Seed them with <code>specutil graph --suggest</code> or edit <code>openspec/specutil.yaml</code>.
+    </div>
+    <aside id="drawer" class="window" aria-hidden="true">
+      <div class="title-bar">
+        <button aria-label="Close" class="close" id="drawer-close"></button>
+        <h1 class="title" id="drawer-title">ticket</h1>
+      </div>
+      <div id="drawer-body"></div>
+    </aside>
+  </main>
 {{end}}
-</main>
+</div>
 
 <script>
-// The renderer-independent graph feed (same schema as graph.json), inlined so
-// the page needs no network and no separate data file.
+// Renderer-independent feeds, inlined so the page needs no network and no
+// separate data files. GRAPH is the pure dependency DAG (change nodes + their
+// cross-change edges); DETAIL carries the per-workstream ticket content,
+// including each task's 0-based level (phase rank) and key (0a, 0b, 1a, …).
+// Task cards and depends-on/blocks are derived here from those two feeds.
 const GRAPH = {{.GraphJSON}};
+const DETAIL = {{.DetailJSON}};
 </script>
 
 <script>
-{{.MermaidJS}}
+{{.DagreJS}}
+</script>
+<script>
+{{.CytoscapeJS}}
+</script>
+<script>
+{{.CytoscapeDagreJS}}
+</script>
+<script>
+// Register the dagre layout adapter so the per-change view can lay tasks out as
+// a clean layered flowchart. Harmless if the bundle already self-registered.
+try { cytoscape.use(cytoscapeDagre); } catch (e) { /* already registered */ }
 </script>
 
 <script>
-// Build Mermaid `flowchart` source from the embedded graph and render it. Node
-// IDs are index-based so arbitrary change names can't break Mermaid's lexer;
-// labels carry the human-readable names.
 (function () {
   if (!GRAPH || !GRAPH.nodes || GRAPH.nodes.length === 0) return;
 
-  const idFor = new Map();
-  GRAPH.nodes.forEach((n, i) => idFor.set(n.id, "n" + i));
+  const detailByName = new Map((DETAIL && DETAIL.changes || []).map((c) => [c.name, c]));
+  const edges = GRAPH.edges || [];
 
-  const esc = (s) => String(s == null ? "" : s).replace(/"/g, "&quot;");
+  // depends-on: cross-change edges into me (my prerequisites). blocks: edges out.
+  const dependsOn = (name) => edges.filter((e) => e.to === name).map((e) => e.from).sort();
+  const blocks = (name) => edges.filter((e) => e.from === name).map((e) => e.to).sort();
+  const lifecycleOf = (name) => { const d = detailByName.get(name); return d ? d.lifecycle : "proposed"; };
+  const hasNode = (id) => GRAPH.nodes.some((n) => n.id === id);
+  const taskId = (change, key) => change + "::" + key;
+  const summaryId = (change) => change + "::summary";
+  const trunc = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
-  const lines = ["flowchart TD"];
+  const LIFE_COLOR = { proposed: "#8b949e", active: "#d29922", archived: "#3fb950" };
+
+  // Element model: each change is a compound container. Inside it, tasks are
+  // real nodes and small unlabeled "gate" nodes sit on each phase boundary, so
+  // every task in phase L flows through one gate into phase L+1 — that shows the
+  // blocking relationship as a clean layered flowchart instead of an all-pairs
+  // hairball. dagre lays the container out top-to-bottom on demand. Cross-change
+  // arrows connect whole containers in the Index view.
+  const elements = [];
+
   GRAPH.nodes.forEach((n) => {
-    lines.push('  ' + idFor.get(n.id) + '["' + esc(n.label || n.id) + '"]');
-  });
-  (GRAPH.edges || []).forEach((e) => {
-    const from = idFor.get(e.from), to = idFor.get(e.to);
-    if (from && to) lines.push('  ' + from + " --> " + to);
+    const d = detailByName.get(n.id) || {};
+    const done = d.done || 0, total = d.total || 0;
+    const cstyle = lifecycleOf(n.id);
+    const clabel = (n.label || n.id) + "   " + done + "/" + total;
+
+    const byLevel = new Map();
+    (d.phases || []).forEach((p) => (p.items || []).forEach((it) => {
+      if (!byLevel.has(it.level)) byLevel.set(it.level, []);
+      byLevel.get(it.level).push(it);
+    }));
+    const levels = [...byLevel.keys()].sort((a, b) => a - b);
+
+    const leaf = levels.length === 0;
+    elements.push({ data: { id: n.id, kind: "change", label: clabel, lifecycle: cstyle, leaf: leaf },
+      classes: "change " + cstyle + (leaf ? " leaf" : "") });
+
+    // A standalone (non-compound) summary node for the Index/overview. A compound
+    // parent always auto-sizes to its children, so it can't be shrunk to a tidy
+    // box when its tasks are hidden — the summary node carries the overview
+    // instead, and cross-change dependency arrows connect these.
+    elements.push({ data: { id: summaryId(n.id), kind: "summary", label: clabel, lifecycle: cstyle, change: n.id },
+      classes: "summary " + cstyle });
+
+    levels.forEach((l) => {
+      byLevel.get(l).forEach((it) => {
+        elements.push({
+          data: { id: taskId(n.id, it.key), parent: n.id, kind: "task",
+            label: it.key + "   " + trunc(it.text, 60), key: it.key, change: n.id,
+            text: it.text, level: l, done: !!it.done },
+          classes: "task " + (it.done ? "done" : "todo"),
+        });
+      });
+    });
+    // Phase-gate connectors: one per boundary, fanned in from level L and out to
+    // level L+1. O(tasks) edges, never O(tasks^2) — no hairball.
+    for (let i = 0; i + 1 < levels.length; i++) {
+      const lo = levels[i], hi = levels[i + 1];
+      const gate = n.id + "::gate::" + lo;
+      elements.push({ data: { id: gate, parent: n.id, kind: "gate", change: n.id }, classes: "gate" });
+      byLevel.get(lo).forEach((it) => elements.push({
+        data: { id: "f:" + taskId(n.id, it.key) + ">" + gate, source: taskId(n.id, it.key), target: gate, change: n.id }, classes: "flow" }));
+      byLevel.get(hi).forEach((it) => elements.push({
+        data: { id: "f:" + gate + ">" + taskId(n.id, it.key), source: gate, target: taskId(n.id, it.key), change: n.id }, classes: "flow" }));
+    }
   });
 
-  mermaid.initialize({ startOnLoad: false, theme: "dark" });
-  mermaid.render("specutil-graph", lines.join("\n")).then(({ svg }) => {
-    document.getElementById("diagram").innerHTML = svg;
+  // Cross-change dependency edges connect the overview summary nodes, directed.
+  edges.forEach((e) => {
+    if (hasNode(e.from) && hasNode(e.to)) {
+      elements.push({ data: { id: "dep:" + e.from + "->" + e.to, source: summaryId(e.from), target: summaryId(e.to) }, classes: "dep" });
+    }
   });
+
+  const cy = cytoscape({
+    container: document.getElementById("cy"),
+    elements: elements,
+    minZoom: 0.05,
+    maxZoom: 3,
+    wheelSensitivity: 0.25,
+    pixelRatio: "auto",
+    style: [
+      { selector: "node.change", style: {
+        "background-color": (n) => LIFE_COLOR[n.data("lifecycle")] || "#8b949e",
+        "background-opacity": 0.08,
+        "label": "data(label)",
+        "text-valign": "top",
+        "text-halign": "center",
+        "text-margin-y": -8,
+        "color": "#000",
+        "font-family": "Chicago_12, monospace",
+        "font-size": 15,
+        "padding": "22px",
+        "shape": "rectangle",
+        "border-width": 2,
+        "border-color": (n) => LIFE_COLOR[n.data("lifecycle")] || "#8b949e",
+        "border-opacity": 1,
+      }},
+      { selector: "node.summary", style: {
+        "label": "data(label)",
+        "text-valign": "center",
+        "text-halign": "center",
+        "color": "#000",
+        "font-family": "Chicago_12, monospace",
+        "font-size": 15,
+        "background-color": (n) => LIFE_COLOR[n.data("lifecycle")] || "#8b949e",
+        "background-opacity": 0.25,
+        "shape": "round-rectangle",
+        "width": "label",
+        "height": "label",
+        "padding": "18px",
+        "border-width": 3,
+        "border-color": (n) => LIFE_COLOR[n.data("lifecycle")] || "#8b949e",
+      }},
+      { selector: "node.summary:active", style: { "overlay-opacity": 0.15 } },
+      { selector: "node.task", style: {
+        "label": "data(label)",
+        "text-wrap": "wrap",
+        "text-max-width": "170px",
+        "text-valign": "center",
+        "text-halign": "center",
+        "font-family": "Helvetica Neue, Helvetica, Arial, sans-serif",
+        "font-size": 13,
+        "color": "#111",
+        "background-color": "#fff",
+        "shape": "round-rectangle",
+        "width": "label",
+        "height": "label",
+        "padding": "10px",
+        "border-width": 1.5,
+        "border-color": "#000",
+      }},
+      { selector: "node.task.done", style: {
+        "background-color": "#dff5e6", "border-color": "#1a7f37", "color": "#0a3d1c",
+      }},
+      { selector: "node.gate", style: {
+        "shape": "diamond", "width": 12, "height": 12,
+        "background-color": "#000", "border-width": 0, "label": "",
+      }},
+      { selector: "edge.flow", style: {
+        "width": 1.5, "line-color": "#9aa0a6",
+        "target-arrow-color": "#9aa0a6", "target-arrow-shape": "triangle", "arrow-scale": 0.8,
+        "curve-style": "taxi", "taxi-direction": "downward", "taxi-turn": "50%",
+      }},
+      { selector: "edge.dep", style: {
+        "width": 3, "line-color": "#000",
+        "target-arrow-color": "#000", "target-arrow-shape": "triangle", "arrow-scale": 1.4,
+        "curve-style": "bezier",
+      }},
+      { selector: ".dim", style: { "opacity": 0.12 } },
+      { selector: "node.task.focus", style: { "border-color": "#1f6feb", "border-width": 3 } },
+    ],
+    layout: { name: "preset" },
+  });
+  window.cy = cy;
+
+  // ---- View switching: Index (all containers) vs one change drilled in. ----
+  const sel = document.getElementById("change-select");
+
+  function layoutChange(name) {
+    const c = cy.getElementById(name);
+    const kids = c.descendants();
+    const flowEdges = kids.connectedEdges(".flow");
+    kids.add(flowEdges).layout({
+      name: "dagre", rankDir: "TB", rankSep: 55, nodeSep: 26, edgeSep: 12, fit: false,
+    }).run();
+    cy.fit(c, 40);
+  }
+
+  function showIndex() {
+    closeDrawer();
+    const summaries = cy.nodes(".summary");
+    const deps = cy.edges(".dep");
+    cy.batch(() => {
+      cy.elements().style("display", "none");
+      summaries.style("display", "element");
+      deps.style("display", "element");
+    });
+    summaries.add(deps).layout({
+      name: "dagre", rankDir: "LR", rankSep: 90, nodeSep: 40, fit: false,
+    }).run();
+    cy.fit(summaries, 60);
+  }
+
+  function showChange(name) {
+    closeDrawer();
+    const c = cy.getElementById(name);
+    if (c.empty()) { showIndex(); return; }
+    cy.batch(() => {
+      cy.elements().style("display", "none");
+      c.style("display", "element");
+      c.descendants().style("display", "element");
+      c.descendants().connectedEdges(".flow").style("display", "element");
+    });
+    layoutChange(name);
+  }
+
+  function applySelection() {
+    const v = sel.value;
+    if (v === "__index__") showIndex(); else showChange(v);
+  }
+
+  // Populate the dropdown: an Index (overview) entry plus one option per change.
+  const idxOpt = document.createElement("option");
+  idxOpt.value = "__index__"; idxOpt.textContent = "Index — all workstreams";
+  sel.appendChild(idxOpt);
+  GRAPH.nodes.forEach((n) => {
+    const o = document.createElement("option");
+    const d = detailByName.get(n.id) || {};
+    o.value = n.id;
+    o.textContent = (n.label || n.id) + "  (" + (d.done || 0) + "/" + (d.total || 0) + ")";
+    sel.appendChild(o);
+  });
+  sel.addEventListener("change", applySelection);
+
+  // ---- Ticket drawer. ----
+  const drawer = document.getElementById("drawer");
+  const drawerBody = document.getElementById("drawer-body");
+  const drawerTitle = document.getElementById("drawer-title");
+  const esc = (s) => String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  function openDrawer(name, focusKey) {
+    const d = detailByName.get(name) || { name: name, lifecycle: lifecycleOf(name), done: 0, total: 0, phases: [] };
+    const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
+    drawerTitle.textContent = d.name;
+    let html = "";
+    html += '<h2>' + esc(d.name) + '</h2>';
+    html += '<span class="badge ' + esc(d.lifecycle) + '">' + esc(d.lifecycle) + '</span>';
+    html += '<div class="bar"><span style="width:' + pct + '%"></span></div>';
+    html += '<div class="muted">' + d.done + '/' + d.total + ' tasks · ' + pct + '%</div>';
+    if (d.why) { html += '<h3>Why</h3><div>' + esc(d.why) + '</div>'; }
+    if (d.whatChanges) { html += '<h3>What changes</h3><div>' + esc(d.whatChanges) + '</div>'; }
+    if (d.phases && d.phases.length) {
+      html += '<h3>Tasks</h3>';
+      d.phases.forEach((p) => {
+        html += '<div class="phase">' + esc(p.number) + '. ' + esc(p.name) + '</div>';
+        html += '<ul class="tasks">';
+        (p.items || []).forEach((it) => {
+          html += '<li class="' + (it.done ? "done" : "") + '" data-key="' + esc(it.key) + '">' +
+            '<span class="tkey">' + esc(it.key) + '</span>' +
+            '<span class="glyph">' + (it.done ? "☑" : "☐") + '</span>' +
+            '<span class="txt">' + esc(it.text) + '</span></li>';
+        });
+        html += '</ul>';
+      });
+    }
+    const deps = dependsOn(name), blks = blocks(name);
+    if (deps.length) {
+      html += '<h3>Depends on</h3><div class="chips">' +
+        deps.map((x) => '<span class="chip" data-go="' + esc(x) + '">' + esc(x) + '</span>').join("") + '</div>';
+    }
+    if (blks.length) {
+      html += '<h3>Blocks</h3><div class="chips">' +
+        blks.map((x) => '<span class="chip" data-go="' + esc(x) + '">' + esc(x) + '</span>').join("") + '</div>';
+    }
+    drawerBody.innerHTML = html;
+    drawer.classList.add("open");
+    drawer.setAttribute("aria-hidden", "false");
+    drawerBody.querySelectorAll(".chip[data-go]").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const t = chip.getAttribute("data-go");
+        sel.value = t; showChange(t); openDrawer(t);
+      });
+    });
+    if (focusKey) {
+      const li = drawerBody.querySelector('li[data-key="' + focusKey + '"]');
+      if (li) { li.classList.add("hl"); li.scrollIntoView({ block: "center" }); }
+    }
+  }
+  function closeDrawer() {
+    // Move focus out before hiding, else focus is trapped under aria-hidden.
+    if (drawer.contains(document.activeElement)) document.activeElement.blur();
+    drawer.classList.remove("open");
+    drawer.setAttribute("aria-hidden", "true");
+    cy.elements().removeClass("focus");
+  }
+
+  // Clicking a collapsed container in the Index drills into it; clicking a task
+  // opens that workstream's ticket at the task.
+  cy.on("tap", "node.summary", (evt) => {
+    const id = evt.target.data("change");
+    sel.value = id; showChange(id);
+  });
+  cy.on("tap", "node.change", (evt) => {
+    // Tapping the container frame opens the ticket overview for the change.
+    openDrawer(evt.target.id());
+  });
+  cy.on("tap", "node.task", (evt) => {
+    const t = evt.target;
+    cy.elements().removeClass("focus"); t.addClass("focus");
+    openDrawer(t.data("change"), t.data("key"));
+  });
+  cy.on("tap", (evt) => { if (evt.target === cy) closeDrawer(); });
+
+  document.getElementById("drawer-close").addEventListener("click", closeDrawer);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+  document.getElementById("btn-fit").addEventListener("click", () => applySelection());
+
+  if (edges.length === 0) { document.getElementById("edgeless").style.display = "block"; }
+
+  // Search: match a task card by key/text and jump to its change, else a
+  // workstream by name.
+  document.getElementById("search").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    if (!q) return;
+    const task = cy.nodes(".task").filter((n) =>
+      n.data("key").toLowerCase().includes(q) || (n.data("text") || "").toLowerCase().includes(q));
+    if (task.nonempty()) {
+      const first = task[0], change = first.data("change");
+      if (sel.value !== change) { sel.value = change; showChange(change); }
+      cy.elements().removeClass("focus"); first.addClass("focus");
+      cy.animate({ center: { eles: first }, zoom: 1.1 }, { duration: 200 });
+      return;
+    }
+    const change = GRAPH.nodes.find((n) => (n.label || n.id).toLowerCase().includes(q) || n.id.toLowerCase().includes(q));
+    if (change) { sel.value = change.id; showChange(change.id); }
+  });
+
+  // Open on the first change so relationships are visible immediately; the
+  // dropdown's Index entry is one click away for the cross-change overview.
+  sel.value = GRAPH.nodes[0].id;
+  showChange(GRAPH.nodes[0].id);
 })();
 </script>
 </body>

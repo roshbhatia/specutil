@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/roshbhatia/specutil/internal/detail"
 	"github.com/roshbhatia/specutil/internal/graph"
 	"github.com/roshbhatia/specutil/internal/ir"
 	"github.com/roshbhatia/specutil/internal/provider/openspec"
@@ -307,7 +308,7 @@ func newGraphCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE:  runGraph,
 	}
-	cmd.Flags().String("as", "json", "output format: json|mermaid|dot")
+	cmd.Flags().String("as", "json", "output format: json|mermaid|dot|detail")
 	cmd.Flags().Bool("suggest", false, "report inferred candidate edges without mutating the manifest")
 	cmd.Flags().StringP("out", "o", "", "write output to a file instead of stdout")
 	return cmd
@@ -346,6 +347,15 @@ func runGraph(cmd *cobra.Command, args []string) error {
 	}
 
 	format, _ := cmd.Flags().GetString("as")
+	// The detail feed is the per-change ticket projection the visualizers drill
+	// into; it shares graph's loader but is its own renderer-independent schema.
+	if format == "detail" {
+		out, err := detail.Build(changes).JSON()
+		if err != nil {
+			return err
+		}
+		return writeOut(cmd, out)
+	}
 	out, err := g.Project(format)
 	if err != nil {
 		return err
@@ -393,9 +403,12 @@ func newServeCmd() *cobra.Command {
 		Use:   "serve",
 		Short: "Generate a self-contained static web page rendering the dependency DAG",
 		Long: "Generate a single self-contained HTML file that renders the cross-change\n" +
-			"dependency DAG via Mermaid. The page embeds its data and runtime, so it\n" +
-			"works offline from file:// with no server. The binary performs no network\n" +
-			"I/O; open the produced file in a browser.",
+			"dependency DAG with Cytoscape.js: directed arrows, a dagre layered layout,\n" +
+			"lifecycle-colored nodes, and a click-through ticket drawer. The page embeds\n" +
+			"its data and runtime, so it works offline from file:// with no server. The\n" +
+			"binary performs no network I/O; open the produced file in a browser.\n\n" +
+			"If the graph has no edges, seed cross-change dependencies first with\n" +
+			"`specutil graph --suggest` and record them in openspec/specutil.yaml.",
 		Args: cobra.NoArgs,
 		RunE: runServe,
 	}
@@ -417,7 +430,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	g, _ := graph.Build(changes, manifest)
-	html, err := web.Render(g)
+	html, err := web.Render(g, detail.Build(changes))
 	if err != nil {
 		return err
 	}

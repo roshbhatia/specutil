@@ -75,6 +75,46 @@ func TestNoNetworkImportsInBinary(t *testing.T) {
 	}
 }
 
+// TestWebRuntimeIsVendoredNotFetched guards the offline half of the determinism
+// boundary for the web viewer: the Cytoscape/dagre runtime must be vendored on
+// disk and inlined into the page, never pulled from a CDN at view time. A drift
+// back to a `<script src="https://…">` reference would make the "no network"
+// promise a lie even though no Go network import changed.
+func TestWebRuntimeIsVendoredNotFetched(t *testing.T) {
+	root := moduleRoot(t)
+	assets := filepath.Join(root, "internal", "web", "assets")
+
+	for _, bundle := range []string{"cytoscape.min.js", "dagre.min.js", "cytoscape-dagre.min.js"} {
+		if _, err := os.Stat(filepath.Join(assets, bundle)); err != nil {
+			t.Errorf("web runtime bundle %s is not vendored on disk: %v", bundle, err)
+		}
+	}
+
+	// The Mac OS theme (system.css) is a vendored client-side dependency too: its
+	// fonts and button SVGs are inlined as data URIs and the stylesheet itself is
+	// inlined via a template field, so it never reaches for a CDN either.
+	if _, err := os.Stat(filepath.Join(assets, "system.css")); err != nil {
+		t.Errorf("system.css theme is not vendored on disk: %v", err)
+	}
+
+	tmpl, err := os.ReadFile(filepath.Join(assets, "page.html.tmpl"))
+	if err != nil {
+		t.Fatalf("reading page template: %v", err)
+	}
+	src := string(tmpl)
+	// The runtime must be inlined via template fields, not referenced externally.
+	for _, want := range []string{"{{.CytoscapeJS}}", "{{.DagreJS}}", "{{.CytoscapeDagreJS}}", "{{.SystemCSS}}"} {
+		if !strings.Contains(src, want) {
+			t.Errorf("page template must inline %s; the runtime cannot be fetched at view time", want)
+		}
+	}
+	for _, bad := range []string{"<script src", "<link ", "cdn.jsdelivr", "unpkg.com", "cdnjs"} {
+		if strings.Contains(src, bad) {
+			t.Errorf("page template references external runtime %q; the viewer must be self-contained and offline", bad)
+		}
+	}
+}
+
 // moduleRoot walks up from the test's working directory until it finds go.mod.
 func moduleRoot(t *testing.T) string {
 	t.Helper()

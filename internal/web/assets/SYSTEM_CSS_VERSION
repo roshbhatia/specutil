@@ -1,0 +1,7 @@
+@sakun/system.css@0.1.11
+
+Vendored from https://unpkg.com/@sakun/system.css/dist/system.css and made
+self-contained: the four @font-face rules and the two button border-image SVGs
+were rewritten to inline base64 data URIs (woff2 only; the .woff fallbacks were
+dropped) so the generated page fetches nothing. Do not hand-edit; re-vendor by
+re-running the inlining step if bumping the version.
