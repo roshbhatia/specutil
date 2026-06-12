@@ -133,7 +133,7 @@ type Warning struct {
 type EdgeKind string
 
 const (
-	EdgeContains    EdgeKind = "contains"    // change -> capability
+	EdgeContains    EdgeKind = "contains"     // change -> capability
 	EdgeSpecifiedBy EdgeKind = "specified_by" // capability -> requirement
 	EdgeVerifiedBy  EdgeKind = "verified_by"  // requirement/change -> task
 )
