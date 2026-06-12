@@ -14,6 +14,7 @@ import (
 	"github.com/roshbhatia/specutil/internal/provider/openspec"
 	"github.com/roshbhatia/specutil/internal/render"
 	"github.com/roshbhatia/specutil/internal/syncplan"
+	"github.com/roshbhatia/specutil/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -33,8 +34,8 @@ func notImplemented(verb string) error {
 // NewRootCmd builds the specutil root command and registers every verb.
 func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:           "specutil",
-		Short:         "Project OpenSpec change artifacts into other artifacts and visualizations",
+		Use:   "specutil",
+		Short: "Project OpenSpec change artifacts into other artifacts and visualizations",
 		Long: "specutil parses spec-framework change artifacts (OpenSpec in v1) into a " +
 			"normalized IR and projects them into RFCs, design docs, tickets, dependency " +
 			"graphs, and visualizations. The binary is deterministic and performs no network " +
@@ -364,8 +365,26 @@ func newTUICmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "tui",
 		Short: "Open the workstream kanban and dependency graph TUI",
-		RunE:  func(cmd *cobra.Command, args []string) error { return notImplemented("tui") },
+		Args:  cobra.NoArgs,
+		RunE:  runTUI,
 	}
+}
+
+func runTUI(cmd *cobra.Command, args []string) error {
+	repo, _ := cmd.Flags().GetString("repo")
+	changes, err := openspec.New(repo).LoadAll()
+	if err != nil {
+		return err
+	}
+	for _, c := range changes {
+		emitWarnings(cmd, c.Warnings)
+	}
+	manifest, err := graph.LoadManifest(repo)
+	if err != nil {
+		return err
+	}
+	g, diags := graph.Build(changes, manifest)
+	return tui.Run(changes, g, diags)
 }
 
 func newServeCmd() *cobra.Command {

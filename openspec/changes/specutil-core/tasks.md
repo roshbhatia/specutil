@@ -44,9 +44,9 @@
 
 ## 6. TUI (tui-visualizer)
 
-- [ ] 6.1 Implement the bubbletea + bubblezone workstream kanban (lifecycle columns; mouse zones; empty-repo guidance)
-- [ ] 6.2 Implement the layered-by-depth dependency graph view (cycle surfaced, not looped)
-- [ ] 6.3 Confirm: `specutil tui` renders correctly against a fixture repo and an empty repo
+- [x] 6.1 Implement the bubbletea + bubblezone workstream kanban (lifecycle columns; mouse zones; empty-repo guidance)
+- [x] 6.2 Implement the layered-by-depth dependency graph view (cycle surfaced, not looped)
+- [x] 6.3 Confirm: `specutil tui` renders correctly against a fixture repo and an empty repo
 
 ## 7. Web (web-visualizer)
 
