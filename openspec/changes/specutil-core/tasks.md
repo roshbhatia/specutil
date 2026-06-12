@@ -56,5 +56,5 @@
 ## 8. Rollout
 
 - [x] 8.1 Verify: `nix develop -c go build ./...` and `go test ./...` green; determinism guard passes; `git diff` reviewed
-- [ ] 8.2 Apply: push the branch and open a PR (impactful — `git push`; never push to `main`)
+- [x] 8.2 Apply: push the branch and open a PR (impactful — `git push`; never push to `main`)
 - [ ] 8.3 Confirm: CI green and PR reflects the intended diff
