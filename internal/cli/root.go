@@ -8,6 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 
 	"github.com/roshbhatia/specutil/internal/detail"
 	"github.com/roshbhatia/specutil/internal/graph"
@@ -409,11 +412,15 @@ func newServeCmd() *cobra.Command {
 			"(Chart.js) load at view time from a pinned, SRI-protected CDN. The binary\n" +
 			"performs no network I/O — it only writes the file; open it in a browser.\n\n" +
 			"If the graph has no edges, seed cross-change dependencies first with\n" +
-			"`specutil graph --suggest` and record them in openspec/specutil.yaml.",
+			"`specutil graph --suggest` and record them in openspec/specutil.yaml.\n\n" +
+			"By default the page is written to a temp file and opened in your\n" +
+			"default browser. Pass -o to write a specific path, '-' for stdout, or\n" +
+			"--open=false to write without launching a browser.",
 		Args: cobra.NoArgs,
 		RunE: runServe,
 	}
-	cmd.Flags().StringP("out", "o", "specutil-graph.html", "output HTML file path ('-' for stdout)")
+	cmd.Flags().StringP("out", "o", "", "output HTML file path (default: a temp file; '-' for stdout)")
+	cmd.Flags().Bool("open", true, "open the generated page in the default browser")
 	return cmd
 }
 
@@ -430,8 +437,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	g, _ := graph.Build(changes, manifest)
-	html, err := web.Render(g, detail.Build(changes))
+	g, diags := graph.Build(changes, manifest)
+	html, err := web.Render(g, detail.Build(changes), diags)
 	if err != nil {
 		return err
 	}
@@ -441,9 +448,37 @@ func runServe(cmd *cobra.Command, args []string) error {
 		cmd.OutOrStdout().Write(html)
 		return nil
 	}
+	if outPath == "" {
+		outPath = filepath.Join(os.TempDir(), "specutil-serve.html")
+	}
 	if err := os.WriteFile(outPath, html, 0o644); err != nil {
 		return err
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "wrote %s — open it in a browser\n", outPath)
+	fmt.Fprintf(cmd.ErrOrStderr(), "wrote %s\n", outPath)
+
+	if open, _ := cmd.Flags().GetBool("open"); open {
+		if err := openInBrowser(outPath); err != nil {
+			// Non-fatal: the file is written, so degrade to a hint rather than failing.
+			fmt.Fprintf(cmd.ErrOrStderr(), "could not open a browser (%v); open %s yourself\n", err, outPath)
+		}
+	}
 	return nil
+}
+
+// openInBrowser launches the platform's default handler for path. This shells out
+// to a local opener; it performs no network I/O itself (the browser it spawns is
+// what later fetches the page's pinned CDN assets), so it stays within the
+// binary's determinism boundary.
+func openInBrowser(path string) error {
+	var bin string
+	var args []string
+	switch runtime.GOOS {
+	case "darwin":
+		bin = "open"
+	case "windows":
+		bin, args = "rundll32", []string{"url.dll,FileProtocolHandler"}
+	default:
+		bin = "xdg-open"
+	}
+	return exec.Command(bin, append(args, path)...).Start()
 }

@@ -17,7 +17,7 @@ func TestRenderInlinesFeeds(t *testing.T) {
 		{Name: "db", Lifecycle: "active", Done: 1, Total: 2},
 		{Name: "api", Lifecycle: "proposed", Done: 0, Total: 3},
 	}}
-	out, err := Render(g, d)
+	out, err := Render(g, d, nil)
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
@@ -44,8 +44,24 @@ func TestRenderInlinesFeeds(t *testing.T) {
 }
 
 func TestRenderNilArgs(t *testing.T) {
-	if _, err := Render(nil, nil); err != nil {
-		t.Fatalf("Render(nil, nil) should not error: %v", err)
+	if _, err := Render(nil, nil, nil); err != nil {
+		t.Fatalf("Render(nil, nil, nil) should not error: %v", err)
+	}
+}
+
+func TestRenderInlinesDiagnostics(t *testing.T) {
+	// Manifest diagnostics must reach the page as an inlined literal so the
+	// health banner can surface a broken manifest instead of discarding it.
+	g := &graph.Graph{Nodes: []graph.Node{{ID: "a"}, {ID: "b"}}}
+	diags := []graph.Diagnostic{{Kind: "cycle", Msg: "dependency cycle: a -> b -> a"}}
+	out, err := Render(g, &detail.Feed{}, diags)
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	for _, want := range []string{"const DIAG =", `"cycle"`, "dependency cycle"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("rendered page missing diagnostic %q", want)
+		}
 	}
 }
 
@@ -54,7 +70,7 @@ func TestRenderEscapesScriptBreakout(t *testing.T) {
 	// break out of the inlined <script> data island. json.Marshal escapes < > &.
 	g := &graph.Graph{Nodes: []graph.Node{{ID: "x", Label: "</script><b>"}}}
 	d := &detail.Feed{Changes: []detail.Change{{Name: "</script><b>", Lifecycle: "proposed"}}}
-	out, err := Render(g, d)
+	out, err := Render(g, d, nil)
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
@@ -68,8 +84,15 @@ func TestDagSVGRendersEdges(t *testing.T) {
 		Nodes: []graph.Node{{ID: "db", Label: "db"}, {ID: "api", Label: "api"}},
 		Edges: []graph.Edge{{From: "db", To: "api"}},
 	}
-	svg := dagSVG(g)
+	svg := dagSVG(g, map[string]string{"db": "active", "api": "proposed"})
 	for _, want := range []string{"<svg", "marker-end", ">db<", ">api<"} {
+		if !strings.Contains(svg, want) {
+			t.Errorf("DAG SVG missing %q:\n%s", want, svg)
+		}
+	}
+	// Nodes carry their lifecycle class (CSS owns the palette) and navigate to
+	// the change document via a pure anchor.
+	for _, want := range []string{`class="node lc-active"`, `href="#/c/db"`, `class="edge"`} {
 		if !strings.Contains(svg, want) {
 			t.Errorf("DAG SVG missing %q:\n%s", want, svg)
 		}
@@ -85,7 +108,7 @@ func TestDagSVGEmptyWhenNothingToDraw(t *testing.T) {
 		{Nodes: []graph.Node{{ID: "a"}, {ID: "b"}}}, // two nodes, no edges
 	}
 	for i, g := range cases {
-		if svg := dagSVG(g); svg != "" {
+		if svg := dagSVG(g, nil); svg != "" {
 			t.Errorf("case %d: expected empty SVG, got:\n%s", i, svg)
 		}
 	}
@@ -96,7 +119,7 @@ func TestDagSVGEscapesLabels(t *testing.T) {
 		Nodes: []graph.Node{{ID: "x", Label: "<b>x"}, {ID: "y", Label: "y"}},
 		Edges: []graph.Edge{{From: "x", To: "y"}},
 	}
-	svg := dagSVG(g)
+	svg := dagSVG(g, nil)
 	if strings.Contains(svg, "<b>x") {
 		t.Errorf("DAG SVG did not escape an HTML label:\n%s", svg)
 	}

@@ -31,19 +31,25 @@ var assets embed.FS
 type page struct {
 	GraphJSON  string // the graph.json feed, embedded as a JS literal
 	DetailJSON string // the detail.json feed, embedded as a JS literal
+	DiagJSON   string // manifest diagnostics, embedded as a JS literal (may be [])
 	DagSVG     string // inline cross-change DAG; empty unless 2+ changes have edges
 }
 
 // Render returns a self-contained HTML document visualizing g, drilling into the
 // detail feed d for per-workstream ticket content. Both feeds use the same
 // renderer-independent schemas as graph.json / detail.json, so the data contract
-// is shared with every other consumer. d may be nil.
-func Render(g *graph.Graph, d *detail.Feed) ([]byte, error) {
+// is shared with every other consumer. diags surfaces manifest problems (cycles,
+// dangling references) in a health banner so a broken manifest is visible rather
+// than discarded. d may be nil; diags may be empty.
+func Render(g *graph.Graph, d *detail.Feed, diags []graph.Diagnostic) ([]byte, error) {
 	if g == nil {
 		g = &graph.Graph{Nodes: []graph.Node{}, Edges: []graph.Edge{}}
 	}
 	if d == nil {
 		d = &detail.Feed{Changes: []detail.Change{}}
+	}
+	if diags == nil {
+		diags = []graph.Diagnostic{}
 	}
 	// json.Marshal escapes <, >, & by default, so the literals are safe to inline
 	// inside a <script> block without breaking out of it.
@@ -54,6 +60,10 @@ func Render(g *graph.Graph, d *detail.Feed) ([]byte, error) {
 	detailData, err := json.Marshal(d)
 	if err != nil {
 		return nil, fmt.Errorf("encoding detail: %w", err)
+	}
+	diagData, err := json.Marshal(diags)
+	if err != nil {
+		return nil, fmt.Errorf("encoding diagnostics: %w", err)
 	}
 
 	tmplSrc, err := assets.ReadFile("assets/page.html.tmpl")
@@ -69,7 +79,8 @@ func Render(g *graph.Graph, d *detail.Feed) ([]byte, error) {
 	err = tmpl.Execute(&buf, page{
 		GraphJSON:  string(graphData),
 		DetailJSON: string(detailData),
-		DagSVG:     dagSVG(g),
+		DiagJSON:   string(diagData),
+		DagSVG:     dagSVG(g, lifecycleByName(d)),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("executing template: %w", err)
@@ -77,12 +88,27 @@ func Render(g *graph.Graph, d *detail.Feed) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// lifecycleByName maps each change name to its lifecycle so the DAG can stamp
+// every node with a lifecycle CSS class (the SVG owns no colors itself; CSS does,
+// which is what lets the graph track the active light/dark theme).
+func lifecycleByName(d *detail.Feed) map[string]string {
+	m := make(map[string]string, len(d.Changes))
+	for _, c := range d.Changes {
+		m[c.Name] = c.Lifecycle
+	}
+	return m
+}
+
 // dagSVG renders the cross-change dependency DAG as a deterministic, dependency-
 // free inline SVG: nodes are laid out in left-to-right columns by longest-path
 // depth (so prerequisites sit left of dependents), siblings stacked by name.
-// Returns "" when there is nothing worth drawing (fewer than 2 nodes or no
-// edges) — the overview then shows a "no dependencies" footnote instead.
-func dagSVG(g *graph.Graph) string {
+// Each node is stamped with its lifecycle CSS class and wrapped in an anchor to
+// its change document, so the graph is themeable (CSS owns the palette) and
+// navigable (pure anchors, no script, file://-safe). lc maps change name to
+// lifecycle; a name absent from lc falls back to no lifecycle class. Returns ""
+// when there is nothing worth drawing (fewer than 2 nodes or no edges) — the
+// overview then shows a "no dependencies" footnote instead.
+func dagSVG(g *graph.Graph, lc map[string]string) string {
 	if g == nil || len(g.Edges) == 0 || len(g.Nodes) < 2 {
 		return ""
 	}
@@ -172,9 +198,17 @@ func dagSVG(g *graph.Graph) string {
 			y := float64(padY + i*rowGap)
 			left[id] = pt{x, y + boxH/2}
 			right[id] = pt{x + boxW, y + boxH/2}
+			cls := "node"
+			if l := lc[id]; l != "" {
+				cls += " lc-" + l
+			}
+			// The node is an <a> to its change document: pure-anchor navigation,
+			// no script, file://-safe. data-node lets the optional hover-emphasis
+			// enhancement find a node; colors come from CSS via the lifecycle class.
 			rects.WriteString(fmt.Sprintf(
-				`<g><rect x="%.0f" y="%.0f" width="%d" height="%d" rx="9" fill="#ffffff" stroke="#cbd5e1"/>`+
-					`<text x="%.0f" y="%.0f" font-size="12" fill="#0f172a" text-anchor="middle" dominant-baseline="middle">%s</text></g>`,
+				`<a class="%s" data-node="%s" href="#/c/%s"><rect class="nbox" x="%.0f" y="%.0f" width="%d" height="%d" rx="9"/>`+
+					`<text class="nlabel" x="%.0f" y="%.0f" font-size="12" text-anchor="middle" dominant-baseline="middle">%s</text></a>`,
+				cls, html.EscapeString(id), urlHashEscape(id),
 				x, y, boxW, boxH, x+boxW/2, y+boxH/2, html.EscapeString(truncate(label[id], 24)),
 			))
 		}
@@ -196,19 +230,30 @@ func dagSVG(g *graph.Graph) string {
 			continue
 		}
 		lines.WriteString(fmt.Sprintf(
-			`<line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>`,
-			from.x, from.y, to.x, to.y,
+			`<line class="edge" data-from="%s" data-to="%s" x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" stroke-width="1.5" marker-end="url(#arrow)"/>`,
+			html.EscapeString(e.From), html.EscapeString(e.To), from.x, from.y, to.x, to.y,
 		))
 	}
 
 	w := padX*2 + (maxDepth+1)*colGap - (colGap - boxW)
 	h := padY*2 + maxRows*rowGap - (rowGap - boxH)
+	// The marker path and edges carry no inline fill/stroke; CSS colors them from
+	// theme variables so the arrowheads track light/dark like everything else.
 	return fmt.Sprintf(
 		`<svg viewBox="0 0 %d %d" width="%d" height="%d" role="img" aria-label="Cross-change dependency graph">`+
-			`<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">`+
-			`<path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs>%s%s</svg>`,
+			`<defs><marker id="arrow" class="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">`+
+			`<path d="M0,0 L10,5 L0,10 z"/></marker></defs>%s%s</svg>`,
 		w, h, w, h, lines.String(), rects.String(),
 	)
+}
+
+// urlHashEscape escapes a change name for safe inclusion in a #/c/<name> hash
+// route, mirroring the JS encodeURIComponent used elsewhere for the same links.
+func urlHashEscape(s string) string {
+	return strings.NewReplacer(
+		"%", "%25", "#", "%23", "?", "%3F", "&", "%26", " ", "%20",
+		`"`, "%22", "<", "%3C", ">", "%3E",
+	).Replace(s)
 }
 
 // truncate clips a label to n runes, appending an ellipsis when shortened, so
