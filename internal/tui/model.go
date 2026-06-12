@@ -137,19 +137,62 @@ func (m *Model) scroll(delta int) {
 	}
 }
 
+// Palette. Every color is an AdaptiveColor so the TUI tracks the terminal's
+// light/dark background (lipgloss resolves the variant from the detected
+// background) the same way the web viewer follows prefers-color-scheme — the two
+// surfaces share one visual language. Lifecycle hues mirror the web's badges:
+// slate=proposed, amber=active, green=archived.
+var (
+	colProposed = lipgloss.AdaptiveColor{Light: "245", Dark: "245"} // slate/gray
+	colActive   = lipgloss.AdaptiveColor{Light: "172", Dark: "214"} // amber
+	colArchived = lipgloss.AdaptiveColor{Light: "28", Dark: "42"}   // green
+	colAccent   = lipgloss.AdaptiveColor{Light: "27", Dark: "39"}   // selection blue
+	colNeighbor = lipgloss.AdaptiveColor{Light: "31", Dark: "45"}   // neighbor cyan
+	colDone     = lipgloss.AdaptiveColor{Light: "28", Dark: "42"}   // completed green
+	colWarn     = lipgloss.AdaptiveColor{Light: "160", Dark: "203"} // diagnostics red
+	colMuted    = lipgloss.AdaptiveColor{Light: "242", Dark: "245"} // secondary text
+	colTrack    = lipgloss.AdaptiveColor{Light: "252", Dark: "238"} // progress track
+)
+
 var (
 	styleColumn   = lipgloss.NewStyle().Padding(0, 1)
 	styleHeader   = lipgloss.NewStyle().Bold(true).Underline(true)
 	styleCard     = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1).Margin(0, 0, 1, 0)
-	styleActive   = styleCard.BorderForeground(lipgloss.Color("205"))
-	styleNeighbor = styleCard.BorderForeground(lipgloss.Color("39"))
+	styleActive   = styleCard.BorderForeground(colAccent)
+	styleNeighbor = styleCard.BorderForeground(colNeighbor)
 	styleDimmed   = styleCard.Faint(true)
 	styleHint     = lipgloss.NewStyle().Faint(true)
-	styleWarn     = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
-	stylePanel    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("205")).Padding(0, 1)
-	styleDone     = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
-	styleChip     = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
+	styleMuted    = lipgloss.NewStyle().Foreground(colMuted)
+	styleWarn     = lipgloss.NewStyle().Foreground(colWarn)
+	stylePanel    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colAccent).Padding(0, 1)
+	styleDone     = lipgloss.NewStyle().Foreground(colDone)
+	styleChip     = lipgloss.NewStyle().Foreground(colAccent)
+	styleName     = lipgloss.NewStyle().Bold(true)
+
+	// Task-kind markers mirror the web checklist tags; plain tasks get none.
+	styleKindVerify  = lipgloss.NewStyle().Foreground(colProposed).Bold(true)
+	styleKindApply   = lipgloss.NewStyle().Foreground(colActive).Bold(true)
+	styleKindConfirm = lipgloss.NewStyle().Foreground(colArchived).Bold(true)
 )
+
+// lifecycleColor maps a lifecycle to its adaptive hue, shared by cards, column
+// headers, and the detail badge so the state reads consistently everywhere.
+func lifecycleColor(lc Lifecycle) lipgloss.AdaptiveColor {
+	switch lc {
+	case Active:
+		return colActive
+	case Archived:
+		return colArchived
+	default:
+		return colProposed
+	}
+}
+
+// lifecycleHeader is a lifecycle-colored, bold/underlined column header like
+// "active (2)", keyed to the same hue the cards in that column use.
+func lifecycleHeader(lc Lifecycle, n int) string {
+	return styleHeader.Foreground(lifecycleColor(lc)).Render(fmt.Sprintf("%s (%d)", lc, n))
+}
 
 // View renders the active panel. The whole frame is wrapped in zone.Scan so
 // bubblezone can resolve mouse coordinates back to marked card zones.
@@ -246,7 +289,7 @@ func (m Model) kanbanView() string {
 	var cols []string
 	for _, lc := range LifecycleOrder {
 		items := m.columns[lc]
-		header := styleHeader.Render(fmt.Sprintf("%s (%d)", lc, len(items)))
+		header := lifecycleHeader(lc, len(items))
 		cards := []string{header, ""}
 		for _, c := range items {
 			cards = append(cards, m.card(c, m.cardStyle(c)))
@@ -265,7 +308,7 @@ func (m Model) listView() string {
 		if len(items) == 0 {
 			continue
 		}
-		b.WriteString(styleHeader.Render(fmt.Sprintf("%s (%d)", lc, len(items))) + "\n")
+		b.WriteString(lifecycleHeader(lc, len(items)) + "\n")
 		for _, c := range items {
 			b.WriteString(m.card(c, m.cardStyle(c)) + "\n")
 		}
@@ -307,14 +350,61 @@ func (m Model) cardStyle(c *ir.Change) lipgloss.Style {
 			return styleDimmed
 		}
 	}
-	return styleCard
+	// Unfocused cards carry their lifecycle hue on the border so the board reads
+	// like the web's lifecycle-colored cards at a glance.
+	return styleCard.BorderForeground(lifecycleColor(Classify(c)))
 }
 
-// card renders a single workstream with its progress, using the supplied style.
+// card renders a single workstream as a compact progress card: name, an inline
+// lifecycle-colored meter, done/total, and a phase count — mirroring the web
+// board's cards. The pieces degrade gracefully on a narrow terminal because the
+// column width clips them rather than overflowing.
 func (m Model) card(c *ir.Change, style lipgloss.Style) string {
 	done, total := Progress(c)
-	label := fmt.Sprintf("%s\n%d/%d tasks", c.Name, done, total)
-	return zone.Mark("card:"+c.Name, style.Render(label))
+	lc := Classify(c)
+	phases := 0
+	if c.Tasks != nil {
+		phases = len(c.Tasks.Phases)
+	}
+	var b strings.Builder
+	b.WriteString(styleName.Render(c.Name) + "\n")
+	b.WriteString(miniBar(done, total, lifecycleColor(lc)) + "\n")
+	b.WriteString(styleMuted.Render(fmt.Sprintf("%d/%d · %d phase%s", done, total, phases, plural(phases))))
+	return zone.Mark("card:"+c.Name, style.Render(b.String()))
+}
+
+// miniBar draws a short fixed-width progress meter; the filled run takes the
+// supplied (lifecycle) color, the remainder a muted track.
+func miniBar(done, total int, c lipgloss.TerminalColor) string {
+	const w = 8
+	filled := 0
+	if total > 0 {
+		filled = done * w / total
+	}
+	if filled > w {
+		filled = w
+	}
+	fill := lipgloss.NewStyle().Foreground(c).Render(strings.Repeat("█", filled))
+	track := lipgloss.NewStyle().Foreground(colTrack).Render(strings.Repeat("░", w-filled))
+	return fill + track
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
+}
+
+// depthHeader labels a graph column by dependency depth, naming depth 0 as the
+// roots (no prerequisites) and the rest by depth, with the node count. The
+// literal "depth N" stays in the string so the layout reads unambiguously.
+func depthHeader(depth, n int) string {
+	role := ""
+	if depth == 0 {
+		role = " · roots"
+	}
+	return styleHeader.Render(fmt.Sprintf("depth %d%s (%d)", depth, role, n))
 }
 
 // graphView renders the dependency DAG as depth-ordered columns. On selection
@@ -332,7 +422,7 @@ func (m Model) graphView() string {
 	colW := m.colWidth(len(cols))
 	var rendered []string
 	for depth, nodes := range cols {
-		header := styleHeader.Render(fmt.Sprintf("depth %d", depth))
+		header := depthHeader(depth, len(nodes))
 		cells := []string{header, ""}
 		for _, n := range nodes {
 			c := m.byName[n.ID]
@@ -357,7 +447,7 @@ func (m Model) graphView() string {
 func (m Model) graphListView(cols [][]graph.Node) string {
 	var b strings.Builder
 	for depth, nodes := range cols {
-		b.WriteString(styleHeader.Render(fmt.Sprintf("depth %d", depth)) + "\n")
+		b.WriteString(depthHeader(depth, len(nodes)) + "\n")
 		for _, n := range nodes {
 			c := m.byName[n.ID]
 			b.WriteString(m.card(c, m.cardStyle(c)) + "\n")
@@ -438,69 +528,177 @@ func (m Model) neighbors(name string) map[string]bool {
 }
 
 // composeDetail places the ticket panel beside the board when there is room,
-// stacking it below on narrow or unsized terminals.
+// stacking it below on narrow or unsized terminals. The board width subtracts
+// the panel's full frame (border + padding), not a guessed constant, so the
+// rounded border never overruns the terminal and breaks.
 func (m Model) composeDetail(board string) string {
-	panel := m.detailPanel()
 	if m.width > 0 && !m.narrow(2) {
 		panelW := m.width / 3
-		board = lipgloss.NewStyle().Width(m.width - panelW - 2).Render(board)
-		return lipgloss.JoinHorizontal(lipgloss.Top, board, stylePanel.Width(panelW).Render(panel))
+		if panelW < minColWidth {
+			panelW = minColWidth
+		}
+		frame := stylePanel.GetHorizontalFrameSize()
+		boardW := m.width - panelW - frame
+		if boardW < 1 {
+			boardW = 1
+		}
+		board = lipgloss.NewStyle().Width(boardW).Render(board)
+		panel := stylePanel.Width(panelW).Render(m.detailPanel(panelW))
+		return lipgloss.JoinHorizontal(lipgloss.Top, board, panel)
 	}
-	return board + "\n\n" + stylePanel.Render(panel)
+	return board + "\n\n" + stylePanel.Render(m.detailPanel(0))
 }
 
-// detailPanel renders the selected workstream as a ticket: lifecycle, progress,
-// why/what-changes, tasks-by-phase with done glyphs, and depends-on/blocks.
-func (m Model) detailPanel() string {
+// detailPanel renders the selected workstream as a ticket. innerW is the panel's
+// content width: when it's wide enough the tasks-by-phase checklist sits to the
+// left of a relationships/per-phase rail (matching the web document's two-column
+// layout); when narrow the rail stacks *above* the checklist so relationships
+// are read alongside the work rather than buried beneath a long list.
+func (m Model) detailPanel(innerW int) string {
 	c := m.selectedChange()
 	if c == nil {
 		return styleHint.Render("Nothing selected.")
 	}
 	done, total := Progress(c)
-	var b strings.Builder
 
-	b.WriteString(styleHeader.Render(c.Name) + "\n")
-	b.WriteString(fmt.Sprintf("[%s]  %s\n\n", Classify(c), progressBar(done, total)))
+	var head strings.Builder
+	head.WriteString(styleHeader.Render(c.Name) + "\n")
+	head.WriteString(lifecycleBadge(Classify(c)) + "  " + progressBar(done, total))
 
+	var meta strings.Builder
 	if c.Proposal != nil && c.Proposal.Why != "" {
-		b.WriteString(styleHeader.Render("Why") + "\n" + c.Proposal.Why + "\n\n")
+		meta.WriteString(styleHeader.Render("Why") + "\n" + c.Proposal.Why + "\n\n")
 	}
 	if c.Proposal != nil && c.Proposal.WhatChanges != "" {
-		b.WriteString(styleHeader.Render("What changes") + "\n" + c.Proposal.WhatChanges + "\n\n")
+		meta.WriteString(styleHeader.Render("What changes") + "\n" + c.Proposal.WhatChanges + "\n\n")
 	}
 
-	if c.Tasks != nil && len(c.Tasks.Phases) > 0 {
-		b.WriteString(styleHeader.Render("Tasks") + "\n")
-		for _, p := range c.Tasks.Phases {
-			b.WriteString(fmt.Sprintf("%s. %s\n", p.Number, p.Name))
-			for _, it := range p.Items {
-				glyph := "[ ]"
-				line := fmt.Sprintf("  %s %s", glyph, it.Text)
-				if it.Done {
-					line = styleDone.Render(fmt.Sprintf("  [x] %s", it.Text))
-				}
-				b.WriteString(line + "\n")
+	checklist := m.detailChecklist(c)
+	rail := m.detailRail(c)
+
+	const sideBySideMin = 56
+	var body string
+	switch {
+	case innerW >= sideBySideMin && checklist != "":
+		railW := 22
+		listW := innerW - railW - 1
+		listCol := lipgloss.NewStyle().Width(listW).Render(checklist)
+		railCol := lipgloss.NewStyle().Width(railW).Render(rail)
+		body = lipgloss.JoinHorizontal(lipgloss.Top, listCol, " ", railCol)
+	case checklist != "":
+		body = rail + "\n\n" + checklist
+	default:
+		body = rail
+	}
+
+	parts := []string{strings.TrimRight(head.String(), "\n")}
+	if s := strings.TrimRight(meta.String(), "\n"); s != "" {
+		parts = append(parts, s)
+	}
+	parts = append(parts, body)
+	return strings.Join(parts, "\n\n")
+}
+
+// detailChecklist is the tasks-by-phase list with per-phase progress and
+// verify/apply/confirm markers; completed items are colored done.
+func (m Model) detailChecklist(c *ir.Change) string {
+	if c.Tasks == nil || len(c.Tasks.Phases) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(styleHeader.Render("Tasks") + "\n")
+	for _, p := range c.Tasks.Phases {
+		pd, pt := phaseProgress(p)
+		b.WriteString(fmt.Sprintf("%s. %s %s\n", p.Number, p.Name, styleMuted.Render(fmt.Sprintf("(%d/%d)", pd, pt))))
+		for _, it := range p.Items {
+			glyph := "[ ]"
+			if it.Done {
+				glyph = "[x]"
 			}
+			line := fmt.Sprintf("  %s %s%s", glyph, kindMarker(it.Kind), it.Text)
+			if it.Done {
+				line = styleDone.Render(line)
+			}
+			b.WriteString(line + "\n")
 		}
-		b.WriteString("\n")
-	}
-
-	if dep := m.dependsOn(c.Name); len(dep) > 0 {
-		b.WriteString("Depends on: " + styleChip.Render(strings.Join(dep, ", ")) + "\n")
-	}
-	if blk := m.blocks(c.Name); len(blk) > 0 {
-		b.WriteString("Blocks: " + styleChip.Render(strings.Join(blk, ", ")) + "\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// progressBar draws a compact done/total bar like "3/5 ███░░".
+// detailRail is the side rail: per-phase progress meters and the depends-on /
+// blocks relationships, the TUI counterpart to the web document's aside.
+func (m Model) detailRail(c *ir.Change) string {
+	var b strings.Builder
+	if c.Tasks != nil && len(c.Tasks.Phases) > 0 {
+		b.WriteString(styleHeader.Render("Phases") + "\n")
+		for _, p := range c.Tasks.Phases {
+			pd, pt := phaseProgress(p)
+			b.WriteString(miniBar(pd, pt, colAccent) + " " + styleMuted.Render(p.Number) + "\n")
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString(styleHeader.Render("Depends on") + "\n")
+	if dep := m.dependsOn(c.Name); len(dep) > 0 {
+		for _, d := range dep {
+			b.WriteString(styleChip.Render("• "+d) + "\n")
+		}
+	} else {
+		b.WriteString(styleHint.Render("nothing") + "\n")
+	}
+	b.WriteString("\n" + styleHeader.Render("Blocks") + "\n")
+	if blk := m.blocks(c.Name); len(blk) > 0 {
+		for _, d := range blk {
+			b.WriteString(styleChip.Render("• "+d) + "\n")
+		}
+	} else {
+		b.WriteString(styleHint.Render("nothing") + "\n")
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+// phaseProgress counts done/total items in a phase.
+func phaseProgress(p ir.Phase) (done, total int) {
+	for _, it := range p.Items {
+		total++
+		if it.Done {
+			done++
+		}
+	}
+	return done, total
+}
+
+// kindMarker is the inline tag for non-plain task kinds (verify/apply/confirm),
+// matching the web checklist's markers. Plain tasks get nothing.
+func kindMarker(k ir.TaskKind) string {
+	switch k {
+	case ir.KindVerify:
+		return styleKindVerify.Render("verify ")
+	case ir.KindApply:
+		return styleKindApply.Render("apply ")
+	case ir.KindConfirm:
+		return styleKindConfirm.Render("confirm ")
+	default:
+		return ""
+	}
+}
+
+// lifecycleBadge is a bold, lifecycle-colored "[active]"-style chip.
+func lifecycleBadge(lc Lifecycle) string {
+	return lipgloss.NewStyle().Foreground(lifecycleColor(lc)).Bold(true).Render("[" + string(lc) + "]")
+}
+
+// progressBar draws a compact done/total bar like "3/5 ███░░", the filled run
+// accented so progress reads at a glance.
 func progressBar(done, total int) string {
 	const width = 10
 	filled := 0
 	if total > 0 {
 		filled = done * width / total
 	}
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
-	return fmt.Sprintf("%d/%d %s", done, total, bar)
+	if filled > width {
+		filled = width
+	}
+	fill := lipgloss.NewStyle().Foreground(colAccent).Render(strings.Repeat("█", filled))
+	track := lipgloss.NewStyle().Foreground(colTrack).Render(strings.Repeat("░", width-filled))
+	return fmt.Sprintf("%d/%d %s%s", done, total, fill, track)
 }
