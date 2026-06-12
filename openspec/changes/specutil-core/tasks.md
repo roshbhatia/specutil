@@ -35,10 +35,10 @@
 
 ## 5. Integration skills (integration-skills)
 
-- [ ] 5.1 Confirm whether `notion-create-pages` accepts markdown directly; record the answer and adjust the notion skill's block-conversion guidance accordingly
-- [ ] 5.2 Author `skills/sync-to-linear/SKILL.md`: plan → review → MCP write → `lock set`; confirmation default + `--auto`
-- [ ] 5.3 Author `skills/sync-to-notion/SKILL.md` following the same flow
-- [ ] 5.4 Verify: dry-run each skill against a sample `plan.json` with confirmations; assert the binary makes no network calls and write-back goes through `lock set`
+- [x] 5.1 Confirm whether `notion-create-pages` accepts markdown directly; record the answer and adjust the notion skill's block-conversion guidance accordingly
+- [x] 5.2 Author `skills/sync-to-linear/SKILL.md`: plan → review → MCP write → `lock set`; confirmation default + `--auto`
+- [x] 5.3 Author `skills/sync-to-notion/SKILL.md` following the same flow
+- [x] 5.4 Verify: dry-run each skill against a sample `plan.json` with confirmations; assert the binary makes no network calls and write-back goes through `lock set`
 - [ ] 5.5 Apply: exercise `sync-to-linear` end-to-end against a real Linear target via MCP (user-confirmed; impactful — remote writes)
 - [ ] 5.6 Confirm: created Linear issues match the plan and their IDs are recorded in the lockfile
 
