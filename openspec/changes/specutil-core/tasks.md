@@ -27,11 +27,11 @@
 
 ## 4. Sync planning (sync-planning)
 
-- [ ] 4.1 Implement the stable content-hash identity (normalized, position-independent; survives renumber; no collisions) and resolve the hashing Open Question against edit-history fixtures
-- [ ] 4.2 Implement the per-change `specutil.lock.yaml` and `lock get|set` (no external IDs written to source artifacts)
-- [ ] 4.3 Implement `plan --target linear|notion` emitting create/update/orphan `plan.json` with no network I/O
-- [ ] 4.4 Implement `diff` (IR vs lock) reporting new/changed/orphaned with fuzzy re-match
-- [ ] 4.5 Confirm: plan/diff golden tests pass; lock round-trips; all four verbs run offline
+- [x] 4.1 Implement the stable content-hash identity (normalized, position-independent; survives renumber; no collisions) and resolve the hashing Open Question against edit-history fixtures
+- [x] 4.2 Implement the per-change `specutil.lock.yaml` and `lock get|set` (no external IDs written to source artifacts)
+- [x] 4.3 Implement `plan --target linear|notion` emitting create/update/orphan `plan.json` with no network I/O
+- [x] 4.4 Implement `diff` (IR vs lock) reporting new/changed/orphaned with fuzzy re-match
+- [x] 4.5 Confirm: plan/diff golden tests pass; lock round-trips; all four verbs run offline
 
 ## 5. Integration skills (integration-skills)
 

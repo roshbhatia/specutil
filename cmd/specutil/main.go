@@ -10,6 +10,11 @@ import (
 
 func main() {
 	if err := cli.NewRootCmd().Execute(); err != nil {
+		// A missing lock entry is a distinguishable, non-fatal outcome (exit 3)
+		// so `lock get` callers can branch on "absent" vs a real error.
+		if cli.IsNoMapping(err) {
+			os.Exit(3)
+		}
 		os.Exit(1)
 	}
 }
