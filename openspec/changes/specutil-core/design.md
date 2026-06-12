@@ -38,7 +38,7 @@ No prior art exists in this repo (initial commit). Downstream, the user's dotfil
 
 **D8 — TUI imports the IR package directly; web consumes `graph.json`.** The determinism boundary governs *integrations*, not in-process reads; the browser cannot link Go, so the file boundary is real only there. *Alternative rejected:* TUI shelling out to the binary — dogmatic, slower, no benefit.
 
-**D9 — Mermaid-first browser graph.** `serve` emits a static single-file site rendering the workstream DAG via Mermaid, designed so Cytoscape.js is a drop-in if task-level drill-down is later needed. *Alternative rejected:* Cytoscape.js in v1 — heavier; the workstream DAG is tens of nodes, which Mermaid handles.
+**D9 — Static document with a binary-rendered inline-SVG graph; presentation layer from a pinned CDN.** `serve` emits a static site (single HTML document) whose cross-change DAG is a deterministic inline SVG emitted by the binary, while styling and the per-phase progress chart load from a version-pinned, SRI-protected CDN (`crossorigin` + `onerror` fallback) at view time. The binary performs no network I/O and adds no build-time toolchain. *Alternatives rejected:* a vendored, fully-offline interactive canvas (Cytoscape/Mermaid bundles inlined) — heavier, harder to read, and the readability-first redesign dropped pan/zoom/drill-down; rendering the DAG via a client-side library — needless when the layout is deterministic and computable in Go.
 
 **D10 — cobra + goldmark + bubbletea/bubblezone/lipgloss.** Conventional, stable choices matching the ecosystem and the bubblezone requirement for mouse zones.
 
@@ -48,7 +48,8 @@ No prior art exists in this repo (initial commit). Downstream, the user's dotfil
 - [Parser drift from OpenSpec] → A Go reimplementation can diverge from OpenSpec's TS parser. **Mitigation:** lenient parsing + warnings (D6) and golden-file tests against real fixtures; the provider port isolates parsing so it can be replaced.
 - [Notion is blocks, not markdown] → Rendering markdown locally assumes the agent can create Notion content from markdown. **Mitigation:** confirm `notion-create-pages` accepts markdown; if not, the `sync-to-notion` skill carries the block-conversion guidance (still agent-side, no binary change).
 - [Scope] → Eight capabilities is large for one change. **Mitigation:** strict slice ordering (below) so each lands and is verifiable independently.
-- [Mermaid scale] → Mermaid degrades past ~20 nodes. **Mitigation:** v1 is workstream-level only; Cytoscape swap-in is pre-designed (D9).
+- [Inline-SVG graph scale] → A hand-laid inline-SVG DAG is workstream-level only and would crowd past a few dozen nodes. **Mitigation:** v1 is workstream-level (tens of nodes), laid out in deterministic depth-ordered columns; task-level drill-down is an explicit non-goal (D9).
+- [CDN presentation layer] → The page's styling/chart load from a CDN, so it is not fully offline and a CDN swap is a supply-chain surface. **Mitigation:** versions are pinned with SRI hashes + `crossorigin`, an `onerror` fallback degrades loudly to an offline notice, and the inlined content (text, SVG DAG, data feeds) still renders; the binary itself stays network-free (D9).
 
 ## Migration Plan
 
@@ -60,7 +61,7 @@ Greenfield — no migration. Rollout is the slice sequence; each slice gates the
 4. **sync-planning** — `plan`, `diff`, `lock`, hashing. Gate: plan/diff golden tests; lock round-trips.
 5. **integration-skills** — `sync-to-linear` / `sync-to-notion`. Gate: skill dry-run against a sample plan with confirmations; no binary network calls.
 6. **tui-visualizer** — `tui`. Gate: renders against a fixture repo.
-7. **web-visualizer** — `serve`. Gate: static site renders the DAG offline.
+7. **web-visualizer** — `serve`. Gate: static site renders the DAG as inline SVG with the binary performing no network I/O; presentation layer loads from a pinned, SRI-protected CDN.
 
 Each impactful action (remote MCP writes, `git push`, `lock set` write-back) is preceded by a verification task and followed by a confirmation task in tasks.md. The binary performs no impactful external action by construction, so the kill switch is simply "don't run the sync skill."
 

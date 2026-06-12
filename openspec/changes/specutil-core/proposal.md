@@ -10,7 +10,7 @@ Spec-driven work authored in OpenSpec has to be re-keyed by hand (or by ad-hoc A
 - `plan --target linear|notion`: emit a deterministic `plan.json` of create/update/orphan operations; `diff`: compare IR against the per-change lockfile; `lock get|set`: CLI-managed identity map between local content hashes and external IDs.
 - `graph --as json|mermaid|dot`: project the cross-change dependency DAG (sourced from a repo-level `specutil.yaml` manifest, optionally seeded by shared-capability inference).
 - `tui`: a bubbletea + bubblezone workstream kanban and a layered dependency graph.
-- `serve`: a lightweight static web site rendering the dependency DAG (Mermaid in v1).
+- `serve`: a lightweight static web site rendering the dependency DAG as inline SVG, with its presentation layer (CSS framework, charting library) loaded from a version-pinned, SRI-protected CDN at view time while the binary stays network-free.
 - Ship `sync-to-linear` and `sync-to-notion` skills in-repo that orchestrate confirm → MCP write → `lock set`, with a `--auto` escape hatch.
 
 ### Non-goals
@@ -18,7 +18,7 @@ Spec-driven work authored in OpenSpec has to be re-keyed by hand (or by ad-hoc A
 - Native Linear/Notion (or any provider) API clients inside the binary — the agent's MCP layer owns all network I/O and auth.
 - Supporting non-OpenSpec spec frameworks in v1. The architecture stays provider-agnostic (markdown-section parsing behind a provider port), but only the OpenSpec adapter ships.
 - Real-time or bidirectional live sync. Sync is an explicit, agent-driven, plan/apply operation.
-- Interactive task-level graph drill-down in the browser (Cytoscape.js is deferred; v1 is workstream-level Mermaid).
+- Interactive task-level graph drill-down or pan/zoom in the browser; v1 is a static document with an inline-SVG workstream dependency graph.
 - Mutating OpenSpec source artifacts to carry external IDs or dependency edges (no inline `[ABC-123]` annotations; no colonizing `.openspec.yaml`).
 
 ## Capabilities
@@ -31,7 +31,7 @@ Spec-driven work authored in OpenSpec has to be re-keyed by hand (or by ad-hoc A
 - `sync-planning`: the `plan`, `diff`, and `lock` verbs; the per-change `specutil.lock.yaml`; and the stable content-hash identity strategy enabling create/update/orphan diffing.
 - `integration-skills`: the in-repo `sync-to-linear` and `sync-to-notion` skills that orchestrate the deterministic verbs and the agent's MCP writes with confirmation and `--auto`.
 - `tui-visualizer`: the `tui` verb — a workstream-lifecycle kanban (bubblezone mouse zones) and a layered-by-depth dependency graph view.
-- `web-visualizer`: the `serve` verb — a static, dependency-only site consuming `graph.json` and rendering the DAG via Mermaid.
+- `web-visualizer`: the `serve` verb — a static site consuming `graph.json` and rendering the DAG as inline SVG, with the presentation layer loaded from a pinned, SRI-protected CDN and the binary performing no network I/O.
 
 ### Modified Capabilities
 <!-- None. This is a greenfield repository. -->

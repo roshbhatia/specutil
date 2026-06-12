@@ -20,7 +20,7 @@
 
 ## 3. Reconcile the in-flight specutil-core delta (follow-up)
 
-- [ ] 3.1 Update `specutil-core`'s `web-visualizer` delta so it no longer mandates
+- [x] 3.1 Update `specutil-core`'s `web-visualizer` delta so it no longer mandates
       Mermaid rendering or full offline operation, matching the shipped behavior,
       before `specutil-core` is archived — preventing the contradiction from
-      re-merging.
+      re-merging. (Also realigned its proposal/design/tasks references.)
