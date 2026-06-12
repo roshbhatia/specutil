@@ -157,6 +157,50 @@ Text.
 	}
 }
 
+func TestParseSpecScenarioWarningSkipsRemovedAndRenamed(t *testing.T) {
+	// ADDED/MODIFIED requirements describe behavior via scenarios, so absent
+	// scenarios there warn. REMOVED/RENAMED blocks carry Reason/Migration prose
+	// instead and must NOT warn for lacking scenarios.
+	src := `## ADDED Requirements
+
+### Requirement: Has scenarios
+Text.
+
+#### Scenario: ok
+- **WHEN** x
+- **THEN** y
+
+## REMOVED Requirements
+
+### Requirement: Old thing
+**Reason**: Replaced.
+**Migration**: Use the new thing.
+
+## RENAMED Requirements
+
+### Requirement: Renamed thing
+**Reason**: Clearer name.
+`
+	_, warns := ParseSpec("specs/x/spec.md", "x", src)
+	for _, w := range warns {
+		if strings.Contains(w.Msg, "has no scenarios") {
+			t.Errorf("REMOVED/RENAMED requirements must not warn about missing scenarios, got: %s", w.Msg)
+		}
+	}
+
+	// Sanity: an ADDED requirement with no scenarios still warns.
+	_, warns = ParseSpec("specs/x/spec.md", "x", "## ADDED Requirements\n\n### Requirement: Empty\nText.\n")
+	found := false
+	for _, w := range warns {
+		if strings.Contains(w.Msg, "has no scenarios") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected a 'has no scenarios' warning for an ADDED requirement with none, got %v", warns)
+	}
+}
+
 const sampleTasks = `## 1. Foundation
 
 - [x] 1.1 Initialize the module

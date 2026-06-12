@@ -118,7 +118,10 @@ func ParseSpec(file, capability, src string) (*ir.Spec, []ir.Warning) {
 	}
 
 	for _, r := range spec.Requirements {
-		if len(r.Scenarios) == 0 {
+		// Only ADDED/MODIFIED requirements describe behavior via scenarios.
+		// REMOVED and RENAMED blocks carry Reason/Migration prose instead, so
+		// absent scenarios there are expected, not malformed.
+		if len(r.Scenarios) == 0 && (r.Delta == ir.DeltaAdded || r.Delta == ir.DeltaModified) {
 			warns = append(warns, ir.Warning{File: file, Msg: "requirement '" + r.Name + "' has no scenarios"})
 		}
 	}
