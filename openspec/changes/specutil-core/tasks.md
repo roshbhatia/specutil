@@ -1,29 +1,29 @@
 ## 1. Foundation (cli-foundation + spec-ingestion)
 
-- [ ] 1.1 Initialize Go module `github.com/roshbhatia/specutil` with `go.mod` (Go 1.22+) and a `cmd/specutil` entrypoint
-- [ ] 1.2 Add a Nix flake + dev shell pinning the Go toolchain, goldmark, cobra, bubbletea/bubblezone/lipgloss
-- [ ] 1.3 Verify: `nix develop -c go build ./...` succeeds in the dev shell
-- [ ] 1.4 Scaffold the cobra root command with stub subcommands `render`, `plan`, `diff`, `lock`, `graph`, `tui`, `serve` (no `sync` verb)
-- [ ] 1.5 Add a determinism guard: a test/lint that fails if any binary code path imports a network package
-- [ ] 1.6 Define the IR types in `internal/ir` (hybrid structured + raw per section; change/proposal/specs/design/tasks; graph edges change→capability→requirement→task)
-- [ ] 1.7 Define the provider port in `internal/provider` and implement the OpenSpec adapter that discovers `openspec/changes/<name>/` and loads artifacts
-- [ ] 1.8 Implement lenient goldmark parsing with loud warnings (recover wrong-depth scenarios; classify task kind verify/apply/confirm; tag delta ops)
-- [ ] 1.9 Add golden-file fixtures from a real OpenSpec change and tests asserting round-trip of structured + raw views
-- [ ] 1.10 Confirm: `go test ./...` green; parsing a fixture yields the expected IR and emits warnings for malformed input
+- [x] 1.1 Initialize Go module `github.com/roshbhatia/specutil` with `go.mod` (Go 1.22+) and a `cmd/specutil` entrypoint
+- [x] 1.2 Add a Nix flake + dev shell pinning the Go toolchain, goldmark, cobra, bubbletea/bubblezone/lipgloss
+- [x] 1.3 Verify: `nix develop -c go build ./...` succeeds in the dev shell
+- [x] 1.4 Scaffold the cobra root command with stub subcommands `render`, `plan`, `diff`, `lock`, `graph`, `tui`, `serve` (no `sync` verb)
+- [x] 1.5 Add a determinism guard: a test/lint that fails if any binary code path imports a network package
+- [x] 1.6 Define the IR types in `internal/ir` (hybrid structured + raw per section; change/proposal/specs/design/tasks; graph edges change→capability→requirement→task)
+- [x] 1.7 Define the provider port in `internal/provider` and implement the OpenSpec adapter that discovers `openspec/changes/<name>/` and loads artifacts
+- [x] 1.8 Implement lenient goldmark parsing with loud warnings (recover wrong-depth scenarios; classify task kind verify/apply/confirm; tag delta ops)
+- [x] 1.9 Add golden-file fixtures from a real OpenSpec change and tests asserting round-trip of structured + raw views
+- [x] 1.10 Confirm: `go test ./...` green; parsing a fixture yields the expected IR and emits warnings for malformed input
 
 ## 2. Rendering (artifact-rendering)
 
-- [ ] 2.1 Define the declarative semantic-mapping representation (IR section → target section) in `internal/render`
-- [ ] 2.2 Add embedded templates via `embed.FS` for `rfc`, `design`, `tickets`, mirroring the canonical RFC and design-doc skeletons; support override directory with loud fallback
-- [ ] 2.3 Implement the `render --as rfc|design|tickets` verb (deterministic byte output; unknown target rejected; absent source section warned)
-- [ ] 2.4 Confirm: golden-file render tests pass and re-running render produces byte-identical output
+- [x] 2.1 Define the declarative semantic-mapping representation (IR section → target section) in `internal/render`
+- [x] 2.2 Add embedded templates via `embed.FS` for `rfc`, `design`, `tickets`, mirroring the canonical RFC and design-doc skeletons; support override directory with loud fallback
+- [x] 2.3 Implement the `render --as rfc|design|tickets` verb (deterministic byte output; unknown target rejected; absent source section warned)
+- [x] 2.4 Confirm: golden-file render tests pass and re-running render produces byte-identical output
 
 ## 3. Graph (dependency-graph)
 
-- [ ] 3.1 Define and load the repo-level `openspec/specutil.yaml` manifest (edge list); detect dangling references and cycles
-- [ ] 3.2 Implement `graph --as json|mermaid|dot` (json is the canonical, byte-stable feed)
-- [ ] 3.3 Implement `graph --suggest` shared-capability inference that reports candidate edges without mutating the manifest
-- [ ] 3.4 Confirm: graph projections match fixtures; suggest leaves `specutil.yaml` unchanged
+- [x] 3.1 Define and load the repo-level `openspec/specutil.yaml` manifest (edge list); detect dangling references and cycles
+- [x] 3.2 Implement `graph --as json|mermaid|dot` (json is the canonical, byte-stable feed)
+- [x] 3.3 Implement `graph --suggest` shared-capability inference that reports candidate edges without mutating the manifest
+- [x] 3.4 Confirm: graph projections match fixtures; suggest leaves `specutil.yaml` unchanged
 
 ## 4. Sync planning (sync-planning)
 
