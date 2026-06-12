@@ -1,0 +1,13 @@
+# Tickets: {{ .Title }}
+
+{{ section .Section "summary" }}
+{{ with .Change.Tasks }}{{ range .Phases }}
+## {{ if .Number }}{{ .Number }}. {{ end }}{{ .Name }}
+{{ range .Items }}
+### {{ .ID }} {{ .Text }}
+
+- **Status:** {{ if .Done }}done{{ else }}todo{{ end }}
+- **Kind:** {{ .Kind }}
+{{ end }}{{ end }}{{ else }}
+_No tasks defined for this change._
+{{ end }}
