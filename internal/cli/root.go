@@ -13,8 +13,16 @@ import (
 	"github.com/roshbhatia/specutil/internal/ir"
 	"github.com/roshbhatia/specutil/internal/provider/openspec"
 	"github.com/roshbhatia/specutil/internal/render"
+	"github.com/roshbhatia/specutil/internal/syncplan"
 	"github.com/spf13/cobra"
 )
+
+// ErrNoMapping reports that a `lock get` found no entry. main maps it to exit
+// code 3 so callers can distinguish "absent" from other failures.
+func IsNoMapping(err error) bool {
+	_, ok := err.(errNoMapping)
+	return ok
+}
 
 // errNotImplemented is returned by verbs whose behavior lands in a later slice.
 // It keeps the verb surface stable and discoverable while implementation fills in.
@@ -129,41 +137,165 @@ func emitWarnings(cmd *cobra.Command, warns []ir.Warning) {
 
 func newPlanCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "plan",
+		Use:   "plan [change]",
 		Short: "Emit a deterministic create/update/orphan plan for a sync target",
-		RunE:  func(cmd *cobra.Command, args []string) error { return notImplemented("plan") },
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runPlan,
 	}
-	cmd.Flags().String("target", "", "sync target: linear|notion")
-	cmd.Flags().String("change", "", "change name to plan")
+	cmd.Flags().String("target", "", "sync target namespace (e.g. linear|notion)")
+	cmd.Flags().String("change", "", "change name to plan (or pass as positional arg)")
+	cmd.Flags().StringP("out", "o", "", "write output to a file instead of stdout")
 	return cmd
 }
 
-func newDiffCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "diff",
-		Short: "Compare the local IR against the per-change lockfile",
-		RunE:  func(cmd *cobra.Command, args []string) error { return notImplemented("diff") },
+func runPlan(cmd *cobra.Command, args []string) error {
+	target, _ := cmd.Flags().GetString("target")
+	if target == "" {
+		return fmt.Errorf("plan: --target is required")
 	}
+	repo, _ := cmd.Flags().GetString("repo")
+	change, err := resolveChange(cmd, args)
+	if err != nil {
+		return err
+	}
+	emitWarnings(cmd, change.Warnings)
+	lock, err := syncplan.LoadLock(repo, change.Name)
+	if err != nil {
+		return err
+	}
+	plan := syncplan.BuildPlan(change, lock, target)
+	out, err := json.MarshalIndent(plan, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeOut(cmd, append(out, '\n'))
+}
+
+func newDiffCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "diff [change]",
+		Short: "Compare the local IR against the per-change lockfile",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runDiff,
+	}
+	cmd.Flags().String("target", "", "sync target namespace (e.g. linear|notion)")
+	cmd.Flags().String("change", "", "change name to diff (or pass as positional arg)")
+	cmd.Flags().StringP("out", "o", "", "write output to a file instead of stdout")
+	return cmd
+}
+
+func runDiff(cmd *cobra.Command, args []string) error {
+	target, _ := cmd.Flags().GetString("target")
+	if target == "" {
+		return fmt.Errorf("diff: --target is required")
+	}
+	repo, _ := cmd.Flags().GetString("repo")
+	change, err := resolveChange(cmd, args)
+	if err != nil {
+		return err
+	}
+	emitWarnings(cmd, change.Warnings)
+	lock, err := syncplan.LoadLock(repo, change.Name)
+	if err != nil {
+		return err
+	}
+	d := syncplan.DiffChange(change, lock, target)
+	out, err := json.MarshalIndent(d, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeOut(cmd, append(out, '\n'))
 }
 
 func newLockCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lock",
-		Short: "Read and write the CLI-managed identity map (content hash -> external ID)",
+		Short: "Read and write the CLI-managed identity map (identity hash -> external ID)",
 	}
-	cmd.AddCommand(
-		&cobra.Command{
-			Use:   "get",
-			Short: "Read a lock entry",
-			RunE:  func(cmd *cobra.Command, args []string) error { return notImplemented("lock get") },
-		},
-		&cobra.Command{
-			Use:   "set",
-			Short: "Write a lock entry",
-			RunE:  func(cmd *cobra.Command, args []string) error { return notImplemented("lock set") },
-		},
-	)
+	cmd.PersistentFlags().String("target", "", "sync target namespace (e.g. linear|notion)")
+	cmd.PersistentFlags().String("change", "", "change owning the lockfile")
+
+	get := &cobra.Command{
+		Use:   "get <identity>",
+		Short: "Read a lock entry; exits 3 if no mapping exists",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runLockGet,
+	}
+	set := &cobra.Command{
+		Use:   "set <identity> <external-id>",
+		Short: "Write a lock entry",
+		Args:  cobra.ExactArgs(2),
+		RunE:  runLockSet,
+	}
+	set.Flags().String("content-hash", "", "content hash to record for drift detection")
+	set.Flags().String("title", "", "item title to retain for fuzzy re-match")
+
+	cmd.AddCommand(get, set)
 	return cmd
+}
+
+// errNoMapping signals `lock get` found no entry; main maps it to exit code 3
+// so callers can distinguish "absent" from other failures.
+type errNoMapping struct{ identity string }
+
+func (e errNoMapping) Error() string { return fmt.Sprintf("no mapping for identity %q", e.identity) }
+
+func lockChangeName(cmd *cobra.Command) (string, error) {
+	name, _ := cmd.Flags().GetString("change")
+	if name != "" {
+		return name, nil
+	}
+	repo, _ := cmd.Flags().GetString("repo")
+	names, err := openspec.New(repo).List()
+	if err != nil {
+		return "", err
+	}
+	if len(names) == 1 {
+		return names[0], nil
+	}
+	return "", fmt.Errorf("specify --change (found: %v)", names)
+}
+
+func runLockGet(cmd *cobra.Command, args []string) error {
+	target, _ := cmd.Flags().GetString("target")
+	if target == "" {
+		return fmt.Errorf("lock get: --target is required")
+	}
+	repo, _ := cmd.Flags().GetString("repo")
+	change, err := lockChangeName(cmd)
+	if err != nil {
+		return err
+	}
+	lock, err := syncplan.LoadLock(repo, change)
+	if err != nil {
+		return err
+	}
+	ref, ok := lock.Get(target, args[0])
+	if !ok {
+		return errNoMapping{args[0]}
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), ref.ExternalID)
+	return nil
+}
+
+func runLockSet(cmd *cobra.Command, args []string) error {
+	target, _ := cmd.Flags().GetString("target")
+	if target == "" {
+		return fmt.Errorf("lock set: --target is required")
+	}
+	repo, _ := cmd.Flags().GetString("repo")
+	change, err := lockChangeName(cmd)
+	if err != nil {
+		return err
+	}
+	lock, err := syncplan.LoadLock(repo, change)
+	if err != nil {
+		return err
+	}
+	contentHash, _ := cmd.Flags().GetString("content-hash")
+	title, _ := cmd.Flags().GetString("title")
+	lock.Set(target, args[0], syncplan.Ref{ExternalID: args[1], ContentHash: contentHash, Title: title})
+	return lock.Save(repo, change)
 }
 
 func newGraphCmd() *cobra.Command {
