@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>specutil — workstream graph</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0;
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+  }
+  header {
+    padding: 12px 20px;
+    border-bottom: 1px solid #21262d;
+  }
+  header h1 { margin: 0; font-size: 16px; font-weight: 600; }
+  header p { margin: 4px 0 0; font-size: 12px; color: #8b949e; }
+  main { padding: 20px; }
+  #diagram { display: flex; justify-content: center; }
+  #empty {
+    margin: 40px auto;
+    max-width: 480px;
+    text-align: center;
+    color: #8b949e;
+  }
+  #empty code {
+    background: #161b22;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #c9d1d9;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>specutil — workstream graph</h1>
+  <p>Cross-change dependency DAG. Self-contained; renders offline.</p>
+</header>
+<main>
+{{if .Empty}}
+  <div id="empty">
+    <p>No workstreams to display.</p>
+    <p>Define dependencies in <code>openspec/specutil.yaml</code>
+    (or run <code>specutil graph --suggest</code>), then regenerate this page.</p>
+  </div>
+{{else}}
+  <div id="diagram"></div>
+{{end}}
+</main>
+
+<script>
+// The renderer-independent graph feed (same schema as graph.json), inlined so
+// the page needs no network and no separate data file.
+const GRAPH = {{.GraphJSON}};
+</script>
+
+<script>
+{{.MermaidJS}}
+</script>
+
+<script>
+// Build Mermaid `flowchart` source from the embedded graph and render it. Node
+// IDs are index-based so arbitrary change names can't break Mermaid's lexer;
+// labels carry the human-readable names.
+(function () {
+  if (!GRAPH || !GRAPH.nodes || GRAPH.nodes.length === 0) return;
+
+  const idFor = new Map();
+  GRAPH.nodes.forEach((n, i) => idFor.set(n.id, "n" + i));
+
+  const esc = (s) => String(s == null ? "" : s).replace(/"/g, "&quot;");
+
+  const lines = ["flowchart TD"];
+  GRAPH.nodes.forEach((n) => {
+    lines.push('  ' + idFor.get(n.id) + '["' + esc(n.label || n.id) + '"]');
+  });
+  (GRAPH.edges || []).forEach((e) => {
+    const from = idFor.get(e.from), to = idFor.get(e.to);
+    if (from && to) lines.push('  ' + from + " --> " + to);
+  });
+
+  mermaid.initialize({ startOnLoad: false, theme: "dark" });
+  mermaid.render("specutil-graph", lines.join("\n")).then(({ svg }) => {
+    document.getElementById("diagram").innerHTML = svg;
+  });
+})();
+</script>
+</body>
+</html>

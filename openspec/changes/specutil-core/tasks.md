@@ -50,8 +50,8 @@
 
 ## 7. Web (web-visualizer)
 
-- [ ] 7.1 Implement `serve`: static single-file site (embedded assets) rendering the DAG from `graph.json` via Mermaid; works offline; graceful empty state
-- [ ] 7.2 Confirm: site renders the dependency graph offline and the `graph.json` schema is renderer-independent
+- [x] 7.1 Implement `serve`: static single-file site (embedded assets) rendering the DAG from `graph.json` via Mermaid; works offline; graceful empty state
+- [x] 7.2 Confirm: site renders the dependency graph offline and the `graph.json` schema is renderer-independent
 
 ## 8. Rollout
 

@@ -15,6 +15,7 @@ import (
 	"github.com/roshbhatia/specutil/internal/render"
 	"github.com/roshbhatia/specutil/internal/syncplan"
 	"github.com/roshbhatia/specutil/internal/tui"
+	"github.com/roshbhatia/specutil/internal/web"
 	"github.com/spf13/cobra"
 )
 
@@ -388,9 +389,47 @@ func runTUI(cmd *cobra.Command, args []string) error {
 }
 
 func newServeCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Serve a static web site rendering the dependency DAG",
-		RunE:  func(cmd *cobra.Command, args []string) error { return notImplemented("serve") },
+		Short: "Generate a self-contained static web page rendering the dependency DAG",
+		Long: "Generate a single self-contained HTML file that renders the cross-change\n" +
+			"dependency DAG via Mermaid. The page embeds its data and runtime, so it\n" +
+			"works offline from file:// with no server. The binary performs no network\n" +
+			"I/O; open the produced file in a browser.",
+		Args: cobra.NoArgs,
+		RunE: runServe,
 	}
+	cmd.Flags().StringP("out", "o", "specutil-graph.html", "output HTML file path ('-' for stdout)")
+	return cmd
+}
+
+func runServe(cmd *cobra.Command, args []string) error {
+	repo, _ := cmd.Flags().GetString("repo")
+	changes, err := openspec.New(repo).LoadAll()
+	if err != nil {
+		return err
+	}
+	for _, c := range changes {
+		emitWarnings(cmd, c.Warnings)
+	}
+	manifest, err := graph.LoadManifest(repo)
+	if err != nil {
+		return err
+	}
+	g, _ := graph.Build(changes, manifest)
+	html, err := web.Render(g)
+	if err != nil {
+		return err
+	}
+
+	outPath, _ := cmd.Flags().GetString("out")
+	if outPath == "-" {
+		cmd.OutOrStdout().Write(html)
+		return nil
+	}
+	if err := os.WriteFile(outPath, html, 0o644); err != nil {
+		return err
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(), "wrote %s — open it in a browser\n", outPath)
+	return nil
 }
