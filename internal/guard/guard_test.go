@@ -9,6 +9,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -75,26 +76,31 @@ func TestNoNetworkImportsInBinary(t *testing.T) {
 	}
 }
 
-// TestWebRuntimeIsVendoredNotFetched guards the offline half of the determinism
-// boundary for the web viewer: the Cytoscape/dagre runtime must be vendored on
-// disk and inlined into the page, never pulled from a CDN at view time. A drift
-// back to a `<script src="https://…">` reference would make the "no network"
-// promise a lie even though no Go network import changed.
-func TestWebRuntimeIsVendoredNotFetched(t *testing.T) {
+// cdnTag matches any <script src="https://…"> or <link href="https://…"> tag in
+// the page template, capturing the whole tag (group 0) and its URL (group 1).
+var cdnTag = regexp.MustCompile(`(?s)<(?:script|link)\b[^>]*?(?:src|href)="(https://[^"]+)"[^>]*>`)
+
+// versionPin matches a jsdelivr/npm-style exact semver pin (@1.2.3) and rejects
+// a floating @latest or bare major.
+var versionPin = regexp.MustCompile(`@\d+\.\d+\.\d+`)
+
+// TestWebRuntimeIsPinnedCDN guards the *presentation* half of the web viewer's
+// trust boundary. The runtime is no longer vendored — Pico CSS and Chart.js load
+// from a CDN at view time — so the guard inverts: the old bundles must be gone,
+// the old inline template fields must be gone, and every CDN reference must be
+// version-pinned with an SRI integrity hash, crossorigin, and an onerror handler
+// so a supply-chain swap can't execute and an offline open degrades loudly
+// rather than silently. The binary's own no-network guarantee is covered
+// separately by TestNoNetworkImportsInBinary.
+func TestWebRuntimeIsPinnedCDN(t *testing.T) {
 	root := moduleRoot(t)
 	assets := filepath.Join(root, "internal", "web", "assets")
 
-	for _, bundle := range []string{"cytoscape.min.js", "dagre.min.js", "cytoscape-dagre.min.js"} {
-		if _, err := os.Stat(filepath.Join(assets, bundle)); err != nil {
-			t.Errorf("web runtime bundle %s is not vendored on disk: %v", bundle, err)
+	// The previously-vendored client runtime must no longer ship on disk.
+	for _, gone := range []string{"cytoscape.min.js", "dagre.min.js", "cytoscape-dagre.min.js", "system.css", "SYSTEM_CSS_VERSION"} {
+		if _, err := os.Stat(filepath.Join(assets, gone)); err == nil {
+			t.Errorf("vendored asset %s still on disk: the web viewer now loads its runtime from a pinned CDN, not vendored bundles", gone)
 		}
-	}
-
-	// The Mac OS theme (system.css) is a vendored client-side dependency too: its
-	// fonts and button SVGs are inlined as data URIs and the stylesheet itself is
-	// inlined via a template field, so it never reaches for a CDN either.
-	if _, err := os.Stat(filepath.Join(assets, "system.css")); err != nil {
-		t.Errorf("system.css theme is not vendored on disk: %v", err)
 	}
 
 	tmpl, err := os.ReadFile(filepath.Join(assets, "page.html.tmpl"))
@@ -102,15 +108,39 @@ func TestWebRuntimeIsVendoredNotFetched(t *testing.T) {
 		t.Fatalf("reading page template: %v", err)
 	}
 	src := string(tmpl)
-	// The runtime must be inlined via template fields, not referenced externally.
-	for _, want := range []string{"{{.CytoscapeJS}}", "{{.DagreJS}}", "{{.CytoscapeDagreJS}}", "{{.SystemCSS}}"} {
-		if !strings.Contains(src, want) {
-			t.Errorf("page template must inline %s; the runtime cannot be fetched at view time", want)
+
+	// The old inline-runtime fields must be gone from the template.
+	for _, gone := range []string{"{{.CytoscapeJS}}", "{{.DagreJS}}", "{{.CytoscapeDagreJS}}", "{{.SystemCSS}}"} {
+		if strings.Contains(src, gone) {
+			t.Errorf("page template still inlines %s; the runtime now loads from a CDN", gone)
 		}
 	}
-	for _, bad := range []string{"<script src", "<link ", "cdn.jsdelivr", "unpkg.com", "cdnjs"} {
-		if strings.Contains(src, bad) {
-			t.Errorf("page template references external runtime %q; the viewer must be self-contained and offline", bad)
+
+	// The data feeds must still be inlined as JS literals (no data files fetched).
+	for _, want := range []string{"{{.GraphJSON}}", "{{.DetailJSON}}"} {
+		if !strings.Contains(src, want) {
+			t.Errorf("page template must inline %s; the data feeds are never fetched at view time", want)
+		}
+	}
+
+	// Every CDN tag must be pinned + integrity-checked + cross-origin + guarded.
+	tags := cdnTag.FindAllStringSubmatch(src, -1)
+	if len(tags) == 0 {
+		t.Fatal("no CDN <script>/<link> tags found; expected pinned Pico CSS and Chart.js references")
+	}
+	for _, m := range tags {
+		tag, url := m[0], m[1]
+		if !versionPin.MatchString(url) || strings.Contains(url, "@latest") {
+			t.Errorf("CDN reference %q is not pinned to an exact version (want @x.y.z, no @latest)", url)
+		}
+		if !strings.Contains(tag, `integrity="sha`) {
+			t.Errorf("CDN reference %q lacks an SRI integrity hash", url)
+		}
+		if !strings.Contains(tag, "crossorigin") {
+			t.Errorf("CDN reference %q lacks crossorigin (required for SRI to be enforced)", url)
+		}
+		if !strings.Contains(tag, "onerror=") {
+			t.Errorf("CDN reference %q lacks an onerror handler; an offline open must degrade loudly, not silently", url)
 		}
 	}
 }

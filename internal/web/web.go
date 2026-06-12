@@ -1,9 +1,10 @@
-// Package web renders the cross-change dependency DAG into a single
-// self-contained HTML file: Cytoscape.js (plus dagre layout), the graph feed,
-// and the per-workstream detail feed are all inlined so the page works offline
-// from file:// with no server and no external requests. This keeps the binary
-// within the determinism boundary — it writes a static artifact and never opens
-// a socket.
+// Package web renders the cross-change dependency DAG and per-workstream detail
+// into a single static HTML file. The two data feeds and a pre-rendered inline
+// SVG of the cross-change DAG are baked into the page; styling (Pico CSS) and
+// the per-phase progress chart (Chart.js) load at view time from a pinned,
+// SRI-protected CDN. The binary itself performs zero network I/O — it only
+// writes this static artifact — so it stays within the determinism boundary;
+// it is the rendered *page* that fetches its presentation layer when opened.
 package web
 
 import (
@@ -11,27 +12,26 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"html"
+	"sort"
+	"strings"
 	"text/template"
 
 	"github.com/roshbhatia/specutil/internal/detail"
 	"github.com/roshbhatia/specutil/internal/graph"
 )
 
-//go:embed assets/cytoscape.min.js assets/dagre.min.js assets/cytoscape-dagre.min.js assets/system.css assets/page.html.tmpl
+//go:embed assets/page.html.tmpl
 var assets embed.FS
 
 // page is the inlined data the template needs. text/template performs no
-// contextual escaping, so these are emitted verbatim — safe here because the
-// JS bundles are trusted vendored assets and json.Marshal already escapes
-// <, >, & in the data literals.
+// contextual escaping, so these are emitted verbatim — safe here because
+// json.Marshal already escapes <, >, & in the data literals, and DagSVG is
+// assembled from html.EscapeString'd labels below.
 type page struct {
-	GraphJSON        string // the graph.json feed, embedded as a JS literal
-	DetailJSON       string // the detail.json feed, embedded as a JS literal
-	CytoscapeJS      string // the vendored Cytoscape runtime, inlined verbatim
-	DagreJS          string // the vendored dagre layout engine
-	CytoscapeDagreJS string // the cytoscape-dagre layout adapter
-	SystemCSS        string // the vendored system.css (Mac OS theme), fonts inlined
-	Empty            bool   // true when there are no nodes to draw
+	GraphJSON  string // the graph.json feed, embedded as a JS literal
+	DetailJSON string // the detail.json feed, embedded as a JS literal
+	DagSVG     string // inline cross-change DAG; empty unless 2+ changes have edges
 }
 
 // Render returns a self-contained HTML document visualizing g, drilling into the
@@ -56,22 +56,6 @@ func Render(g *graph.Graph, d *detail.Feed) ([]byte, error) {
 		return nil, fmt.Errorf("encoding detail: %w", err)
 	}
 
-	cytoscapeJS, err := assets.ReadFile("assets/cytoscape.min.js")
-	if err != nil {
-		return nil, fmt.Errorf("reading embedded cytoscape: %w", err)
-	}
-	dagreJS, err := assets.ReadFile("assets/dagre.min.js")
-	if err != nil {
-		return nil, fmt.Errorf("reading embedded dagre: %w", err)
-	}
-	cytoscapeDagreJS, err := assets.ReadFile("assets/cytoscape-dagre.min.js")
-	if err != nil {
-		return nil, fmt.Errorf("reading embedded cytoscape-dagre: %w", err)
-	}
-	systemCSS, err := assets.ReadFile("assets/system.css")
-	if err != nil {
-		return nil, fmt.Errorf("reading embedded system.css: %w", err)
-	}
 	tmplSrc, err := assets.ReadFile("assets/page.html.tmpl")
 	if err != nil {
 		return nil, fmt.Errorf("reading embedded template: %w", err)
@@ -83,16 +67,159 @@ func Render(g *graph.Graph, d *detail.Feed) ([]byte, error) {
 
 	var buf bytes.Buffer
 	err = tmpl.Execute(&buf, page{
-		GraphJSON:        string(graphData),
-		DetailJSON:       string(detailData),
-		CytoscapeJS:      string(cytoscapeJS),
-		DagreJS:          string(dagreJS),
-		CytoscapeDagreJS: string(cytoscapeDagreJS),
-		SystemCSS:        string(systemCSS),
-		Empty:            len(g.Nodes) == 0,
+		GraphJSON:  string(graphData),
+		DetailJSON: string(detailData),
+		DagSVG:     dagSVG(g),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("executing template: %w", err)
 	}
 	return buf.Bytes(), nil
+}
+
+// dagSVG renders the cross-change dependency DAG as a deterministic, dependency-
+// free inline SVG: nodes are laid out in left-to-right columns by longest-path
+// depth (so prerequisites sit left of dependents), siblings stacked by name.
+// Returns "" when there is nothing worth drawing (fewer than 2 nodes or no
+// edges) — the overview then shows a "no dependencies" footnote instead.
+func dagSVG(g *graph.Graph) string {
+	if g == nil || len(g.Edges) == 0 || len(g.Nodes) < 2 {
+		return ""
+	}
+
+	label := make(map[string]string, len(g.Nodes))
+	ids := make([]string, 0, len(g.Nodes))
+	adj := make(map[string][]string)
+	indeg := make(map[string]int)
+	for _, n := range g.Nodes {
+		l := n.Label
+		if l == "" {
+			l = n.ID
+		}
+		label[n.ID] = l
+		ids = append(ids, n.ID)
+		if _, ok := indeg[n.ID]; !ok {
+			indeg[n.ID] = 0
+		}
+	}
+	for _, e := range g.Edges {
+		adj[e.From] = append(adj[e.From], e.To)
+		indeg[e.To]++
+	}
+	sort.Strings(ids)
+
+	// Longest-path layering via Kahn's algorithm; ties broken by name for
+	// determinism. Nodes left unprocessed by a cycle keep depth 0 and still draw.
+	depth := make(map[string]int)
+	remaining := make(map[string]int, len(indeg))
+	queue := []string{}
+	for _, id := range ids {
+		remaining[id] = indeg[id]
+		if indeg[id] == 0 {
+			queue = append(queue, id)
+		}
+	}
+	for len(queue) > 0 {
+		sort.Strings(queue)
+		n := queue[0]
+		queue = queue[1:]
+		nbrs := append([]string(nil), adj[n]...)
+		sort.Strings(nbrs)
+		for _, to := range nbrs {
+			if depth[n]+1 > depth[to] {
+				depth[to] = depth[n] + 1
+			}
+			remaining[to]--
+			if remaining[to] == 0 {
+				queue = append(queue, to)
+			}
+		}
+	}
+
+	// Bucket nodes into columns by depth.
+	maxDepth := 0
+	for _, id := range ids {
+		if depth[id] > maxDepth {
+			maxDepth = depth[id]
+		}
+	}
+	cols := make([][]string, maxDepth+1)
+	for _, id := range ids {
+		cols[depth[id]] = append(cols[depth[id]], id)
+	}
+
+	const (
+		colGap = 210
+		rowGap = 64
+		boxW   = 170
+		boxH   = 38
+		padX   = 16
+		padY   = 16
+	)
+
+	// Center each node and remember its anchor points for edge routing.
+	type pt struct{ x, y float64 }
+	left := make(map[string]pt)
+	right := make(map[string]pt)
+	var rects strings.Builder
+	maxRows := 0
+	for d, col := range cols {
+		if len(col) > maxRows {
+			maxRows = len(col)
+		}
+		for i, id := range col {
+			x := float64(padX + d*colGap)
+			y := float64(padY + i*rowGap)
+			left[id] = pt{x, y + boxH/2}
+			right[id] = pt{x + boxW, y + boxH/2}
+			rects.WriteString(fmt.Sprintf(
+				`<g><rect x="%.0f" y="%.0f" width="%d" height="%d" rx="9" fill="#ffffff" stroke="#cbd5e1"/>`+
+					`<text x="%.0f" y="%.0f" font-size="12" fill="#0f172a" text-anchor="middle" dominant-baseline="middle">%s</text></g>`,
+				x, y, boxW, boxH, x+boxW/2, y+boxH/2, html.EscapeString(truncate(label[id], 24)),
+			))
+		}
+	}
+
+	// Edges: prerequisite (From, left column) -> dependent (To, right column).
+	var lines strings.Builder
+	edges := append([]graph.Edge(nil), g.Edges...)
+	sort.Slice(edges, func(i, j int) bool {
+		if edges[i].From != edges[j].From {
+			return edges[i].From < edges[j].From
+		}
+		return edges[i].To < edges[j].To
+	})
+	for _, e := range edges {
+		from, okF := right[e.From]
+		to, okT := left[e.To]
+		if !okF || !okT {
+			continue
+		}
+		lines.WriteString(fmt.Sprintf(
+			`<line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>`,
+			from.x, from.y, to.x, to.y,
+		))
+	}
+
+	w := padX*2 + (maxDepth+1)*colGap - (colGap - boxW)
+	h := padY*2 + maxRows*rowGap - (rowGap - boxH)
+	return fmt.Sprintf(
+		`<svg viewBox="0 0 %d %d" width="%d" height="%d" role="img" aria-label="Cross-change dependency graph">`+
+			`<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">`+
+			`<path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs>%s%s</svg>`,
+		w, h, w, h, lines.String(), rects.String(),
+	)
+}
+
+// truncate clips a label to n runes, appending an ellipsis when shortened, so
+// long change names don't overflow their fixed-width DAG box.
+func truncate(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	if n < 1 {
+		return ""
+	}
+	return string(r[:n-1]) + "…"
 }

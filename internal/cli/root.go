@@ -401,12 +401,13 @@ func runTUI(cmd *cobra.Command, args []string) error {
 func newServeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Generate a self-contained static web page rendering the dependency DAG",
-		Long: "Generate a single self-contained HTML file that renders the cross-change\n" +
-			"dependency DAG with Cytoscape.js: directed arrows, a dagre layered layout,\n" +
-			"lifecycle-colored nodes, and a click-through ticket drawer. The page embeds\n" +
-			"its data and runtime, so it works offline from file:// with no server. The\n" +
-			"binary performs no network I/O; open the produced file in a browser.\n\n" +
+		Short: "Generate a static web page rendering the workstreams and dependency DAG",
+		Long: "Generate a single static HTML file: a readable document per change\n" +
+			"(progress, remaining work, per-phase chart, tasks by phase) plus, when\n" +
+			"there are several changes, an overview with a cross-change dependency DAG.\n" +
+			"The data feeds are inlined; styling (Pico CSS) and the per-phase chart\n" +
+			"(Chart.js) load at view time from a pinned, SRI-protected CDN. The binary\n" +
+			"performs no network I/O — it only writes the file; open it in a browser.\n\n" +
 			"If the graph has no edges, seed cross-change dependencies first with\n" +
 			"`specutil graph --suggest` and record them in openspec/specutil.yaml.",
 		Args: cobra.NoArgs,

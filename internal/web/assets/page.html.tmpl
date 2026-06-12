@@ -3,534 +3,357 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>specutil — workstream graph</title>
-<!-- system.css (classic Mac OS theme), vendored and fully inlined: its four
-     woff2 fonts and two button border-image SVGs are base64 data URIs, so the
-     page fetches nothing. Provides the window/title-bar/button chrome. -->
-<style>{{.SystemCSS}}</style>
+<title>specutil</title>
+<!-- Runtime deps load from a pinned, SRI-protected CDN (no vendored/committed
+     bundles). The binary still performs zero network I/O — it only writes this
+     static file. onerror flags a CDN miss so the page can warn instead of
+     silently rendering blank/unstyled when opened offline. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css" integrity="sha384-7P0NVe9LPDbUCAF+fH2R8Egwz1uqNH83Ns/bfJY0fN2XCDBMUI2S9gGzIOIRBKsA" crossorigin="anonymous" onerror="(window.__cdnFail=window.__cdnFail||[]).push('pico')">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" integrity="sha384-vsrfeLOOY6KuIYKDlmVH5UiBmgIdB1oEf7p01YgWHuqmOHfZr374+odEv96n9tNC" crossorigin="anonymous" onerror="(window.__cdnFail=window.__cdnFail||[]).push('chart')"></script>
 <style>
-  * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
-  body { overflow: hidden; }
+  :root {
+    --accent: #2563eb;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e5e7eb;
+    --track: #e2e8f0;
+  }
+  html { font-size: 16px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink); background: #fff;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 1.75rem 1.25rem 4rem; }
+  .doc { max-width: 46rem; }
+  h1, h2, h3 { letter-spacing: -0.011em; font-weight: 600; line-height: 1.2; }
+  h1 { font-size: 2rem; letter-spacing: -0.02em; margin: 0 0 .25rem; }
+  h2 { font-size: 1.375rem; margin: 2rem 0 .5rem; }
+  h3 { font-size: 1.0625rem; margin: 0; }
+  h1:focus, h2:focus { outline: none; }
+  .tnum { font-variant-numeric: tabular-nums; }
 
-  /* The whole app is one classic Mac window filling the desktop. */
-  #app {
-    position: absolute; inset: 0;
-    margin: 12px;
-    display: flex; flex-direction: column;
-    background: #fff;
-  }
-  #app .title-bar .title { font-size: 1.3rem; }
+  .appbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-bottom: 1px solid var(--line); padding-bottom: .85rem; margin-bottom: 1.5rem; }
+  .appbar .brand { font-weight: 600; letter-spacing: -0.01em; color: inherit; text-decoration: none; font-size: 1.05rem; }
+  .appbar select { font-size: .875rem; padding: .25rem .5rem; border: 1px solid var(--line); border-radius: 8px; margin: 0; width: auto; background: #fff; }
 
-  /* Toolbar strip under the title bar: change selector, fit, legend, search. */
-  .toolbar {
-    flex: 0 0 auto;
-    display: flex; align-items: center; gap: 10px;
-    padding: 6px 10px;
-    border-bottom: 2px solid #000;
-    font-family: Chicago_12, "Helvetica Neue", Arial, sans-serif;
-  }
-  .toolbar .spacer { flex: 1; }
-  .toolbar label { font-family: Chicago_12, monospace; font-size: 13px; }
-  .toolbar .btn { font-size: 13px; min-height: 16px; min-width: 0; padding: 0 12px; border-width: 4px; }
-  #change-select, #search {
-    font-family: Chicago_12, "Helvetica Neue", Arial, sans-serif; font-size: 13px;
-    border: 2px solid #000; background: #fff; color: #000;
-    padding: 3px 8px; border-radius: 0;
-  }
-  #change-select { min-width: 200px; cursor: pointer; }
-  #search { width: 170px; }
-  #search:focus, #change-select:focus { outline: none; box-shadow: 1px 1px 0 #000; }
-  .legend { display: flex; gap: 12px; font-size: 13px; align-items: center; font-family: "Helvetica Neue", Arial, sans-serif; }
-  .legend .dot {
-    display: inline-block; width: 10px; height: 10px; border: 1.5px solid #000;
-    margin-right: 4px; vertical-align: middle;
-  }
-  .legend .sep { width: 2px; height: 18px; background: #000; }
+  .eyebrow { font-size: .6875rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 1.75rem 0 .5rem; }
 
-  main { flex: 1; position: relative; overflow: hidden; }
-  /* Faint engineering-paper grid behind the graph, echoing the Mac desktop
-     pattern but light enough to read nodes over. */
-  #cy {
-    position: absolute; inset: 0;
-    background-color: #fff;
-    background-image:
-      linear-gradient(90deg, #ededed 1px, transparent 1px),
-      linear-gradient(#ededed 1px, transparent 1px);
-    background-size: 22px 22px;
-  }
+  .badge { display: inline-block; font-size: .6875rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: .125rem .5rem; border-radius: 6px; border: 1px solid transparent; vertical-align: middle; }
+  .badge.proposed { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+  .badge.active   { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+  .badge.archived { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
 
-  #empty {
-    position: absolute; top: 38%; left: 50%; transform: translateX(-50%);
-    max-width: 540px; text-align: center;
-    font-family: "Helvetica Neue", Arial, sans-serif; font-size: 15px; line-height: 1.5;
-  }
-  #empty code, .toolbar code, #edgeless code {
-    font-family: Monaco, monospace; background: #000; color: #fff; padding: 1px 5px;
-  }
-  #edgeless {
-    position: absolute; left: 14px; bottom: 14px; display: none;
-    background: #fff; border: 2px solid #000; box-shadow: 2px 2px 0 #000;
-    padding: 8px 12px; font-family: "Helvetica Neue", Arial, sans-serif; font-size: 13px; max-width: 60%;
-  }
-  .hint {
-    position: absolute; right: 14px; bottom: 12px;
-    font-family: "Helvetica Neue", Arial, sans-serif; font-size: 12px; color: #444;
-    background: rgba(255,255,255,0.82); padding: 2px 6px;
-  }
+  .meter { height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; margin: .5rem 0; }
+  .meter > span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+  .metric { font-size: .9rem; color: var(--muted); margin: 0; }
 
-  /* Ticket drawer: a modeless Mac window that slides in from the right. */
-  #drawer {
-    position: absolute; top: 10px; right: 10px; bottom: 10px;
-    width: 380px; max-width: 92%;
-    background: #fff; border: 2px solid #000; box-shadow: -3px 3px 0 rgba(0,0,0,0.35);
-    display: flex; flex-direction: column;
-    transform: translateX(calc(100% + 20px)); transition: transform 0.18s ease-out;
-    z-index: 10;
-  }
-  #drawer.open { transform: translateX(0); }
-  #drawer .title-bar .title { font-size: 1.1rem; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #drawer-body {
-    flex: 1; overflow-y: auto; padding: 14px 18px;
-    font-family: "Helvetica Neue", Arial, sans-serif; font-size: 14px; line-height: 1.45;
-  }
-  #drawer-body h2 { font-family: Chicago_12, monospace; font-size: 18px; margin: 0 0 10px; word-break: break-word; }
-  #drawer-body h3 {
-    font-family: Chicago_12, monospace; font-size: 13px; margin: 18px 0 6px;
-    border-bottom: 1.5px solid #000; padding-bottom: 2px;
-  }
-  .badge {
-    display: inline-block; padding: 2px 10px; border: 2px solid #000;
-    font-family: Chicago_12, monospace; font-size: 13px;
-  }
-  .badge.proposed { background: #8b949e; color: #000; }
-  .badge.active   { background: #d29922; color: #000; }
-  .badge.archived { background: #3fb950; color: #000; }
-  .bar { height: 14px; border: 2px solid #000; margin: 10px 0 4px; background: #fff; }
-  .bar > span {
-    display: block; height: 100%; background: #000;
-    background-image: repeating-linear-gradient(45deg, #000 0 4px, #444 4px 8px);
-  }
-  .muted { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 12px; color: #555; }
-  .phase { font-family: Chicago_12, monospace; font-size: 14px; margin: 14px 0 6px; }
-  ul.tasks { list-style: none; padding: 0; margin: 0; }
-  ul.tasks li { padding: 4px 6px; display: flex; gap: 8px; align-items: baseline; }
-  ul.tasks li.hl { background: #000; color: #fff; }
-  ul.tasks li.hl .tkey { background: #fff; color: #000; }
-  .tkey {
-    flex: 0 0 auto; min-width: 26px; text-align: center;
-    font-family: Monaco, monospace; font-size: 11px;
-    border: 1.5px solid #000; padding: 0 4px;
-  }
-  .glyph { flex: 0 0 auto; font-family: "Helvetica Neue", Arial, sans-serif; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: 1.25rem; margin-top: 1.5rem; }
+  .card { display: block; border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem; text-decoration: none; color: inherit; background: #fff; transition: border-color .12s, box-shadow .12s; }
+  .card:hover { border-color: #cbd5e1; box-shadow: 0 1px 2px rgba(16,24,40,.05); }
+  .card .row { display: flex; justify-content: space-between; align-items: start; gap: .5rem; }
+  .card .why { color: var(--muted); font-size: .875rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: .6rem 0 0; }
+  .card .sub { font-size: .8125rem; color: var(--muted); margin: .5rem 0 0; }
+
+  .tally { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
+  .stat { border: 1px solid var(--line); border-radius: 10px; padding: .65rem 1rem; min-width: 6rem; }
+  .stat b { display: block; font-size: 1.5rem; font-weight: 600; }
+  .stat span { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+
+  .chartwrap { margin: .5rem 0; }
+
+  .remaining { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; padding: .5rem 1rem; background: #f8fafc; }
+  .alldone { color: #15803d; font-weight: 600; }
+
+  ul.tasks { list-style: none; padding: 0; margin: .35rem 0 0; }
+  ul.tasks li { display: flex; gap: .625rem; align-items: baseline; padding: .375rem 0; border-bottom: 1px solid #f1f5f9; }
+  ul.tasks li:last-child { border-bottom: 0; }
+  ul.tasks li.done .txt { color: var(--muted); }
+  .key { flex: 0 0 auto; min-width: 2rem; text-align: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .75rem; background: #f1f5f9; color: #475569; border-radius: 5px; padding: .0625rem .375rem; }
+  .glyph { flex: 0 0 auto; width: 1.1rem; text-align: center; }
+  .glyph.done { color: #15803d; }
+  .glyph.todo { color: #64748b; }
   .txt { flex: 1; }
-  ul.tasks li.done .txt { text-decoration: line-through; color: #555; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip {
-    border: 2px solid #000; background: #fff; padding: 2px 10px; cursor: pointer;
-    font-family: "Helvetica Neue", Arial, sans-serif; font-size: 13px;
-  }
-  .chip:active { background: #000; color: #fff; }
+  .phase-h { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-top: 1.5rem; }
+  .phase-h h2 { margin: 0; }
+  .phase-h .ct { font-size: .8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+  .chip { display: inline-block; font-size: .8125rem; padding: .125rem .625rem; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; color: var(--accent); }
+  .chip:hover { border-color: #cbd5e1; }
+
+  .back { display: inline-block; font-size: .875rem; margin-bottom: 1rem; color: var(--accent); text-decoration: none; }
+  .back:hover { text-decoration: underline; }
+
+  .doc p { line-height: 1.6; }
+  .doc ul.md { margin: .25rem 0 .75rem; padding-left: 1.25rem; }
+  .doc ul.md li { margin: .25rem 0; line-height: 1.55; }
+  code { background: #f1f5f9; border-radius: 4px; padding: .0625rem .25rem; font-size: .875em; }
+
+  .dagwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; padding: .5rem; }
+  .dagwrap svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+
+  #offline-note { background: #fef3c7; border: 1px solid #fde68a; color: #92400e; border-radius: 8px; padding: .625rem .875rem; font-size: .875rem; margin-bottom: 1rem; }
+  .empty { color: var(--muted); max-width: 36rem; line-height: 1.6; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<div id="app" class="window">
-  <div class="title-bar">
-    <h1 class="title">specutil — workstream graph</h1>
-  </div>
-{{if .Empty}}
-  <main>
-    <div id="empty">
-      <p>No workstreams to display.</p>
-      <p>Create changes under <code>openspec/changes/&lt;name&gt;/</code>, define dependencies in
-      <code>openspec/specutil.yaml</code> (or run <code>specutil graph --suggest</code>), then regenerate this page.</p>
-    </div>
-  </main>
-{{else}}
-  <div class="toolbar">
-    <label for="change-select">Change:</label>
-    <select id="change-select"></select>
-    <button class="btn" id="btn-fit">Fit</button>
-    <span class="spacer"></span>
-    <div class="legend">
-      <span><span class="dot" style="background:#8b949e"></span>proposed</span>
-      <span><span class="dot" style="background:#d29922"></span>active</span>
-      <span><span class="dot" style="background:#3fb950"></span>archived</span>
-      <span class="sep"></span>
-    </div>
-    <input id="search" type="search" placeholder="Search tasks…" autocomplete="off">
-  </div>
-  <main>
-    <div id="cy"></div>
-    <div class="hint">Pick a change to drill in · click a task for details · drag to pan · scroll to zoom</div>
-    <div id="edgeless">
-      No cross-change dependencies defined yet. Seed them with <code>specutil graph --suggest</code> or edit <code>openspec/specutil.yaml</code>.
-    </div>
-    <aside id="drawer" class="window" aria-hidden="true">
-      <div class="title-bar">
-        <button aria-label="Close" class="close" id="drawer-close"></button>
-        <h1 class="title" id="drawer-title">ticket</h1>
-      </div>
-      <div id="drawer-body"></div>
-    </aside>
-  </main>
-{{end}}
+<div class="wrap">
+  <header class="appbar" id="appbar">
+    <a class="brand" href="#/">specutil</a>
+  </header>
+  <div id="offline-note" hidden>This page loads styling and charts from a CDN and needs network access. Some visuals may be missing offline — the task content below is still readable.</div>
+  <div id="live" class="sr-only" aria-live="polite"></div>
+  <main id="view"></main>
+  <noscript><p>This visualizer renders its content with JavaScript. Enable JavaScript to view the workstreams.</p></noscript>
 </div>
 
+<!-- Cross-change dependency DAG, pre-rendered as inline SVG in Go (empty unless
+     there are 2+ changes with manifest edges). Cloned into the overview. -->
+<template id="dag">{{.DagSVG}}</template>
+
 <script>
-// Renderer-independent feeds, inlined so the page needs no network and no
-// separate data files. GRAPH is the pure dependency DAG (change nodes + their
-// cross-change edges); DETAIL carries the per-workstream ticket content,
-// including each task's 0-based level (phase rank) and key (0a, 0b, 1a, …).
-// Task cards and depends-on/blocks are derived here from those two feeds.
+// Renderer-independent feeds, inlined as JS literals so the page needs no data
+// files. GRAPH is the pure cross-change dependency DAG (change nodes + edges);
+// DETAIL carries per-workstream content, each task tagged with its 0-based
+// level (phase rank) and key (0a, 0b, 1a, …). json.Marshal escaped <, >, & so
+// these literals cannot break out of the <script> block.
 const GRAPH = {{.GraphJSON}};
 const DETAIL = {{.DetailJSON}};
 </script>
 
 <script>
-{{.DagreJS}}
-</script>
-<script>
-{{.CytoscapeJS}}
-</script>
-<script>
-{{.CytoscapeDagreJS}}
-</script>
-<script>
-// Register the dagre layout adapter so the per-change view can lay tasks out as
-// a clean layered flowchart. Harmless if the bundle already self-registered.
-try { cytoscape.use(cytoscapeDagre); } catch (e) { /* already registered */ }
-</script>
-
-<script>
 (function () {
-  if (!GRAPH || !GRAPH.nodes || GRAPH.nodes.length === 0) return;
+  const changes = (DETAIL && DETAIL.changes) || [];
+  const edges = (GRAPH && GRAPH.edges) || [];
+  const byName = new Map(changes.map((c) => [c.name, c]));
+  const single = changes.length === 1;
 
-  const detailByName = new Map((DETAIL && DETAIL.changes || []).map((c) => [c.name, c]));
-  const edges = GRAPH.edges || [];
+  const view = document.getElementById("view");
+  const live = document.getElementById("live");
+  let sel = null;
 
-  // depends-on: cross-change edges into me (my prerequisites). blocks: edges out.
-  const dependsOn = (name) => edges.filter((e) => e.to === name).map((e) => e.from).sort();
-  const blocks = (name) => edges.filter((e) => e.from === name).map((e) => e.to).sort();
-  const lifecycleOf = (name) => { const d = detailByName.get(name); return d ? d.lifecycle : "proposed"; };
-  const hasNode = (id) => GRAPH.nodes.some((n) => n.id === id);
-  const taskId = (change, key) => change + "::" + key;
-  const summaryId = (change) => change + "::summary";
-  const trunc = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
-
-  const LIFE_COLOR = { proposed: "#8b949e", active: "#d29922", archived: "#3fb950" };
-
-  // Element model: each change is a compound container. Inside it, tasks are
-  // real nodes and small unlabeled "gate" nodes sit on each phase boundary, so
-  // every task in phase L flows through one gate into phase L+1 — that shows the
-  // blocking relationship as a clean layered flowchart instead of an all-pairs
-  // hairball. dagre lays the container out top-to-bottom on demand. Cross-change
-  // arrows connect whole containers in the Index view.
-  const elements = [];
-
-  GRAPH.nodes.forEach((n) => {
-    const d = detailByName.get(n.id) || {};
-    const done = d.done || 0, total = d.total || 0;
-    const cstyle = lifecycleOf(n.id);
-    const clabel = (n.label || n.id) + "   " + done + "/" + total;
-
-    const byLevel = new Map();
-    (d.phases || []).forEach((p) => (p.items || []).forEach((it) => {
-      if (!byLevel.has(it.level)) byLevel.set(it.level, []);
-      byLevel.get(it.level).push(it);
-    }));
-    const levels = [...byLevel.keys()].sort((a, b) => a - b);
-
-    const leaf = levels.length === 0;
-    elements.push({ data: { id: n.id, kind: "change", label: clabel, lifecycle: cstyle, leaf: leaf },
-      classes: "change " + cstyle + (leaf ? " leaf" : "") });
-
-    // A standalone (non-compound) summary node for the Index/overview. A compound
-    // parent always auto-sizes to its children, so it can't be shrunk to a tidy
-    // box when its tasks are hidden — the summary node carries the overview
-    // instead, and cross-change dependency arrows connect these.
-    elements.push({ data: { id: summaryId(n.id), kind: "summary", label: clabel, lifecycle: cstyle, change: n.id },
-      classes: "summary " + cstyle });
-
-    levels.forEach((l) => {
-      byLevel.get(l).forEach((it) => {
-        elements.push({
-          data: { id: taskId(n.id, it.key), parent: n.id, kind: "task",
-            label: it.key + "   " + trunc(it.text, 60), key: it.key, change: n.id,
-            text: it.text, level: l, done: !!it.done },
-          classes: "task " + (it.done ? "done" : "todo"),
-        });
-      });
-    });
-    // Phase-gate connectors: one per boundary, fanned in from level L and out to
-    // level L+1. O(tasks) edges, never O(tasks^2) — no hairball.
-    for (let i = 0; i + 1 < levels.length; i++) {
-      const lo = levels[i], hi = levels[i + 1];
-      const gate = n.id + "::gate::" + lo;
-      elements.push({ data: { id: gate, parent: n.id, kind: "gate", change: n.id }, classes: "gate" });
-      byLevel.get(lo).forEach((it) => elements.push({
-        data: { id: "f:" + taskId(n.id, it.key) + ">" + gate, source: taskId(n.id, it.key), target: gate, change: n.id }, classes: "flow" }));
-      byLevel.get(hi).forEach((it) => elements.push({
-        data: { id: "f:" + gate + ">" + taskId(n.id, it.key), source: gate, target: taskId(n.id, it.key), change: n.id }, classes: "flow" }));
-    }
-  });
-
-  // Cross-change dependency edges connect the overview summary nodes, directed.
-  edges.forEach((e) => {
-    if (hasNode(e.from) && hasNode(e.to)) {
-      elements.push({ data: { id: "dep:" + e.from + "->" + e.to, source: summaryId(e.from), target: summaryId(e.to) }, classes: "dep" });
-    }
-  });
-
-  const cy = cytoscape({
-    container: document.getElementById("cy"),
-    elements: elements,
-    minZoom: 0.05,
-    maxZoom: 3,
-    wheelSensitivity: 0.25,
-    pixelRatio: "auto",
-    style: [
-      { selector: "node.change", style: {
-        "background-color": (n) => LIFE_COLOR[n.data("lifecycle")] || "#8b949e",
-        "background-opacity": 0.08,
-        "label": "data(label)",
-        "text-valign": "top",
-        "text-halign": "center",
-        "text-margin-y": -8,
-        "color": "#000",
-        "font-family": "Chicago_12, monospace",
-        "font-size": 15,
-        "padding": "22px",
-        "shape": "rectangle",
-        "border-width": 2,
-        "border-color": (n) => LIFE_COLOR[n.data("lifecycle")] || "#8b949e",
-        "border-opacity": 1,
-      }},
-      { selector: "node.summary", style: {
-        "label": "data(label)",
-        "text-valign": "center",
-        "text-halign": "center",
-        "color": "#000",
-        "font-family": "Chicago_12, monospace",
-        "font-size": 15,
-        "background-color": (n) => LIFE_COLOR[n.data("lifecycle")] || "#8b949e",
-        "background-opacity": 0.25,
-        "shape": "round-rectangle",
-        "width": "label",
-        "height": "label",
-        "padding": "18px",
-        "border-width": 3,
-        "border-color": (n) => LIFE_COLOR[n.data("lifecycle")] || "#8b949e",
-      }},
-      { selector: "node.summary:active", style: { "overlay-opacity": 0.15 } },
-      { selector: "node.task", style: {
-        "label": "data(label)",
-        "text-wrap": "wrap",
-        "text-max-width": "170px",
-        "text-valign": "center",
-        "text-halign": "center",
-        "font-family": "Helvetica Neue, Helvetica, Arial, sans-serif",
-        "font-size": 13,
-        "color": "#111",
-        "background-color": "#fff",
-        "shape": "round-rectangle",
-        "width": "label",
-        "height": "label",
-        "padding": "10px",
-        "border-width": 1.5,
-        "border-color": "#000",
-      }},
-      { selector: "node.task.done", style: {
-        "background-color": "#dff5e6", "border-color": "#1a7f37", "color": "#0a3d1c",
-      }},
-      { selector: "node.gate", style: {
-        "shape": "diamond", "width": 12, "height": 12,
-        "background-color": "#000", "border-width": 0, "label": "",
-      }},
-      { selector: "edge.flow", style: {
-        "width": 1.5, "line-color": "#9aa0a6",
-        "target-arrow-color": "#9aa0a6", "target-arrow-shape": "triangle", "arrow-scale": 0.8,
-        "curve-style": "taxi", "taxi-direction": "downward", "taxi-turn": "50%",
-      }},
-      { selector: "edge.dep", style: {
-        "width": 3, "line-color": "#000",
-        "target-arrow-color": "#000", "target-arrow-shape": "triangle", "arrow-scale": 1.4,
-        "curve-style": "bezier",
-      }},
-      { selector: ".dim", style: { "opacity": 0.12 } },
-      { selector: "node.task.focus", style: { "border-color": "#1f6feb", "border-width": 3 } },
-    ],
-    layout: { name: "preset" },
-  });
-  window.cy = cy;
-
-  // ---- View switching: Index (all containers) vs one change drilled in. ----
-  const sel = document.getElementById("change-select");
-
-  function layoutChange(name) {
-    const c = cy.getElementById(name);
-    const kids = c.descendants();
-    const flowEdges = kids.connectedEdges(".flow");
-    kids.add(flowEdges).layout({
-      name: "dagre", rankDir: "TB", rankSep: 55, nodeSep: 26, edgeSep: 12, fit: false,
-    }).run();
-    cy.fit(c, 40);
-  }
-
-  function showIndex() {
-    closeDrawer();
-    const summaries = cy.nodes(".summary");
-    const deps = cy.edges(".dep");
-    cy.batch(() => {
-      cy.elements().style("display", "none");
-      summaries.style("display", "element");
-      deps.style("display", "element");
-    });
-    summaries.add(deps).layout({
-      name: "dagre", rankDir: "LR", rankSep: 90, nodeSep: 40, fit: false,
-    }).run();
-    cy.fit(summaries, 60);
-  }
-
-  function showChange(name) {
-    closeDrawer();
-    const c = cy.getElementById(name);
-    if (c.empty()) { showIndex(); return; }
-    cy.batch(() => {
-      cy.elements().style("display", "none");
-      c.style("display", "element");
-      c.descendants().style("display", "element");
-      c.descendants().connectedEdges(".flow").style("display", "element");
-    });
-    layoutChange(name);
-  }
-
-  function applySelection() {
-    const v = sel.value;
-    if (v === "__index__") showIndex(); else showChange(v);
-  }
-
-  // Populate the dropdown: an Index (overview) entry plus one option per change.
-  const idxOpt = document.createElement("option");
-  idxOpt.value = "__index__"; idxOpt.textContent = "Index — all workstreams";
-  sel.appendChild(idxOpt);
-  GRAPH.nodes.forEach((n) => {
-    const o = document.createElement("option");
-    const d = detailByName.get(n.id) || {};
-    o.value = n.id;
-    o.textContent = (n.label || n.id) + "  (" + (d.done || 0) + "/" + (d.total || 0) + ")";
-    sel.appendChild(o);
-  });
-  sel.addEventListener("change", applySelection);
-
-  // ---- Ticket drawer. ----
-  const drawer = document.getElementById("drawer");
-  const drawerBody = document.getElementById("drawer-body");
-  const drawerTitle = document.getElementById("drawer-title");
+  // ---- escaping + minimal markdown (flat bullets + inline code only) --------
   const esc = (s) => String(s == null ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // Inline spans run on the already-escaped string (esc() leaves ` and * intact),
+  // so `code` and **bold** render without ever reopening an XSS hole.
+  const inline = (s) => s
+    .replace(/`([^`]+)`/g, (_, c) => "<code>" + c + "</code>")
+    .replace(/\*\*([^*]+)\*\*/g, (_, c) => "<strong>" + c + "</strong>");
+  function md(src) {
+    const lines = String(src || "").split(/\r?\n/);
+    let html = "", inList = false, para = [];
+    const flushPara = () => { if (para.length) { html += "<p>" + inline(esc(para.join(" "))) + "</p>"; para = []; } };
+    const closeList = () => { if (inList) { html += "</ul>"; inList = false; } };
+    for (const raw of lines) {
+      const line = raw.replace(/\s+$/, "");
+      const item = line.match(/^\s*[-*]\s+(.*)$/);
+      if (item) { flushPara(); if (!inList) { html += '<ul class="md">'; inList = true; } html += "<li>" + inline(esc(item[1])) + "</li>"; continue; }
+      if (line.trim() === "") { flushPara(); closeList(); continue; }
+      closeList(); para.push(line.trim());
+    }
+    flushPara(); closeList();
+    return html;
+  }
 
-  function openDrawer(name, focusKey) {
-    const d = detailByName.get(name) || { name: name, lifecycle: lifecycleOf(name), done: 0, total: 0, phases: [] };
-    const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
-    drawerTitle.textContent = d.name;
-    let html = "";
-    html += '<h2>' + esc(d.name) + '</h2>';
-    html += '<span class="badge ' + esc(d.lifecycle) + '">' + esc(d.lifecycle) + '</span>';
-    html += '<div class="bar"><span style="width:' + pct + '%"></span></div>';
-    html += '<div class="muted">' + d.done + '/' + d.total + ' tasks · ' + pct + '%</div>';
-    if (d.why) { html += '<h3>Why</h3><div>' + esc(d.why) + '</div>'; }
-    if (d.whatChanges) { html += '<h3>What changes</h3><div>' + esc(d.whatChanges) + '</div>'; }
-    if (d.phases && d.phases.length) {
-      html += '<h3>Tasks</h3>';
-      d.phases.forEach((p) => {
-        html += '<div class="phase">' + esc(p.number) + '. ' + esc(p.name) + '</div>';
-        html += '<ul class="tasks">';
-        (p.items || []).forEach((it) => {
-          html += '<li class="' + (it.done ? "done" : "") + '" data-key="' + esc(it.key) + '">' +
-            '<span class="tkey">' + esc(it.key) + '</span>' +
-            '<span class="glyph">' + (it.done ? "☑" : "☐") + '</span>' +
-            '<span class="txt">' + esc(it.text) + '</span></li>';
-        });
-        html += '</ul>';
-      });
-    }
-    const deps = dependsOn(name), blks = blocks(name);
-    if (deps.length) {
-      html += '<h3>Depends on</h3><div class="chips">' +
-        deps.map((x) => '<span class="chip" data-go="' + esc(x) + '">' + esc(x) + '</span>').join("") + '</div>';
-    }
-    if (blks.length) {
-      html += '<h3>Blocks</h3><div class="chips">' +
-        blks.map((x) => '<span class="chip" data-go="' + esc(x) + '">' + esc(x) + '</span>').join("") + '</div>';
-    }
-    drawerBody.innerHTML = html;
-    drawer.classList.add("open");
-    drawer.setAttribute("aria-hidden", "false");
-    drawerBody.querySelectorAll(".chip[data-go]").forEach((chip) => {
-      chip.addEventListener("click", () => {
-        const t = chip.getAttribute("data-go");
-        sel.value = t; showChange(t); openDrawer(t);
-      });
+  // ---- derived helpers ------------------------------------------------------
+  const pctOf = (c) => (c.total ? Math.round((c.done / c.total) * 100) : 0);
+  const dependsOn = (name) => edges.filter((e) => e.to === name).map((e) => e.from).sort();
+  const blocks = (name) => edges.filter((e) => e.from === name).map((e) => e.to).sort();
+  const chipLink = (n) => '<a class="chip" href="#/c/' + encodeURIComponent(n) + '">' + esc(n) + "</a>";
+
+  function destroyChart() { if (window.__chart) { window.__chart.destroy(); window.__chart = null; } }
+
+  function afterRender() {
+    const t = document.getElementById("view-title");
+    if (t) { t.focus(); if (live) live.textContent = t.textContent + " view"; }
+  }
+
+  // ---- per-phase progress chart (the one place Chart.js earns its keep) ------
+  function phaseChartLabel(c) {
+    return "Progress by phase. " + (c.phases || []).map((p) => {
+      const d = p.items.filter((i) => i.done).length;
+      return "Phase " + p.number + ", " + d + " of " + p.items.length + " complete";
+    }).join(". ");
+  }
+  function initPhaseChart(c) {
+    if (typeof Chart === "undefined") return; // CDN miss / offline — sr-only list still conveys it
+    const ctx = document.getElementById("phasechart");
+    if (!ctx) return;
+    const labels = c.phases.map((p) => "Phase " + p.number);
+    const done = c.phases.map((p) => p.items.filter((i) => i.done).length);
+    const rem = c.phases.map((p) => p.items.length - p.items.filter((i) => i.done).length);
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.__chart = new Chart(ctx, {
+      type: "bar",
+      data: { labels, datasets: [
+        { label: "Done", data: done, backgroundColor: "#2563eb", borderWidth: 0, borderRadius: 3 },
+        { label: "Remaining", data: rem, backgroundColor: "#e2e8f0", borderWidth: 0, borderRadius: 3 },
+      ] },
+      options: {
+        indexAxis: "y", responsive: true, maintainAspectRatio: false,
+        animation: reduce ? false : { duration: 300 },
+        scales: {
+          x: { stacked: true, beginAtZero: true, ticks: { precision: 0, font: { size: 12 }, color: "#64748b" }, grid: { display: false } },
+          y: { stacked: true, ticks: { font: { size: 12 }, color: "#334155" }, grid: { display: false } },
+        },
+        plugins: { legend: { display: false } },
+      },
     });
-    if (focusKey) {
-      const li = drawerBody.querySelector('li[data-key="' + focusKey + '"]');
-      if (li) { li.classList.add("hl"); li.scrollIntoView({ block: "center" }); }
-    }
-  }
-  function closeDrawer() {
-    // Move focus out before hiding, else focus is trapped under aria-hidden.
-    if (drawer.contains(document.activeElement)) document.activeElement.blur();
-    drawer.classList.remove("open");
-    drawer.setAttribute("aria-hidden", "true");
-    cy.elements().removeClass("focus");
   }
 
-  // Clicking a collapsed container in the Index drills into it; clicking a task
-  // opens that workstream's ticket at the task.
-  cy.on("tap", "node.summary", (evt) => {
-    const id = evt.target.data("change");
-    sel.value = id; showChange(id);
-  });
-  cy.on("tap", "node.change", (evt) => {
-    // Tapping the container frame opens the ticket overview for the change.
-    openDrawer(evt.target.id());
-  });
-  cy.on("tap", "node.task", (evt) => {
-    const t = evt.target;
-    cy.elements().removeClass("focus"); t.addClass("focus");
-    openDrawer(t.data("change"), t.data("key"));
-  });
-  cy.on("tap", (evt) => { if (evt.target === cy) closeDrawer(); });
+  // ---- views ----------------------------------------------------------------
+  function renderEmpty() {
+    view.innerHTML =
+      '<h1 tabindex="-1" id="view-title">No workstreams</h1>' +
+      '<p class="empty">Create changes under <code>openspec/changes/&lt;name&gt;/</code>, ' +
+      "define cross-change dependencies in <code>openspec/specutil.yaml</code> " +
+      "(or run <code>specutil graph --suggest</code>), then regenerate this page.</p>";
+    afterRender();
+  }
 
-  document.getElementById("drawer-close").addEventListener("click", closeDrawer);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
-  document.getElementById("btn-fit").addEventListener("click", () => applySelection());
+  function renderDetail(name) {
+    const c = byName.get(name);
+    if (!c) { renderOverview(); return; }
+    const pct = pctOf(c);
+    const remaining = [];
+    (c.phases || []).forEach((p) => (p.items || []).forEach((it) => { if (!it.done) remaining.push(it); }));
 
-  if (edges.length === 0) { document.getElementById("edgeless").style.display = "block"; }
+    let h = "";
+    if (!single) h += '<a class="back" href="#/">&larr; All workstreams</a>';
+    h += '<div class="doc">';
+    h += '<h1 tabindex="-1" id="view-title">' + esc(c.name) + "</h1>";
+    h += '<p><span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + "</span> " +
+         '<span class="metric tnum">' + c.done + " / " + c.total + " &middot; " + pct + "%</span></p>";
+    h += '<div class="meter" role="img" aria-label="' + pct + ' percent of tasks complete"><span style="width:' + pct + '%"></span></div>';
 
-  // Search: match a task card by key/text and jump to its change, else a
-  // workstream by name.
-  document.getElementById("search").addEventListener("input", (e) => {
-    const q = e.target.value.trim().toLowerCase();
-    if (!q) return;
-    const task = cy.nodes(".task").filter((n) =>
-      n.data("key").toLowerCase().includes(q) || (n.data("text") || "").toLowerCase().includes(q));
-    if (task.nonempty()) {
-      const first = task[0], change = first.data("change");
-      if (sel.value !== change) { sel.value = change; showChange(change); }
-      cy.elements().removeClass("focus"); first.addClass("focus");
-      cy.animate({ center: { eles: first }, zoom: 1.1 }, { duration: 200 });
-      return;
+    h += '<p class="eyebrow">Remaining</p>';
+    if (remaining.length === 0) {
+      h += '<p class="alldone">&#10003; All ' + c.total + " tasks complete</p>";
+    } else {
+      h += '<div class="remaining"><ul class="tasks">';
+      remaining.forEach((it) => {
+        h += "<li><span class=\"key\">" + esc(it.key) + '</span><span class="txt">' + esc(it.text) + "</span></li>";
+      });
+      h += "</ul></div>";
     }
-    const change = GRAPH.nodes.find((n) => (n.label || n.id).toLowerCase().includes(q) || n.id.toLowerCase().includes(q));
-    if (change) { sel.value = change.id; showChange(change.id); }
-  });
 
-  // Open on the first change so relationships are visible immediately; the
-  // dropdown's Index entry is one click away for the cross-change overview.
-  sel.value = GRAPH.nodes[0].id;
-  showChange(GRAPH.nodes[0].id);
+    if ((c.phases || []).length) {
+      h += '<p class="eyebrow">Progress by phase</p>';
+      h += '<div class="chartwrap" style="height:' + (c.phases.length * 34 + 12) + 'px">' +
+           '<canvas id="phasechart" role="img" aria-label="' + esc(phaseChartLabel(c)) + '"></canvas></div>';
+      h += '<ul class="sr-only">' + c.phases.map((p) => {
+        const d = p.items.filter((i) => i.done).length;
+        return "<li>Phase " + esc(p.number) + " " + esc(p.name) + ": " + d + " of " + p.items.length + " complete</li>";
+      }).join("") + "</ul>";
+    }
+
+    if (c.why) { h += '<p class="eyebrow">Why</p>' + md(c.why); }
+    if (c.whatChanges) { h += '<p class="eyebrow">What changes</p>' + md(c.whatChanges); }
+
+    const deps = dependsOn(name), blks = blocks(name);
+    if (deps.length) { h += '<p class="eyebrow">Depends on</p><div class="chips">' + deps.map(chipLink).join("") + "</div>"; }
+    if (blks.length) { h += '<p class="eyebrow">Blocks</p><div class="chips">' + blks.map(chipLink).join("") + "</div>"; }
+
+    h += '<p class="eyebrow">Tasks by phase</p>';
+    (c.phases || []).forEach((p) => {
+      const items = p.items || [];
+      const d = items.filter((i) => i.done).length;
+      h += '<div class="phase-h"><h2>' + esc(p.number) + ". " + esc(p.name) + '</h2><span class="ct tnum">' + d + "/" + items.length + "</span></div>";
+      h += '<ul class="tasks">';
+      items.forEach((it) => {
+        h += '<li class="' + (it.done ? "done" : "") + '">' +
+          '<span class="glyph ' + (it.done ? "done" : "todo") + '" aria-hidden="true">' + (it.done ? "&#10003;" : "&#9744;") + "</span>" +
+          '<span class="sr-only">' + (it.done ? "Completed: " : "To do: ") + "</span>" +
+          '<span class="key">' + esc(it.key) + "</span>" +
+          '<span class="txt">' + esc(it.text) + "</span></li>";
+      });
+      h += "</ul>";
+    });
+    h += "</div>";
+
+    view.innerHTML = h;
+    if (sel) sel.value = name;
+    afterRender();
+    if ((c.phases || []).length) initPhaseChart(c);
+  }
+
+  function stat(n, label) { return '<div class="stat"><b class="tnum">' + (n || 0) + "</b><span>" + label + "</span></div>"; }
+
+  function renderOverview() {
+    const tally = { active: 0, proposed: 0, archived: 0 };
+    changes.forEach((c) => { tally[c.lifecycle] = (tally[c.lifecycle] || 0) + 1; });
+
+    let h = '<h1 tabindex="-1" id="view-title">Workstreams</h1>';
+    h += '<div class="tally">' + stat(tally.active, "active") + stat(tally.proposed, "proposed") + stat(tally.archived, "archived") + "</div>";
+
+    const dagTpl = document.getElementById("dag");
+    const hasDag = dagTpl && dagTpl.content && dagTpl.content.childElementCount > 0;
+    if (hasDag) { h += '<p class="eyebrow">Cross-change dependencies</p><div class="dagwrap"></div>'; }
+
+    h += '<div class="grid">';
+    changes.forEach((c) => {
+      const pct = pctOf(c);
+      h += '<a class="card" href="#/c/' + encodeURIComponent(c.name) + '">' +
+        '<div class="row"><h3>' + esc(c.name) + '</h3><span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + "</span></div>" +
+        '<p class="metric tnum" style="margin:.6rem 0 0">' + c.done + " / " + c.total + " &middot; " + pct + "%</p>" +
+        '<div class="meter"><span style="width:' + pct + '%"></span></div>' +
+        '<p class="sub">' + ((c.phases || []).length) + " phases</p>" +
+        (c.why ? '<p class="why">' + esc(c.why) + "</p>" : "") +
+        "</a>";
+    });
+    h += "</div>";
+
+    if (!hasDag && edges.length === 0) {
+      h += '<p class="sub" style="margin-top:2rem">No cross-change dependencies defined. ' +
+        "Seed them with <code>specutil graph --suggest</code> or edit <code>openspec/specutil.yaml</code>.</p>";
+    }
+
+    view.innerHTML = h;
+    if (hasDag) {
+      const slot = view.querySelector(".dagwrap");
+      if (slot) slot.appendChild(dagTpl.content.cloneNode(true));
+    }
+    if (sel) sel.value = "__overview__";
+    afterRender();
+  }
+
+  // ---- routing (hash is the single source of truth; works on file://) -------
+  function route() {
+    destroyChart();
+    if (changes.length === 0) { renderEmpty(); return; }
+    if (single) { renderDetail(changes[0].name); return; }
+    const h = location.hash.replace(/^#/, "");
+    const m = h.match(/^\/c\/(.+)$/);
+    if (m) {
+      const name = decodeURIComponent(m[1]);
+      if (byName.has(name)) { renderDetail(name); return; }
+    }
+    renderOverview();
+  }
+
+  // ---- header: a jump-to select only when there's more than one change ------
+  if (changes.length > 1) {
+    sel = document.createElement("select");
+    sel.setAttribute("aria-label", "Jump to a workstream");
+    const o0 = document.createElement("option");
+    o0.value = "__overview__"; o0.textContent = "Overview";
+    sel.appendChild(o0);
+    changes.forEach((c) => { const o = document.createElement("option"); o.value = c.name; o.textContent = c.name; sel.appendChild(o); });
+    sel.addEventListener("change", () => {
+      location.hash = sel.value === "__overview__" ? "#/" : "#/c/" + encodeURIComponent(sel.value);
+    });
+    document.getElementById("appbar").appendChild(sel);
+  }
+
+  if (window.__cdnFail && window.__cdnFail.length) { document.getElementById("offline-note").hidden = false; }
+
+  window.addEventListener("hashchange", route);
+  route();
 })();
 </script>
 </body>

@@ -8,7 +8,7 @@ import (
 	"github.com/roshbhatia/specutil/internal/graph"
 )
 
-func TestRenderIsSelfContained(t *testing.T) {
+func TestRenderInlinesFeeds(t *testing.T) {
 	g := &graph.Graph{
 		Nodes: []graph.Node{{ID: "db", Label: "db"}, {ID: "api", Label: "api"}},
 		Edges: []graph.Edge{{From: "db", To: "api"}},
@@ -23,15 +23,12 @@ func TestRenderIsSelfContained(t *testing.T) {
 	}
 	html := string(out)
 
-	// The page must carry its runtime and data inline — no external requests, so
-	// it works offline from file://.
+	// Both feeds are inlined as JS literals; no data file is ever fetched.
 	for _, want := range []string{
 		"<!doctype html>",
-		"cytoscape.use(cytoscapeDagre)", // inlined bootstrap
-		"The Cytoscape Consortium",      // a marker from the vendored cytoscape bundle
-		"const GRAPH =",                 // graph data island
-		"const DETAIL =",                // detail data island
-		`"db"`,                          // node from the inlined graph data
+		"const GRAPH =",
+		"const DETAIL =",
+		`"db"`,
 		`"api"`,
 	} {
 		if !strings.Contains(html, want) {
@@ -39,40 +36,10 @@ func TestRenderIsSelfContained(t *testing.T) {
 		}
 	}
 
-	// No <script src> / <link href> tags — the runtime is inlined, not fetched.
-	// (Plain http(s) substrings are expected inside the bundle, e.g. SVG xmlns.)
-	for _, bad := range []string{"<script src", "<link "} {
-		if strings.Contains(html, bad) {
-			t.Errorf("page references external resource %q; must be self-contained", bad)
-		}
-	}
-}
-
-func TestRenderEmptyState(t *testing.T) {
-	out, err := Render(&graph.Graph{}, &detail.Feed{})
-	if err != nil {
-		t.Fatalf("Render: %v", err)
-	}
-	html := string(out)
-	if !strings.Contains(html, "No workstreams to display") {
-		t.Errorf("empty graph should render guidance, got:\n%s", html)
-	}
-}
-
-func TestRenderEdgelessState(t *testing.T) {
-	// Nodes but no edges: the page must point the user at `graph --suggest`.
-	g := &graph.Graph{Nodes: []graph.Node{{ID: "solo", Label: "solo"}}}
-	out, err := Render(g, &detail.Feed{Changes: []detail.Change{{Name: "solo", Lifecycle: "proposed"}}})
-	if err != nil {
-		t.Fatalf("Render: %v", err)
-	}
-	html := string(out)
-	if !strings.Contains(html, "graph --suggest") {
-		t.Errorf("edgeless page should point at `graph --suggest`, got:\n%s", html)
-	}
-	// The canvas (not the empty-state guidance) must still render.
-	if strings.Contains(html, "No workstreams to display") {
-		t.Error("a graph with nodes should not show the empty-state guidance")
+	// The presentation layer loads from a pinned CDN — the page must reference it,
+	// not inline a vendored bundle. (Pinning/SRI/onerror is asserted in the guard.)
+	if !strings.Contains(html, "cdn.jsdelivr.net") {
+		t.Error("page should reference the pinned CDN for its presentation layer")
 	}
 }
 
@@ -84,7 +51,7 @@ func TestRenderNilArgs(t *testing.T) {
 
 func TestRenderEscapesScriptBreakout(t *testing.T) {
 	// A label that tries to close the script block must be escaped so it can't
-	// break out of the inlined <script> data island.
+	// break out of the inlined <script> data island. json.Marshal escapes < > &.
 	g := &graph.Graph{Nodes: []graph.Node{{ID: "x", Label: "</script><b>"}}}
 	d := &detail.Feed{Changes: []detail.Change{{Name: "</script><b>", Lifecycle: "proposed"}}}
 	out, err := Render(g, d)
@@ -93,5 +60,47 @@ func TestRenderEscapesScriptBreakout(t *testing.T) {
 	}
 	if strings.Contains(string(out), "</script><b>") {
 		t.Error("script-breakout label was not escaped in the data island")
+	}
+}
+
+func TestDagSVGRendersEdges(t *testing.T) {
+	g := &graph.Graph{
+		Nodes: []graph.Node{{ID: "db", Label: "db"}, {ID: "api", Label: "api"}},
+		Edges: []graph.Edge{{From: "db", To: "api"}},
+	}
+	svg := dagSVG(g)
+	for _, want := range []string{"<svg", "marker-end", ">db<", ">api<"} {
+		if !strings.Contains(svg, want) {
+			t.Errorf("DAG SVG missing %q:\n%s", want, svg)
+		}
+	}
+}
+
+func TestDagSVGEmptyWhenNothingToDraw(t *testing.T) {
+	// Fewer than two nodes, or no edges, means there is no cross-change DAG to
+	// draw — the overview shows a "no dependencies" footnote instead.
+	cases := []*graph.Graph{
+		{},                                  // nothing
+		{Nodes: []graph.Node{{ID: "solo"}}}, // one node
+		{Nodes: []graph.Node{{ID: "a"}, {ID: "b"}}}, // two nodes, no edges
+	}
+	for i, g := range cases {
+		if svg := dagSVG(g); svg != "" {
+			t.Errorf("case %d: expected empty SVG, got:\n%s", i, svg)
+		}
+	}
+}
+
+func TestDagSVGEscapesLabels(t *testing.T) {
+	g := &graph.Graph{
+		Nodes: []graph.Node{{ID: "x", Label: "<b>x"}, {ID: "y", Label: "y"}},
+		Edges: []graph.Edge{{From: "x", To: "y"}},
+	}
+	svg := dagSVG(g)
+	if strings.Contains(svg, "<b>x") {
+		t.Errorf("DAG SVG did not escape an HTML label:\n%s", svg)
+	}
+	if !strings.Contains(svg, "&lt;b&gt;x") {
+		t.Errorf("DAG SVG missing escaped label:\n%s", svg)
 	}
 }
