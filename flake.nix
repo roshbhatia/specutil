@@ -25,7 +25,7 @@
           src = ./.;
           # vendorHash is recomputed when the module graph changes; run
           # `nix build` and copy the hash it reports here on dependency bumps.
-          vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+          vendorHash = "sha256-3ToA/pUNam7Bk4UsfwF9CGRsbZdqgRfIuQ4vl+zpxWw=";
           subPackages = [ "cmd/specutil" ];
           meta = {
             description = "Project OpenSpec change artifacts into other artifacts and visualizations";
