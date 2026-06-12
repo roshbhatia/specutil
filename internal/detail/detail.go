@@ -46,8 +46,12 @@ type Phase struct {
 // siblings within a level with a letter (0a, 0b, 1a, …), giving each task a
 // short stable handle that reads as "what blocks what".
 type Item struct {
-	Text  string `json:"text"`
-	Done  bool   `json:"done"`
+	Text string `json:"text"`
+	Done bool   `json:"done"`
+	// Kind is the verify/apply/confirm discipline classification carried from the
+	// IR ("task" for plain items), so visualizers can mark impactful and
+	// confirmation steps without re-parsing the source markdown.
+	Kind  string `json:"kind"`
 	Level int    `json:"level"`
 	Key   string `json:"key"`
 }
@@ -85,6 +89,7 @@ func Build(changes []*ir.Change) *Feed {
 					ph.Items = append(ph.Items, Item{
 						Text:  it.Text,
 						Done:  it.Done,
+						Kind:  string(it.Kind),
 						Level: pi,
 						Key:   levelKey(pi, ii),
 					})
