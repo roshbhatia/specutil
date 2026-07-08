@@ -29,11 +29,11 @@ var assets embed.FS
 // json.Marshal already escapes <, >, & in the data literals, and DagSVG is
 // assembled from html.EscapeString'd labels below.
 type page struct {
-	GraphJSON     string // the graph.json feed, embedded as a JS literal
-	DetailJSON    string // the detail.json feed, embedded as a JS literal
-	DiagJSON      string // manifest diagnostics, embedded as a JS literal (may be [])
-	SuggestJSON   string // graph --suggest candidates, embedded as a JS literal (may be [])
-	DagSVG        string // inline cross-change DAG; empty unless 2+ changes have edges
+	GraphJSON   string // the graph.json feed, embedded as a JS literal
+	DetailJSON  string // the detail.json feed, embedded as a JS literal
+	DiagJSON    string // manifest diagnostics, embedded as a JS literal (may be [])
+	SuggestJSON string // graph --suggest candidates, embedded as a JS literal (may be [])
+	DagSVG      string // inline cross-change DAG; empty unless 2+ changes have edges
 }
 
 // Render returns a self-contained HTML document visualizing g, drilling into the
@@ -186,12 +186,12 @@ func dagSVG(g *graph.Graph, lc map[string]string) string {
 	}
 
 	const (
-		colGap = 210
-		rowGap = 64
-		boxW   = 170
-		boxH   = 38
+		colGap = 230
+		rowGap = 74
+		boxW   = 190
+		boxH   = 46
 		padX   = 16
-		padY   = 16
+		padY   = 36
 	)
 
 	// Center each node and remember its anchor points for edge routing.
@@ -204,6 +204,10 @@ func dagSVG(g *graph.Graph, lc map[string]string) string {
 		if len(col) > maxRows {
 			maxRows = len(col)
 		}
+		rects.WriteString(fmt.Sprintf(
+			`<text class="depth-label" x="%.0f" y="16">depth %d</text>`,
+			float64(padX+d*colGap), d,
+		))
 		for i, id := range col {
 			x := float64(padX + d*colGap)
 			y := float64(padY + i*rowGap)
@@ -217,9 +221,9 @@ func dagSVG(g *graph.Graph, lc map[string]string) string {
 			// no script, file://-safe. data-node lets the optional hover-emphasis
 			// enhancement find a node; colors come from CSS via the lifecycle class.
 			rects.WriteString(fmt.Sprintf(
-				`<a class="%s" data-node="%s" href="#/c/%s"><rect class="nbox" x="%.0f" y="%.0f" width="%d" height="%d" rx="9"/>`+
+				`<a class="%s" data-node="%s" href="#/c/%s" aria-label="%s"><title>%s</title><rect class="nbox" x="%.0f" y="%.0f" width="%d" height="%d"/>`+
 					`<text class="nlabel" x="%.0f" y="%.0f" font-size="12" text-anchor="middle" dominant-baseline="middle">%s</text></a>`,
-				cls, html.EscapeString(id), urlHashEscape(id),
+				cls, html.EscapeString(id), urlHashEscape(id), html.EscapeString(label[id]), html.EscapeString(label[id]),
 				x, y, boxW, boxH, x+boxW/2, y+boxH/2, html.EscapeString(truncate(label[id], 24)),
 			))
 		}

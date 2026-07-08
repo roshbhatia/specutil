@@ -65,6 +65,33 @@ func TestRenderInlinesDiagnostics(t *testing.T) {
 	}
 }
 
+func TestRenderUsesLightOnlyTheme(t *testing.T) {
+	out, err := Render(nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	html := string(out)
+	for _, bad := range []string{"specutil-theme", "data-theme", "prefers-color-scheme", "Toggle color theme"} {
+		if strings.Contains(html, bad) {
+			t.Fatalf("light-only page should not contain theme switch machinery %q", bad)
+		}
+	}
+}
+
+func TestRenderSuggestedEdgeSnippetMatchesManifest(t *testing.T) {
+	out, err := Render(nil, nil, nil, []graph.Candidate{{From: "db", To: "api", Capability: "auth"}})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	html := string(out)
+	if !strings.Contains(html, "depends_on") {
+		t.Fatalf("suggested-edge snippet should use the manifest depends_on shape:\n%s", html)
+	}
+	if strings.Contains(html, `"- from: "`) {
+		t.Fatalf("suggested-edge snippet should not advertise the unsupported from/to list shape")
+	}
+}
+
 func TestRenderEscapesScriptBreakout(t *testing.T) {
 	// A label that tries to close the script block must be escaped so it can't
 	// break out of the inlined <script> data island. json.Marshal escapes < > &.
@@ -85,14 +112,14 @@ func TestDagSVGRendersEdges(t *testing.T) {
 		Edges: []graph.Edge{{From: "db", To: "api"}},
 	}
 	svg := dagSVG(g, map[string]string{"db": "active", "api": "proposed"})
-	for _, want := range []string{"<svg", "marker-end", ">db<", ">api<"} {
+	for _, want := range []string{"<svg", "marker-end", ">db<", ">api<", "depth 0"} {
 		if !strings.Contains(svg, want) {
 			t.Errorf("DAG SVG missing %q:\n%s", want, svg)
 		}
 	}
 	// Nodes carry their lifecycle class (CSS owns the palette) and navigate to
 	// the change document via a pure anchor.
-	for _, want := range []string{`class="node lc-active"`, `href="#/c/db"`, `class="edge"`} {
+	for _, want := range []string{`class="node lc-active"`, `href="#/c/db"`, `class="edge"`, `<title>db</title>`, `aria-label="db"`} {
 		if !strings.Contains(svg, want) {
 			t.Errorf("DAG SVG missing %q:\n%s", want, svg)
 		}

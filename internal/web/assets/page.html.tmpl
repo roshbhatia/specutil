@@ -4,45 +4,36 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>specutil</title>
-<script>
-(function () {
-  try {
-    var t = localStorage.getItem("specutil-theme");
-    if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
-  } catch (e) {}
-})();
-</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" integrity="sha384-vsrfeLOOY6KuIYKDlmVH5UiBmgIdB1oEf7p01YgWHuqmOHfZr374+odEv96n9tNC" crossorigin="anonymous" onerror="(window.__cdnFail=window.__cdnFail||[]).push('chart')"></script>
 <style>
 /* ================================================================
-   SPECUTIL — system.css-inspired theme
-   Flat 2px hard shadows, stripe title bars, monochrome with accent.
-   Light by default (authentic to classic Mac); dark via override.
+   SPECUTIL — neo-industrial light theme
+   Windows 98/system.css controls, hard chrome, grid-first layout.
    ================================================================ */
 
 :root {
-  /* Base palette — strictly monochrome + status accents */
-  --bg:        #c0c0c0;      /* Mac OS window chrome / desktop */
-  --content:   #ffffff;      /* content area fill */
-  --surface-2: #f0f0f0;      /* secondary surface (inset panels) */
-  --ink:       #000000;
-  --muted:     #666666;
-  --line:      #888888;
-  --line-dark: #000000;
-  --hi:        #ffffff;      /* bevel highlight */
-  --shadow-color: #000000;
+  color-scheme: light;
+  --bg:        #d6d2c8;
+  --content:   #fffefa;
+  --surface-2: #f6f5ee;
+  --surface-3: #ece9df;
+  --ink:       #111111;
+  --muted:     #565656;
+  --line:      #9d988e;
+  --line-dark: #1f1f1f;
+  --hi:        #ffffff;
+  --shadow-color: #111111;
 
   /* Selection / accent */
-  --accent:    #0055ff;
+  --accent:    #002f86;
   --accent-on: #ffffff;
 
-  /* Lifecycle palette — accent color but staying true to Mac feel */
-  --lc-proposed-bg:   #e8eeff; --lc-proposed-ink: #002299; --lc-proposed-line: #6688cc;
-  --lc-active-bg:     #fff3cc; --lc-active-ink:   #885500; --lc-active-line:   #ccaa33;
-  --lc-archived-bg:   #e0f5e0; --lc-archived-ink: #005500; --lc-archived-line: #44aa44;
+  --lc-proposed-bg:   #dce6ff; --lc-proposed-ink: #002f86; --lc-proposed-line: #8ca7d9;
+  --lc-active-bg:     #fff1c8; --lc-active-ink:   #8a5900; --lc-active-line:   #d0a53b;
+  --lc-archived-bg:   #dcf0df; --lc-archived-ink: #116232; --lc-archived-line: #79aa80;
 
-  --done:   #006600;
-  --danger: #cc0022;
+  --done:   #116232;
+  --danger: #9a1e1e;
 
   /* DAG */
   --node-bg:     var(--content);
@@ -50,8 +41,8 @@
   --edge:        #666666;
 
   /* Banners */
-  --warn-bg:    #fff3cc; --warn-line:   #ccaa33; --warn-ink:   #885500;
-  --danger-bg:  #ffe8e8; --danger-line: #cc6666; --danger-ink: #880000;
+  --warn-bg:    #fff1c8; --warn-line:   #d0a53b; --warn-ink:   #8a5900;
+  --danger-bg:  #ffe0d7; --danger-line: #c77564; --danger-ink: #9a1e1e;
 
   /* Type */
   --font-ui:   -apple-system, BlinkMacSystemFont, "Geneva", "Helvetica Neue", Arial, sans-serif;
@@ -66,56 +57,6 @@
   --stripe-size: 100% 2px;
 }
 
-/* Dark override — "dark system" (inverted Mac tones) */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg:        #1a1a1a;
-    --content:   #2a2a2a;
-    --surface-2: #222222;
-    --ink:       #e8e8e8;
-    --muted:     #999999;
-    --line:      #555555;
-    --line-dark: #888888;
-    --hi:        #3d3d3d;
-    --shadow-color: #000000;
-    --accent:    #4488ff;
-    --accent-on: #ffffff;
-    --lc-proposed-bg: #0c1a3a; --lc-proposed-ink: #88aaff; --lc-proposed-line: #224488;
-    --lc-active-bg:   #1a1200; --lc-active-ink:   #ffcc44; --lc-active-line:   #664400;
-    --lc-archived-bg: #001a00; --lc-archived-ink: #44cc44; --lc-archived-line: #226622;
-    --done:   #44cc44;
-    --danger: #ff4466;
-    --node-bg: var(--content); --node-stroke: var(--ink); --edge: #666666;
-    --warn-bg:   #1a1200; --warn-line:   #664400; --warn-ink:   #ffcc44;
-    --danger-bg: #1a0008; --danger-line: #880033; --danger-ink: #ff6688;
-    --stripe: linear-gradient(var(--ink) 50%, transparent 50%);
-    --stripe-size: 100% 2px;
-  }
-}
-:root[data-theme="dark"] {
-  --bg:        #1a1a1a;
-  --content:   #2a2a2a;
-  --surface-2: #222222;
-  --ink:       #e8e8e8;
-  --muted:     #999999;
-  --line:      #555555;
-  --line-dark: #888888;
-  --hi:        #3d3d3d;
-  --shadow-color: #000000;
-  --accent:    #4488ff;
-  --accent-on: #ffffff;
-  --lc-proposed-bg: #0c1a3a; --lc-proposed-ink: #88aaff; --lc-proposed-line: #224488;
-  --lc-active-bg:   #1a1200; --lc-active-ink:   #ffcc44; --lc-active-line:   #664400;
-  --lc-archived-bg: #001a00; --lc-archived-ink: #44cc44; --lc-archived-line: #226622;
-  --done:   #44cc44;
-  --danger: #ff4466;
-  --node-bg: var(--content); --node-stroke: var(--ink); --edge: #666666;
-  --warn-bg:   #1a1200; --warn-line:   #664400; --warn-ink:   #ffcc44;
-  --danger-bg: #1a0008; --danger-line: #880033; --danger-ink: #ff6688;
-  --stripe: linear-gradient(var(--ink) 50%, transparent 50%);
-  --stripe-size: 100% 2px;
-}
-
 /* ---- Reset ---- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; }
@@ -124,7 +65,11 @@ body {
   font-size: 13px;
   line-height: 1.5;
   color: var(--ink);
-  background: var(--bg);
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.05) 1px, transparent 1px),
+    linear-gradient(rgba(0,0,0,.04) 1px, transparent 1px),
+    var(--bg);
+  background-size: 16px 16px;
   -webkit-font-smoothing: antialiased;
 }
 a { color: var(--accent); text-decoration: none; }
@@ -132,7 +77,7 @@ a:hover { text-decoration: underline; }
 *:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* ---- Layout ---- */
-.wrap { max-width: 70rem; margin: 0 auto; padding: 0 1rem 4rem; }
+.wrap { max-width: 90rem; margin: 0 auto; padding: 0 .875rem 4rem; }
 
 /* ---- Typography ---- */
 h1 {
@@ -233,7 +178,8 @@ code {
   font-family: var(--font-ui);
   font-size: 12px;
   font-weight: 600;
-  padding: 2px 12px;
+  min-height: 32px;
+  padding: 5px 12px;
   background: var(--content);
   color: var(--ink);
   border: 1px solid var(--ink);
@@ -281,7 +227,8 @@ code {
 .appbar select {
   font-family: var(--font-ui);
   font-size: 12px;
-  padding: 2px 6px;
+  min-height: 32px;
+  padding: 5px 8px;
   border: 1px solid var(--ink);
   background: var(--content);
   color: var(--ink);
@@ -295,7 +242,8 @@ code {
   font-family: var(--font-ui);
   font-size: 12px;
   font-weight: 600;
-  padding: 2px 10px;
+  min-height: 32px;
+  padding: 7px 12px;
   text-decoration: none;
   color: var(--ink);
   background: var(--content);
@@ -303,25 +251,6 @@ code {
 }
 .tabs a:hover { background: var(--surface-2); text-decoration: none; }
 .tabs a.on { background: var(--ink); color: var(--content); }
-
-/* ---- Theme toggle ---- */
-.toggle {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 2px 10px;
-  border: 1px solid var(--ink);
-  background: var(--content);
-  color: var(--ink);
-  box-shadow: var(--hard-shadow-sm);
-  display: inline-flex;
-  align-items: center;
-  gap: .3rem;
-  transition: none;
-}
-.toggle:hover { background: var(--surface-2); }
-.toggle:active { transform: translate(1px, 1px); box-shadow: none; }
 
 /* ================================================================
    SECTION LABELS
@@ -358,7 +287,7 @@ code {
 .badge.archived { background: var(--lc-archived-bg); color: var(--lc-archived-ink); border-color: var(--lc-archived-line); }
 
 /* ================================================================
-   PROGRESS METER — classic Mac progress bar
+   PROGRESS METER
    ================================================================ */
 .meter {
   height: 12px;
@@ -370,12 +299,7 @@ code {
 .meter > span {
   display: block;
   height: 100%;
-  /* Classic Mac diagonal stripe fill */
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--ink) 0, var(--ink) 4px,
-    transparent 4px, transparent 8px
-  );
+  background: var(--accent);
   transition: width .2s ease;
 }
 .metric {
@@ -416,6 +340,143 @@ code {
 }
 .stat.rollup { border-left: 3px solid var(--ink); }
 .stat.rollup b { font-size: 1.25rem; }
+
+/* ================================================================
+   OPERATIONS REGISTER
+   ================================================================ */
+.ops-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: .85rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+.register-panel,
+.ops-feed,
+.graph-workbench,
+.graph-tools,
+.graph-inspector {
+  background: var(--content);
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow);
+}
+.register-panel { overflow: hidden; }
+.register-head,
+.ops-feed h2,
+.graph-tools h2,
+.graph-inspector h2 {
+  background: var(--stripe);
+  background-size: var(--stripe-size);
+  background-color: var(--content);
+  border-bottom: 1px solid var(--ink);
+  margin: 0;
+  padding: 5px 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.register-head span,
+.ops-feed h2 span,
+.graph-tools h2 span,
+.graph-inspector h2 span {
+  display: inline-block;
+  background: var(--ink);
+  color: var(--content);
+  padding: 2px 6px;
+}
+.table-scroll { overflow-x: auto; }
+.register {
+  width: 100%;
+  min-width: 52rem;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.register th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: .45rem .55rem;
+  border-bottom: 2px solid var(--ink);
+}
+.register td {
+  padding: .55rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.register tr:last-child td { border-bottom: 0; }
+.change-link {
+  display: inline-block;
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+  word-break: break-word;
+}
+.change-link:hover { color: var(--accent); text-decoration: underline; }
+.progress-cell { min-width: 9rem; }
+.progress-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: .2rem;
+}
+.rel-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.next-work {
+  max-width: 19rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.ops-feed { overflow: hidden; }
+.ops-feed-body { padding: .65rem .75rem; display: grid; gap: .55rem; }
+.ops-event {
+  border: 1px solid var(--ink);
+  background: var(--surface-2);
+  padding: .55rem .65rem;
+}
+.ops-event b { display: block; margin-bottom: .2rem; }
+.ops-event p { margin: 0; color: var(--muted); font-size: 12px; }
+
+.overview-graph {
+  margin-top: .85rem;
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow);
+  background: var(--content);
+  overflow: hidden;
+}
+.overview-graph .dagwrap {
+  box-shadow: none;
+  border: 0;
+  margin: 0;
+}
+.overview-graph-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .75rem;
+  padding: .45rem .6rem;
+  border-bottom: 1px solid var(--ink);
+  background: var(--surface-2);
+}
+.overview-graph-head b {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 58rem) {
+  .ops-layout { grid-template-columns: 1fr; }
+}
 
 /* ================================================================
    CARD GRID (overview)
@@ -521,20 +582,95 @@ code {
 .board .empty-col { font-size: 11px; color: var(--muted); padding: .5rem; }
 @media (max-width: 48rem) { .board { grid-template-columns: 1fr; } }
 
+/* Board cards as focusable buttons in the overview */
+.board button.bcard {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--content);
+  font: inherit;
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow-sm);
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.board button.bcard:hover { box-shadow: 2px 2px 0 var(--ink); transform: translate(-1px, -1px); }
+.bcard.selected {
+  background: var(--lc-active-bg) !important;
+  border-color: var(--accent) !important;
+  box-shadow: 2px 2px 0 var(--accent) !important;
+}
+#overview-content { margin-top: .85rem; }
+
 /* ================================================================
    GRAPH VIEW
    ================================================================ */
+.graph-shell {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr) 19rem;
+  gap: .85rem;
+  align-items: stretch;
+  margin-top: .85rem;
+}
+.graph-tools,
+.graph-inspector { overflow: hidden; }
+.graph-tools-body,
+.graph-inspector-body { padding: .65rem .75rem; }
+.control-group {
+  border: 1px solid var(--ink);
+  background: var(--surface-2);
+  padding: .55rem .65rem;
+  margin-bottom: .55rem;
+}
+.control-group:last-child { margin-bottom: 0; }
+.control-group b {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-bottom: .35rem;
+}
+.checkline {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  margin: .25rem 0;
+  color: var(--muted);
+}
+.checkline input { width: 14px; height: 14px; accent-color: var(--accent); }
+.graph-workbench {
+  min-width: 0;
+  overflow: hidden;
+}
 .dagwrap {
   overflow-x: auto;
   border: 1px solid var(--ink);
   box-shadow: var(--hard-shadow);
   padding: .75rem;
-  background: var(--content);
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.06) 1px, transparent 1px),
+    linear-gradient(rgba(0,0,0,.06) 1px, transparent 1px),
+    var(--surface-2);
+  background-size: 24px 24px;
   margin-top: .85rem;
+}
+.graph-workbench .dagwrap {
+  box-shadow: none;
+  border: 0;
+  margin: 0;
+  min-height: 34rem;
 }
 .dagwrap svg text { font-family: var(--font-ui); font-size: 11px; }
 .dagwrap .nbox { fill: var(--node-bg); stroke: var(--node-stroke); stroke-width: 1; }
 .dagwrap .nlabel { fill: var(--ink); }
+.dagwrap .depth-label {
+  fill: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
 .dagwrap .lc-proposed .nbox { fill: var(--lc-proposed-bg); stroke: var(--lc-proposed-line); }
 .dagwrap .lc-active   .nbox { fill: var(--lc-active-bg);   stroke: var(--lc-active-line); }
 .dagwrap .lc-archived .nbox { fill: var(--lc-archived-bg); stroke: var(--lc-archived-line); }
@@ -543,10 +679,26 @@ code {
 .dagwrap .node:focus .nbox { stroke: var(--accent); stroke-width: 2; }
 .dagwrap .edge { stroke: var(--edge); }
 .dagwrap .arrow path { fill: var(--edge); }
-.dagwrap:hover .node:not(:hover) { opacity: .4; }
+.dagwrap:hover .node:not(:hover) { opacity: .55; }
 .dagwrap.emph .node:not(.lit) { opacity: .3; }
 .dagwrap.emph .edge:not(.lit) { opacity: .15; }
 .dagwrap .node.lit .nbox { stroke: var(--accent); stroke-width: 2; }
+.graph-empty {
+  padding: 1rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.graph-inspector .metric {
+  margin-top: .35rem;
+}
+@media (max-width: 64rem) {
+  .graph-shell { grid-template-columns: 1fr; }
+  .graph-workbench .dagwrap {
+    min-height: auto;
+    overflow-x: auto;
+  }
+  .dagwrap svg { min-width: 42rem; }
+}
 
 /* ================================================================
    DETAIL DOCUMENT — two-column layout
@@ -701,15 +853,30 @@ ul.tasks li.done .txt { color: var(--muted); text-decoration: line-through; text
 .kind.confirm { background: var(--lc-archived-bg); color: var(--lc-archived-ink); border-color: var(--lc-archived-line); }
 
 /* Phase header */
+.phase-block {
+  margin-top: 1rem;
+}
+.phase-block > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.phase-block > summary::-webkit-details-marker { display: none; }
 .phase-h {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 1rem;
-  margin-top: 1.25rem;
+  margin-top: 0;
   padding: .35rem 0;
   border-bottom: 2px solid var(--ink);
 }
+.phase-h::before {
+  content: "+";
+  font-family: var(--font-mono);
+  font-weight: 700;
+  margin-right: .25rem;
+}
+.phase-block[open] .phase-h::before { content: "-"; }
 .phase-h h2 { margin: 0; font-size: .9375rem; }
 .phase-h .ct {
   font-family: var(--font-mono);
@@ -948,16 +1115,17 @@ const SUGGEST = {{.SuggestJSON}};
 <script>
 (function () {
   const changes    = (DETAIL && DETAIL.changes) || [];
+  const graphNodes = (GRAPH  && GRAPH.nodes)   || [];
   const edges      = (GRAPH  && GRAPH.edges)   || [];
   const diags      = DIAG || [];
   const candidates = SUGGEST || [];
   const byName  = new Map(changes.map((c) => [c.name, c]));
   const single  = changes.length === 1;
-  const multi   = changes.length > 1;
 
   const view = document.getElementById("view");
   const live = document.getElementById("live");
   let sel = null;
+  let inlineSelected = null;
 
   /* ---- escaping + minimal markdown ---- */
   const esc = (s) => String(s == null ? "" : s)
@@ -987,11 +1155,77 @@ const SUGGEST = {{.SuggestJSON}};
   }
 
   /* ---- helpers ---- */
-  const pctOf      = (c) => (c.total ? Math.round((c.done / c.total) * 100) : 0);
+  function progressOf(c) {
+    const items = [];
+    (c.phases || []).forEach((p) => (p.items || []).forEach((it) => items.push(it)));
+    const itemTotal = items.length;
+    const itemDone = items.filter((i) => i.done).length;
+    const rawTotal = Number(c.total || 0);
+    const rawDone = Number(c.done || 0);
+    const total = itemTotal || rawTotal;
+    const done = itemTotal ? itemDone : rawDone;
+    return { done, total, pct: total ? Math.round((done / total) * 100) : 0, hasTasks: total > 0 };
+  }
+  const pctOf      = (c) => progressOf(c).pct;
+  const progressLabel = (c) => {
+    const p = progressOf(c);
+    return p.hasTasks ? p.done + " / " + p.total + " tasks · " + p.pct + "%" : "No tasks defined";
+  };
   const dependsOn  = (name) => edges.filter((e) => e.to   === name).map((e) => e.from).sort();
   const blocks     = (name) => edges.filter((e) => e.from === name).map((e) => e.to).sort();
-  const chipLink   = (n) => '<a class="chip" href="#/c/' + encodeURIComponent(n) + '">' + esc(n) + "</a>";
+  const chipLink   = (n) => byName.has(n)
+    ? '<a class="chip" href="#/c/' + encodeURIComponent(n) + '">' + esc(n) + "</a>"
+    : '<span class="chip" title="No detail feed entry for this graph node">' + esc(n) + "</span>";
   const LIFECYCLES = ["proposed", "active", "archived"];
+  const feedIssues = (() => {
+    const issues = [];
+    const graphIDs = new Set(graphNodes.map((n) => n.id));
+    const detailIDs = new Set(changes.map((c) => c.name));
+    graphIDs.forEach((id) => { if (!detailIDs.has(id)) issues.push({ kind: "feed", msg: "Graph node has no detail entry: " + id }); });
+    detailIDs.forEach((id) => { if (graphIDs.size && !graphIDs.has(id)) issues.push({ kind: "feed", msg: "Detail entry is absent from graph feed: " + id }); });
+    changes.forEach((c) => {
+      const items = [];
+      (c.phases || []).forEach((p) => (p.items || []).forEach((it) => items.push(it)));
+      if (!items.length) return;
+      const done = items.filter((i) => i.done).length;
+      if (done !== Number(c.done || 0) || items.length !== Number(c.total || 0)) {
+        issues.push({ kind: "feed", msg: "Progress rollup disagrees with task items: " + c.name });
+      }
+    });
+    return issues;
+  })();
+
+  const edgeKey = (e) => e.from + "\x00" + e.to;
+  function novelCandidateGroups() {
+    const confirmed = new Set(edges.map(edgeKey));
+    const groups = new Map();
+    candidates.forEach((c) => {
+      if (confirmed.has(edgeKey(c))) return;
+      const k = edgeKey(c);
+      const g = groups.get(k) || { from: c.from, to: c.to, capabilities: [] };
+      g.capabilities.push(c.capability);
+      groups.set(k, g);
+    });
+    return Array.from(groups.values()).map((g) => {
+      g.capabilities = Array.from(new Set(g.capabilities)).sort();
+      return g;
+    }).sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
+  }
+  function yamlScalar(s) { return JSON.stringify(String(s == null ? "" : s)); }
+  function manifestSnippet(c) {
+    return "changes:\n  " + yamlScalar(c.to) + ":\n    depends_on:\n      - " + yamlScalar(c.from);
+  }
+  function firstRemaining(c) {
+    for (const p of (c.phases || [])) {
+      for (const it of (p.items || [])) {
+        if (!it.done) return it.text;
+      }
+    }
+    return progressOf(c).hasTasks ? "All tasks complete" : "No tasks defined";
+  }
+  function relationshipCount(name) {
+    return dependsOn(name).length + " in / " + blocks(name).length + " out";
+  }
 
   function destroyChart() { if (window.__chart) { window.__chart.destroy(); window.__chart = null; } }
 
@@ -1045,6 +1279,22 @@ const SUGGEST = {{.SuggestJSON}};
     const t = document.getElementById("dag");
     return t && t.content && t.content.childElementCount > 0;
   }
+  function graphInspectorHTML(id) {
+    const c = byName.get(id);
+    const deps = dependsOn(id), blks = blocks(id);
+    if (!c) {
+      return '<p class="empty" style="margin-top:0">No detail feed entry for <code>' + esc(id) + '</code>.</p>';
+    }
+    const p = progressOf(c);
+    return '<p><b>' + esc(c.name) + '</b> <span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + '</span></p>' +
+      '<div class="meter" role="img" aria-label="' + p.pct + ' percent complete"><span style="width:' + p.pct + '%"></span></div>' +
+      '<p class="metric tnum">' + progressLabel(c) + '</p>' +
+      '<p class="eyebrow">Depends on</p>' +
+      (deps.length ? '<div class="chips">' + deps.map(chipLink).join("") + '</div>' : '<p class="none">Nothing upstream.</p>') +
+      '<p class="eyebrow">Blocks</p>' +
+      (blks.length ? '<div class="chips">' + blks.map(chipLink).join("") + '</div>' : '<p class="none">Nothing downstream.</p>') +
+      '<p style="margin-top:.75rem"><a class="btn" href="#/c/' + encodeURIComponent(c.name) + '">Open detail</a></p>';
+  }
   function mountDag(slot) {
     const t = document.getElementById("dag");
     slot.appendChild(t.content.cloneNode(true));
@@ -1052,23 +1302,33 @@ const SUGGEST = {{.SuggestJSON}};
     if (!svg) return;
     const nodes = Array.from(svg.querySelectorAll(".node"));
     const lines = Array.from(svg.querySelectorAll(".edge"));
+    const inspector = document.getElementById("graph-inspector-body");
+    const clearGraphFocus = () => {
+      slot.classList.remove("emph");
+      nodes.forEach((m) => m.classList.remove("lit"));
+      lines.forEach((l) => l.classList.remove("lit"));
+      if (inspector) inspector.innerHTML = '<p class="empty" style="margin-top:0">Focus a node to inspect its progress and relationships.</p>';
+    };
+    const setGraphFocus = (id) => {
+      const nbrs = new Set([id]);
+      lines.forEach((l) => {
+        const f = l.getAttribute("data-from"), tt = l.getAttribute("data-to");
+        const on = f === id || tt === id;
+        l.classList.toggle("lit", on);
+        if (on) { nbrs.add(f); nbrs.add(tt); }
+      });
+      nodes.forEach((m) => m.classList.toggle("lit", nbrs.has(m.getAttribute("data-node"))));
+      slot.classList.add("emph");
+      if (inspector) inspector.innerHTML = graphInspectorHTML(id);
+    };
     nodes.forEach((n) => {
-      n.addEventListener("mouseenter", () => {
-        const id = n.getAttribute("data-node");
-        const nbrs = new Set([id]);
-        lines.forEach((l) => {
-          const f = l.getAttribute("data-from"), tt = l.getAttribute("data-to");
-          if (f === id || tt === id) { l.classList.add("lit"); nbrs.add(f); nbrs.add(tt); }
-        });
-        nodes.forEach((m) => { if (nbrs.has(m.getAttribute("data-node"))) m.classList.add("lit"); });
-        slot.classList.add("emph");
-      });
-      n.addEventListener("mouseleave", () => {
-        slot.classList.remove("emph");
-        nodes.forEach((m) => m.classList.remove("lit"));
-        lines.forEach((l) => l.classList.remove("lit"));
-      });
+      const id = n.getAttribute("data-node");
+      n.addEventListener("mouseenter", () => setGraphFocus(id));
+      n.addEventListener("focusin", () => setGraphFocus(id));
+      n.addEventListener("mouseleave", clearGraphFocus);
+      n.addEventListener("focusout", clearGraphFocus);
     });
+    if (nodes.length) setGraphFocus(nodes[0].getAttribute("data-node"));
   }
 
   /* ---- window panel helper ---- */
@@ -1094,145 +1354,64 @@ const SUGGEST = {{.SuggestJSON}};
       "</b><span>" + label + "</span></div>";
   }
 
-  function renderOverview() {
-    const tally = { active: 0, proposed: 0, archived: 0 };
-    let done = 0, total = 0;
-    changes.forEach((c) => { tally[c.lifecycle] = (tally[c.lifecycle] || 0) + 1; done += c.done; total += c.total; });
-    const pct = total ? Math.round((done / total) * 100) : 0;
-
-    const edgeSet    = new Set(edges.map((e) => e.from + "\x00" + e.to));
-    const novelCands = candidates.filter((c) => !edgeSet.has(c.from + "\x00" + c.to));
-
-    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.75rem">Workstreams</h1>';
-    h += '<div class="tally">' +
-      stat(tally.active,   "active")   +
-      stat(tally.proposed, "proposed") +
-      stat(tally.archived, "archived") +
-      '<div class="stat rollup"><b class="tnum">' + done + '<span style="font-size:.6em;font-weight:400;color:var(--muted)">/' + total + '</span></b><span>tasks &middot; ' + pct + '%</span></div>' +
-      (novelCands.length ? '<a class="stat" href="#/graph" style="text-decoration:none;border-style:dashed;cursor:pointer">' +
-        '<b class="tnum">' + novelCands.length + '</b><span>suggested deps</span></a>' : "") +
-      "</div>";
-
-    h += '<div class="grid">';
+  /* ---- register HTML (reusable so overview-content can render it) ---- */
+  function renderRegisterHTML() {
+    const novelCands = novelCandidateGroups();
+    let h = '<div class="ops-layout"><section class="register-panel">' +
+      '<div class="register-head"><span>Workstream register</span></div>' +
+      '<div class="table-scroll"><table class="register">' +
+      '<thead><tr><th>Change</th><th>Lifecycle</th><th>Progress</th><th>Deps</th><th>Next work</th></tr></thead><tbody>';
     changes.forEach((c) => {
-      const pct = pctOf(c);
-      h += '<a class="card lc-' + esc(c.lifecycle) + '" href="#/c/' + encodeURIComponent(c.name) + '">' +
-        '<div class="card-head">' +
-        '<div class="row"><h3>' + esc(c.name) + '</h3><span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + "</span></div>" +
-        '<p class="metric tnum" style="margin:.35rem 0 .2rem">' + c.done + " / " + c.total + " tasks &middot; " + pct + "%</p>" +
-        '<p class="sub">' + ((c.phases || []).length) + " phases</p>" +
-        (c.why ? '<p class="why">' + esc(c.why) + "</p>" : "") +
-        "</div>" +
-        '<div class="meter"><span style="width:' + pct + '%"></span></div>' +
-        "</a>";
+      const p = progressOf(c);
+      h += '<tr>' +
+        '<td><a class="change-link" href="#/c/' + encodeURIComponent(c.name) + '">' + esc(c.name) + '</a>' +
+        (c.why ? '<p class="sub next-work">' + esc(c.why) + '</p>' : '') + '</td>' +
+        '<td><span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + '</span></td>' +
+        '<td class="progress-cell"><div class="meter"><span style="width:' + p.pct + '%"></span></div>' +
+        '<span class="progress-label">' + progressLabel(c) + '</span></td>' +
+        '<td><span class="rel-count">' + relationshipCount(c.name) + '</span></td>' +
+        '<td><p class="next-work">' + esc(firstRemaining(c)) + '</p></td>' +
+        '</tr>';
     });
-    h += "</div>";
-
-    if (!hasDag() && edges.length === 0 && !novelCands.length) {
+    h += '</tbody></table></div></section>';
+    h += '<aside class="ops-feed"><h2><span>Operator feed</span></h2><div class="ops-feed-body">';
+    const allIssues = diags.concat(feedIssues);
+    if (allIssues.length) {
+      allIssues.slice(0, 3).forEach((d) => {
+        h += '<div class="ops-event"><b>' + esc(d.kind) + '</b><p>' + esc(d.msg) + '</p></div>';
+      });
+    }
+    if (novelCands.length) {
+      novelCands.slice(0, 3).forEach((c) => {
+        h += '<div class="ops-event"><b>Suggested edge</b><p><code>' + esc(c.from) + '</code> -> <code>' + esc(c.to) + '</code></p></div>';
+      });
+    }
+    if (!allIssues.length && !novelCands.length) {
+      h += '<div class="ops-event"><b>Graph clean</b><p>No manifest diagnostics or novel suggested edges.</p></div>';
+    }
+    h += '</div></aside></div>';
+    if (edges.length === 0 && !novelCands.length) {
       h += '<p style="margin-top:1.5rem;font-size:11px;color:var(--muted)">No cross-change dependencies defined ' +
         "and no shared capabilities found to infer from. Add edges to <code>openspec/specutil.yaml</code>.</p>";
     }
-
-    view.innerHTML = h;
-    if (sel) sel.value = "__overview__";
-    afterRender();
+    return h;
   }
 
-  function renderBoard() {
-    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.75rem">Board</h1>';
-    h += '<div class="board">';
-    LIFECYCLES.forEach((lc) => {
-      const col = changes.filter((c) => c.lifecycle === lc);
-      h += '<section class="col">' +
-        '<header><span class="badge ' + lc + '">' + lc + '</span><span class="ct">' + col.length + "</span></header>" +
-        '<div class="col-body">';
-      if (!col.length) {
-        h += '<p class="empty-col">None</p>';
-      } else {
-        col.forEach((c) => {
-          const pct = pctOf(c);
-          h += '<a class="bcard" href="#/c/' + encodeURIComponent(c.name) + '">' +
-            "<h3>" + esc(c.name) + "</h3>" +
-            '<div class="meter" style="margin:.3rem 0 .2rem"><span style="width:' + pct + '%"></span></div>' +
-            '<p class="sub tnum">' + c.done + "/" + c.total + " &middot; " + pct + "% &middot; " + ((c.phases || []).length) + " ph</p>" +
-            "</a>";
-        });
-      }
-      h += "</div></section>";
-    });
-    h += "</div>";
-    view.innerHTML = h;
-    if (sel) sel.value = "__board__";
-    afterRender();
-  }
-
-  function renderGraph() {
-    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.75rem">Dependency Graph</h1>';
-    if (hasDag()) {
-      h += '<p style="font-size:11px;color:var(--muted);margin-bottom:.5rem">Arrows point from prerequisite to dependent. Hover a node to highlight neighbors; click to open.</p>';
-      h += '<div class="dagwrap"></div>';
-    } else {
-      h += '<p class="empty">No confirmed cross-change dependencies in <code>openspec/specutil.yaml</code>.</p>';
-    }
-
-    /* ---- Suggested edges (always shown when present) ---- */
-    if (candidates.length) {
-      /* Filter out candidates already in the manifest */
-      const edgeSet = new Set(edges.map((e) => e.from + "\x00" + e.to));
-      const novel = candidates.filter((c) => !edgeSet.has(c.from + "\x00" + c.to));
-      if (novel.length) {
-        h += '<div class="suggest-panel">';
-        h += '<div class="suggest-head">&#9670; Suggested edges (' + novel.length + ') &mdash; inferred from shared capabilities</div>';
-        h += '<div class="suggest-body"><table class="suggest-table">' +
-          '<thead><tr><th>From (prerequisite)</th><th>To (dependent)</th><th>Shared capability</th><th>Add to specutil.yaml</th></tr></thead><tbody>';
-        novel.forEach((c) => {
-          const snippet = esc("- from: " + c.from + "\n  to: " + c.to);
-          h += '<tr>' +
-            '<td><a class="chip" href="#/c/' + encodeURIComponent(c.from) + '">' + esc(c.from) + "</a></td>" +
-            '<td><a class="chip" href="#/c/' + encodeURIComponent(c.to)   + '">' + esc(c.to)   + "</a></td>" +
-            '<td><code>' + esc(c.capability) + "</code></td>" +
-            '<td><code style="font-size:10px;white-space:pre">' + snippet + "</code></td>" +
-            "</tr>";
-        });
-        h += "</tbody></table></div></div>";
-      }
-    }
-
-    view.innerHTML = h;
-    if (hasDag()) { const slot = view.querySelector(".dagwrap"); if (slot) mountDag(slot); }
-    if (sel) sel.value = "__graph__";
-    afterRender();
-  }
-
-  function kindTag(it) {
-    const k = it.kind;
-    if (!k || k === "task") return "";
-    return '<span class="kind ' + esc(k) + '" title="' + esc(k) + ' step">' + esc(k) + "</span>";
-  }
-
-  function renderDetail(name) {
+  /* ---- detail body HTML (shared by full detail page and inline selection) ---- */
+  function renderDetailBody(name) {
     const c = byName.get(name);
-    if (!c) { renderOverview(); return; }
-    const pct       = pctOf(c);
+    if (!c) return '';
+    const prog      = progressOf(c);
+    const pct       = prog.pct;
     const remaining = [];
     (c.phases || []).forEach((p) => (p.items || []).forEach((it) => { if (!it.done) remaining.push(it); }));
     const deps = dependsOn(name), blks = blocks(name);
-
-    let h = "";
-    if (!single) h += '<a class="back" href="#/">&#9664; All workstreams</a>';
-    h += '<div class="doc">';
-
-    /* ---- Header with title + badge ---- */
+    let h = '<div class="doc">';
     h += '<div style="display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;margin-bottom:.85rem">';
     h += '<h1 tabindex="-1" id="view-title">' + esc(c.name) + "</h1>";
     h += '<span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + "</span>";
     h += "</div>";
-
     h += '<div class="doclayout"><div class="main">';
-
-    /* ---- WHY → HOW narrative block ---- */
-    /* This is the key UX improvement: connect the problem statement (Why)
-       to the solution (What Changes) with a clear visual bridge. */
     if (c.why || c.whatChanges) {
       h += '<div class="narrative">';
       if (c.why) {
@@ -1252,12 +1431,12 @@ const SUGGEST = {{.SuggestJSON}};
       }
       h += '</div>';
     }
-
-    /* ---- Remaining tasks ---- */
     h += '<div class="remaining">';
-    h += '<div class="remaining-head">Remaining &mdash; ' + remaining.length + " of " + c.total + " outstanding</div>";
-    if (remaining.length === 0) {
-      h += '<p class="alldone">&#10003; All ' + c.total + " tasks complete</p>";
+    h += '<div class="remaining-head">Next work &mdash; ' + (prog.hasTasks ? remaining.length + " of " + prog.total + " outstanding" : "no tasks defined") + "</div>";
+    if (!prog.hasTasks) {
+      h += '<p class="alldone">No tasks defined</p>';
+    } else if (remaining.length === 0) {
+      h += '<p class="alldone">&#10003; All ' + prog.total + " tasks complete</p>";
     } else {
       h += '<div class="remaining-body"><ul class="tasks">';
       remaining.forEach((it) => {
@@ -1269,18 +1448,17 @@ const SUGGEST = {{.SuggestJSON}};
       });
       h += "</ul></div>";
     }
-    h += "</div>"; /* remaining */
-
-    /* ---- Tasks by phase ---- */
-    h += '<p class="eyebrow" style="margin-top:1.25rem">All tasks by phase</p>';
+    h += "</div>";
+    h += '<p class="eyebrow" style="margin-top:1.25rem">Tasks by phase</p>';
     (c.phases || []).forEach((p) => {
       const items = p.items || [];
       const d     = items.filter((i) => i.done).length;
       const phPct = items.length ? Math.round((d / items.length) * 100) : 0;
-      h += '<div class="phase-h">' +
+      const open = d < items.length ? " open" : "";
+      h += '<details class="phase-block"' + open + '><summary class="phase-h">' +
         '<h2>' + esc(p.number) + ". " + esc(p.name) + "</h2>" +
         '<span class="ct tnum">' + d + "/" + items.length + " &middot; " + phPct + "%</span>" +
-        "</div>";
+        "</summary>";
       h += '<div class="meter" style="margin:.2rem 0 .4rem"><span style="width:' + phPct + '%"></span></div>';
       h += '<ul class="tasks">';
       items.forEach((it) => {
@@ -1292,24 +1470,19 @@ const SUGGEST = {{.SuggestJSON}};
           kindTag(it) +
           '<span class="txt">' + esc(it.text) + "</span></li>";
       });
-      h += "</ul>";
+      h += "</ul></details>";
     });
-    h += "</div>"; /* .main */
-
-    /* ---- Rail ---- */
+    h += "</div>";
     h += '<aside class="rail">';
-
-    /* Progress panel */
     h += '<div class="panel">' +
       '<div class="panel-title"><span class="panel-title-label">Progress</span></div>' +
       '<div class="panel-body">' +
       '<div class="progress-big">' +
       '<span class="num">' + pct + '</span>' +
       '<span style="font-family:var(--font-mono);font-size:.9rem;color:var(--muted)">%</span>' +
-      '<p class="label">' + c.done + " / " + c.total + " tasks</p>" +
+      '<p class="label">' + progressLabel(c) + "</p>" +
       "</div>" +
       '<div class="meter" role="img" aria-label="' + pct + ' percent complete"><span style="width:' + pct + '%"></span></div>';
-
     if ((c.phases || []).length) {
       h += '<div class="chartwrap" style="height:' + (c.phases.length * 26 + 14) + 'px">' +
         '<canvas id="phasechart" role="img" aria-label="' + esc(phaseChartLabel(c)) + '"></canvas></div>';
@@ -1318,9 +1491,7 @@ const SUGGEST = {{.SuggestJSON}};
         return "<li>Phase " + esc(p.number) + " " + esc(p.name) + ": " + d + " of " + p.items.length + " done</li>";
       }).join("") + "</ul>";
     }
-    h += "</div></div>"; /* panel-body, panel */
-
-    /* Relationships panel */
+    h += "</div></div>";
     h += '<div class="panel">' +
       '<div class="panel-title"><span class="panel-title-label">Relationships</span></div>' +
       '<div class="panel-body">';
@@ -1328,14 +1499,171 @@ const SUGGEST = {{.SuggestJSON}};
     h += deps.length ? '<div class="chips">' + deps.map(chipLink).join("") + "</div>" : '<p class="none">Nothing &mdash; ready to start.</p>';
     h += '<p class="eyebrow">Blocks</p>';
     h += blks.length ? '<div class="chips">' + blks.map(chipLink).join("") + "</div>" : '<p class="none">Nothing downstream.</p>';
-    h += "</div></div>"; /* panel-body, panel */
-
+    h += "</div></div>";
     h += "</aside>";
-    h += "</div>"; /* .doclayout */
-    h += "</div>"; /* .doc */
+    h += "</div>";
+    h += "</div>";
+    return h;
+  }
+
+  /* ---- inline board selection ---- */
+  function selectInline(name) {
+    destroyChart();
+    inlineSelected = (inlineSelected === name) ? null : name;
+    updateOverviewContent();
+  }
+  window.__specutil_clearInline = () => { destroyChart(); inlineSelected = null; updateOverviewContent(); };
+
+  function updateOverviewContent() {
+    const area = document.getElementById("overview-content");
+    if (!area) return;
+    document.querySelectorAll(".bcard[data-change]").forEach((btn) => {
+      btn.classList.toggle("selected", btn.getAttribute("data-change") === inlineSelected);
+    });
+    if (inlineSelected && byName.has(inlineSelected)) {
+      area.innerHTML = '<button class="back" onclick="window.__specutil_clearInline()">&#9664; All workstreams</button>' +
+        renderDetailBody(inlineSelected);
+      const c = byName.get(inlineSelected);
+      if ((c.phases || []).length) initPhaseChart(c);
+    } else {
+      area.innerHTML = renderRegisterHTML();
+    }
+  }
+
+  function renderOverview() {
+    const tally = { active: 0, proposed: 0, archived: 0 };
+    let done = 0, total = 0;
+    changes.forEach((c) => {
+      const p = progressOf(c);
+      tally[c.lifecycle] = (tally[c.lifecycle] || 0) + 1;
+      done += p.done; total += p.total;
+    });
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    const novelCands = novelCandidateGroups();
+
+    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.75rem">Workstreams</h1>';
+    h += '<div class="tally">' +
+      stat(tally.active,   "active")   +
+      stat(tally.proposed, "proposed") +
+      stat(tally.archived, "archived") +
+      '<div class="stat rollup"><b class="tnum">' + done + '<span style="font-size:.6em;font-weight:400;color:var(--muted)">/' + total + '</span></b><span>tasks &middot; ' + pct + '%</span></div>' +
+      (novelCands.length ? '<a class="stat" href="#/graph" style="text-decoration:none;border-style:dashed;cursor:pointer">' +
+        '<b class="tnum">' + novelCands.length + '</b><span>suggested edges</span></a>' : "") +
+      "</div>";
+
+    if (hasDag()) {
+      h += '<section class="overview-graph">' +
+        '<div class="overview-graph-head"><b>Dependency graph</b><a class="btn" href="#/graph">Expand</a></div>' +
+        '<div class="dagwrap"></div></section>';
+    }
+
+    /* Board columns — clicking a card narrows the content area below */
+    h += '<div class="board" id="overview-board">';
+    LIFECYCLES.forEach((lc) => {
+      const col = changes.filter((c) => c.lifecycle === lc);
+      h += '<section class="col">' +
+        '<header><span class="badge ' + lc + '">' + lc + '</span><span class="ct">' + col.length + "</span></header>" +
+        '<div class="col-body">';
+      if (!col.length) {
+        h += '<p class="empty-col">None</p>';
+      } else {
+        col.forEach((c) => {
+          const p = progressOf(c);
+          h += '<button class="bcard" data-change="' + esc(c.name) + '">' +
+            "<h3>" + esc(c.name) + "</h3>" +
+            '<div class="meter" style="margin:.3rem 0 .2rem"><span style="width:' + p.pct + '%"></span></div>' +
+            '<p class="sub tnum">' + progressLabel(c) + " &middot; " + ((c.phases || []).length) + " ph</p>" +
+            "</button>";
+        });
+      }
+      h += "</div></section>";
+    });
+    h += "</div>";
+
+    /* Content area: register by default, detail panel when a card is selected */
+    h += '<div id="overview-content"></div>';
 
     view.innerHTML = h;
-    if (sel) sel.value = single ? "__overview__" : name;
+
+    if (hasDag()) {
+      const slot = view.querySelector(".overview-graph .dagwrap");
+      if (slot) mountDag(slot);
+    }
+
+    document.querySelectorAll(".bcard[data-change]").forEach((btn) => {
+      btn.addEventListener("click", () => selectInline(btn.getAttribute("data-change")));
+    });
+
+    updateOverviewContent();
+    if (sel) sel.value = "__overview__";
+    afterRender();
+  }
+
+  function renderGraph() {
+    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.75rem">Dependency Graph</h1>';
+    h += '<div class="graph-shell">' +
+      '<aside class="graph-tools"><h2><span>Controls</span></h2><div class="graph-tools-body">' +
+      '<div class="control-group"><b>Graph mode</b><p class="metric">Depth DAG</p></div>' +
+      '<div class="control-group"><b>Show</b>' +
+      '<label class="checkline"><input type="checkbox" checked disabled> Confirmed edges</label>' +
+      '<label class="checkline"><input type="checkbox" checked disabled> Suggested edges</label>' +
+      '<label class="checkline"><input type="checkbox" checked disabled> Diagnostics</label></div>' +
+      '<div class="control-group"><b>Legend</b>' +
+      '<p><span class="badge active">active</span></p>' +
+      '<p><span class="badge proposed">proposed</span></p>' +
+      '<p><span class="badge archived">archived</span></p></div>' +
+      '</div></aside>' +
+      '<section class="graph-workbench">';
+    if (hasDag()) {
+      h += '<div class="dagwrap" aria-describedby="graph-help"></div>' +
+        '<p id="graph-help" class="metric" style="padding:.5rem .75rem;border-top:1px solid var(--line)">Arrows point from prerequisite to dependent. Focus or hover a node to inspect immediate relationships.</p>';
+    } else {
+      h += '<div class="graph-empty">No confirmed cross-change dependencies in <code>openspec/specutil.yaml</code>.</div>';
+    }
+    h += '</section>' +
+      '<aside class="graph-inspector"><h2><span>Inspector</span></h2><div class="graph-inspector-body" id="graph-inspector-body">' +
+      '<p class="empty" style="margin-top:0">Focus a node to inspect its progress and relationships.</p>' +
+      '</div></aside></div>';
+
+    /* ---- Suggested edges (always shown when present) ---- */
+    const novel = novelCandidateGroups();
+    if (novel.length) {
+      h += '<div class="suggest-panel">';
+      h += '<div class="suggest-head">&#9670; Suggested edges (' + novel.length + ') &mdash; inferred from shared capabilities</div>';
+      h += '<div class="suggest-body"><table class="suggest-table">' +
+        '<thead><tr><th>From (prerequisite)</th><th>To (dependent)</th><th>Shared capabilities</th><th>Add to specutil.yaml</th></tr></thead><tbody>';
+      novel.forEach((c) => {
+        const snippet = esc(manifestSnippet(c));
+        h += '<tr>' +
+          '<td>' + chipLink(c.from) + "</td>" +
+          '<td>' + chipLink(c.to) + "</td>" +
+          '<td>' + c.capabilities.map((cap) => '<code>' + esc(cap) + '</code>').join(" ") + "</td>" +
+          '<td><code style="font-size:10px;white-space:pre">' + snippet + "</code></td>" +
+          "</tr>";
+      });
+      h += "</tbody></table></div></div>";
+    }
+
+    view.innerHTML = h;
+    if (hasDag()) { const slot = view.querySelector(".dagwrap"); if (slot) mountDag(slot); }
+    if (sel) sel.value = "__graph__";
+    afterRender();
+  }
+
+  function kindTag(it) {
+    const k = it.kind;
+    if (!k || k === "task") return "";
+    return '<span class="kind ' + esc(k) + '" title="' + esc(k) + ' step">' + esc(k) + "</span>";
+  }
+
+  function renderDetail(name) {
+    const c = byName.get(name);
+    if (!c) { renderOverview(); return; }
+    let h = "";
+    if (!single) h += '<a class="back" href="#/">&#9664; All workstreams</a>';
+    h += renderDetailBody(name);
+    view.innerHTML = h;
+    if (sel) sel.value = name;
     afterRender();
     if ((c.phases || []).length) initPhaseChart(c);
   }
@@ -1344,15 +1672,14 @@ const SUGGEST = {{.SuggestJSON}};
   let currentRoute = "/";
   function route() {
     destroyChart();
+    inlineSelected = null;
     if (changes.length === 0) { currentRoute = "/"; renderEmpty(); return; }
-    if (single) { currentRoute = "/c"; renderDetail(changes[0].name); return; }
     const h = location.hash.replace(/^#/, "");
     const m = h.match(/^\/c\/(.+)$/);
     if (m) {
       const name = decodeURIComponent(m[1]);
       if (byName.has(name)) { currentRoute = "/c/" + name; renderDetail(name); return; }
     }
-    if (h === "/board") { currentRoute = "/board"; renderBoard(); return; }
     if (h === "/graph") { currentRoute = "/graph"; renderGraph(); return; }
     currentRoute = "/"; renderOverview();
   }
@@ -1364,16 +1691,15 @@ const SUGGEST = {{.SuggestJSON}};
     document.querySelectorAll(".tabs a").forEach((a) => {
       const r  = a.getAttribute("data-route");
       const on = (r === "/" && currentRoute === "/") ||
-                 (r === "/board" && currentRoute === "/board") ||
                  (r === "/graph" && currentRoute === "/graph");
       a.classList.toggle("on", !!on);
     });
   }
 
-  if (multi) {
+  if (changes.length) {
     const tabs = document.createElement("nav");
     tabs.className = "tabs";
-    [["/", "Overview"], ["/board", "Board"], ["/graph", "Graph"]].forEach(([r, label]) => {
+    [["/", "Overview"], ["/graph", "Graph"]].forEach(([r, label]) => {
       const a = document.createElement("a");
       a.href = "#" + r; a.textContent = label; a.setAttribute("data-route", r);
       tabs.appendChild(a);
@@ -1381,55 +1707,21 @@ const SUGGEST = {{.SuggestJSON}};
     right.appendChild(tabs);
   }
 
-  /* Theme toggle */
-  const toggle = document.createElement("button");
-  toggle.className = "toggle"; toggle.type = "button";
-  toggle.setAttribute("aria-label", "Toggle color theme");
-  function currentMode() {
-    try { return localStorage.getItem("specutil-theme") || "auto"; } catch (e) { return "auto"; }
-  }
-  function applyMode(mode) {
-    if (mode === "auto") document.documentElement.removeAttribute("data-theme");
-    else document.documentElement.setAttribute("data-theme", mode);
-    try { localStorage.setItem("specutil-theme", mode); } catch (e) {}
-    const glyph = mode === "light" ? "&#9728;" : mode === "dark" ? "&#9789;" : "&#9681;";
-    const label = mode === "auto" ? "Auto" : mode.charAt(0).toUpperCase() + mode.slice(1);
-    toggle.innerHTML = glyph + " " + label;
-    if (window.__chart && window.__chartChange) {
-      const c = byName.get(window.__chartChange); destroyChart(); if (c) initPhaseChart(c);
-    }
-  }
-  toggle.addEventListener("click", () => {
-    const order = ["auto", "light", "dark"];
-    applyMode(order[(order.indexOf(currentMode()) + 1) % order.length]);
-  });
-  applyMode(currentMode());
-  right.appendChild(toggle);
-
-  if (window.matchMedia) {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const onSys = () => {
-      if (currentMode() === "auto" && window.__chart && window.__chartChange) {
-        const c = byName.get(window.__chartChange); destroyChart(); if (c) initPhaseChart(c);
-      }
-    };
-    if (mq.addEventListener) mq.addEventListener("change", onSys);
-    else if (mq.addListener) mq.addListener(onSys);
-  }
-
-  if (multi) {
+  if (changes.length) {
     sel = document.createElement("select");
     sel.setAttribute("aria-label", "Jump to a workstream");
     const o0 = document.createElement("option");
     o0.value = "__overview__"; o0.textContent = "Overview";
     sel.appendChild(o0);
+    const og = document.createElement("option");
+    og.value = "__graph__"; og.textContent = "Graph";
+    sel.appendChild(og);
     changes.forEach((c) => {
       const o = document.createElement("option"); o.value = c.name; o.textContent = c.name; sel.appendChild(o);
     });
     sel.addEventListener("change", () => {
       const v = sel.value;
       location.hash = v === "__overview__" ? "#/" :
-                      v === "__board__"    ? "#/board" :
                       v === "__graph__"    ? "#/graph" :
                                             "#/c/" + encodeURIComponent(v);
     });
@@ -1437,11 +1729,12 @@ const SUGGEST = {{.SuggestJSON}};
   }
 
   /* ---- diagnostics banner ---- */
-  if (diags.length) {
+  const bannerIssues = diags.concat(feedIssues);
+  if (bannerIssues.length) {
     const b     = document.getElementById("diag-banner");
-    const kinds = Array.from(new Set(diags.map((d) => d.kind))).join(", ");
-    b.innerHTML = "<b>Manifest problems (" + esc(kinds) + "):</b><ul>" +
-      diags.map((d) => "<li>" + esc(d.msg) + "</li>").join("") + "</ul>";
+    const kinds = Array.from(new Set(bannerIssues.map((d) => d.kind))).join(", ");
+    b.innerHTML = "<b>Data problems (" + esc(kinds) + "):</b><ul>" +
+      bannerIssues.map((d) => "<li>" + esc(d.msg) + "</li>").join("") + "</ul>";
     b.hidden = false;
   }
 

@@ -172,8 +172,8 @@ specutil serve [-o output.html] [--open=false]
 The page is a single self-contained HTML file:
 - Cross-change dependency DAG as binary-rendered inline SVG
 - Per-change progress, remaining tasks, per-phase chart
-- Overview / Board / Graph views
-- Data inlined; Pico CSS + Chart.js loaded from a version-pinned, SRI-protected CDN at view time
+- Unified overview with lifecycle board columns — click a card to inline-expand its full detail; Graph view for the full DAG workbench with node inspector
+- Data inlined; Chart.js loaded from a version-pinned, SRI-protected CDN at view time
 - Binary performs zero network I/O
 
 ## OpenSpec Integration
