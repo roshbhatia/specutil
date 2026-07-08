@@ -51,10 +51,23 @@ type Item struct {
 	// Kind is the verify/apply/confirm discipline classification carried from the
 	// IR ("task" for plain items), so visualizers can mark impactful and
 	// confirmation steps without re-parsing the source markdown.
-	Kind  string `json:"kind"`
-	Level int    `json:"level"`
-	Key   string `json:"key"`
+	Kind         string        `json:"kind"`
+	Level        int           `json:"level"`
+	Key          string        `json:"key"`
+	ExternalRefs []ExternalRef `json:"externalRefs,omitempty"`
 }
+
+// ExternalRef is a confirmed mapping from a task to an external system record
+// (e.g. a Linear issue or Notion page) written by `specutil lock set`.
+type ExternalRef struct {
+	Target     string `json:"target"`
+	ExternalID string `json:"externalId"`
+}
+
+// RefsByKey maps a composite key (changeName + "\x00" + phaseName + "\x00" +
+// itemText) to the external refs confirmed for that item. Built by the caller
+// from the per-change lockfiles so the detail package stays free of sync deps.
+type RefsByKey map[string][]ExternalRef
 
 // levelKey renders the (level, sibling-index) pair as a compact handle: the
 // 0-based level followed by a letter (a..z), falling back to the raw index past
@@ -66,8 +79,12 @@ func levelKey(level, idx int) string {
 	return strconv.Itoa(level) + "x" + strconv.Itoa(idx)
 }
 
-// Build assembles the detail feed from the loaded changes.
-func Build(changes []*ir.Change) *Feed {
+// Build assembles the detail feed from the loaded changes with no external refs.
+func Build(changes []*ir.Change) *Feed { return BuildWithRefs(changes, nil) }
+
+// BuildWithRefs assembles the detail feed and annotates each task item with any
+// confirmed external references from refs. refs may be nil (no-op).
+func BuildWithRefs(changes []*ir.Change, refs RefsByKey) *Feed {
 	out := make([]Change, 0, len(changes))
 	for _, c := range changes {
 		done, total := lifecycle.Progress(c)
@@ -86,13 +103,18 @@ func Build(changes []*ir.Change) *Feed {
 			for pi, p := range c.Tasks.Phases {
 				ph := Phase{Number: p.Number, Name: p.Name, Items: []Item{}}
 				for ii, it := range p.Items {
-					ph.Items = append(ph.Items, Item{
+					it2 := Item{
 						Text:  it.Text,
 						Done:  it.Done,
 						Kind:  string(it.Kind),
 						Level: pi,
 						Key:   levelKey(pi, ii),
-					})
+					}
+					if len(refs) > 0 {
+						key := c.Name + "\x00" + p.Name + "\x00" + it.Text
+						it2.ExternalRefs = refs[key]
+					}
+					ph.Items = append(ph.Items, it2)
 				}
 				dc.Phases = append(dc.Phases, ph)
 			}

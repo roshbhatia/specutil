@@ -141,6 +141,29 @@ func TestDagSVGEmptyWhenNothingToDraw(t *testing.T) {
 	}
 }
 
+func TestRenderInlinesExternalRefs(t *testing.T) {
+	// detail.Item.ExternalRefs must reach the page as part of the inlined detail
+	// JSON so the template can render "ENG-123" chips next to task keys.
+	d := &detail.Feed{Changes: []detail.Change{
+		{Name: "db", Lifecycle: "active", Phases: []detail.Phase{
+			{Number: "1", Name: "Setup", Items: []detail.Item{
+				{Text: "init", Key: "0a", ExternalRefs: []detail.ExternalRef{
+					{Target: "linear", ExternalID: "ENG-42"},
+				}},
+			}},
+		}},
+	}}
+	out, err := Render(nil, d, nil, nil)
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	for _, want := range []string{"ENG-42", "externalRefs", "linear"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("rendered page missing external ref %q", want)
+		}
+	}
+}
+
 func TestDagSVGEscapesLabels(t *testing.T) {
 	g := &graph.Graph{
 		Nodes: []graph.Node{{ID: "x", Label: "<b>x"}, {ID: "y", Label: "y"}},

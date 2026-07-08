@@ -852,6 +852,20 @@ ul.tasks li.done .txt { color: var(--muted); text-decoration: line-through; text
 .kind.apply   { background: var(--lc-active-bg);   color: var(--lc-active-ink);   border-color: var(--lc-active-line); }
 .kind.confirm { background: var(--lc-archived-bg); color: var(--lc-archived-ink); border-color: var(--lc-archived-line); }
 
+/* External ticket reference chips (e.g. "linear:ENG-123") */
+.ext-ref {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 1px 5px;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 /* Phase header */
 .phase-block {
   margin-top: 1rem;
@@ -1444,6 +1458,7 @@ const SUGGEST = {{.SuggestJSON}};
           '<span class="glyph todo" aria-hidden="true">&#9744;</span>' +
           '<span class="key">' + esc(it.key) + "</span>" +
           kindTag(it) +
+          extRefChips(it) +
           '<span class="txt">' + esc(it.text) + "</span></li>";
       });
       h += "</ul></div>";
@@ -1468,6 +1483,7 @@ const SUGGEST = {{.SuggestJSON}};
           '<span class="sr-only">' + (it.done ? "Done: " : "To do: ") + "</span>" +
           '<span class="key">' + esc(it.key) + "</span>" +
           kindTag(it) +
+          extRefChips(it) +
           '<span class="txt">' + esc(it.text) + "</span></li>";
       });
       h += "</ul></details>";
@@ -1654,6 +1670,12 @@ const SUGGEST = {{.SuggestJSON}};
     const k = it.kind;
     if (!k || k === "task") return "";
     return '<span class="kind ' + esc(k) + '" title="' + esc(k) + ' step">' + esc(k) + "</span>";
+  }
+
+  function extRefChips(it) {
+    const refs = it.externalRefs;
+    if (!refs || !refs.length) return "";
+    return refs.map((r) => '<span class="ext-ref" title="' + esc(r.target) + '">' + esc(r.externalId) + "</span>").join("");
   }
 
   function renderDetail(name) {

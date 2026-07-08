@@ -438,7 +438,35 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	g, diags := graph.Build(changes, manifest)
-	html, err := web.Render(g, detail.Build(changes), diags, graph.Suggest(changes))
+
+	// Build the external-ref map from per-change lockfiles. Missing or unreadable
+	// lockfiles are silently skipped — serve never fails over a missing lock.
+	refs := make(detail.RefsByKey)
+	for _, c := range changes {
+		if c.Tasks == nil {
+			continue
+		}
+		lock, lerr := syncplan.LoadLock(repo, c.Name)
+		if lerr != nil {
+			continue
+		}
+		for _, p := range c.Tasks.Phases {
+			for _, it := range p.Items {
+				identity := syncplan.Identity(p.Name, it.Text)
+				for target, ns := range lock.Targets {
+					if ref, ok := ns[identity]; ok && ref.ExternalID != "" {
+						key := c.Name + "\x00" + p.Name + "\x00" + it.Text
+						refs[key] = append(refs[key], detail.ExternalRef{
+							Target:     target,
+							ExternalID: ref.ExternalID,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	html, err := web.Render(g, detail.BuildWithRefs(changes, refs), diags, graph.Suggest(changes))
 	if err != nil {
 		return err
 	}
