@@ -17,7 +17,7 @@ func TestRenderInlinesFeeds(t *testing.T) {
 		{Name: "db", Lifecycle: "active", Done: 1, Total: 2},
 		{Name: "api", Lifecycle: "proposed", Done: 0, Total: 3},
 	}}
-	out, err := Render(g, d, nil)
+	out, err := Render(g, d, nil, nil)
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
@@ -44,8 +44,8 @@ func TestRenderInlinesFeeds(t *testing.T) {
 }
 
 func TestRenderNilArgs(t *testing.T) {
-	if _, err := Render(nil, nil, nil); err != nil {
-		t.Fatalf("Render(nil, nil, nil) should not error: %v", err)
+	if _, err := Render(nil, nil, nil, nil); err != nil {
+		t.Fatalf("Render(nil, nil, nil, nil) should not error: %v", err)
 	}
 }
 
@@ -54,7 +54,7 @@ func TestRenderInlinesDiagnostics(t *testing.T) {
 	// health banner can surface a broken manifest instead of discarding it.
 	g := &graph.Graph{Nodes: []graph.Node{{ID: "a"}, {ID: "b"}}}
 	diags := []graph.Diagnostic{{Kind: "cycle", Msg: "dependency cycle: a -> b -> a"}}
-	out, err := Render(g, &detail.Feed{}, diags)
+	out, err := Render(g, &detail.Feed{}, diags, nil)
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestRenderEscapesScriptBreakout(t *testing.T) {
 	// break out of the inlined <script> data island. json.Marshal escapes < > &.
 	g := &graph.Graph{Nodes: []graph.Node{{ID: "x", Label: "</script><b>"}}}
 	d := &detail.Feed{Changes: []detail.Change{{Name: "</script><b>", Lifecycle: "proposed"}}}
-	out, err := Render(g, d, nil)
+	out, err := Render(g, d, nil, nil)
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}

@@ -438,7 +438,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	g, diags := graph.Build(changes, manifest)
-	html, err := web.Render(g, detail.Build(changes), diags)
+	html, err := web.Render(g, detail.Build(changes), diags, graph.Suggest(changes))
 	if err != nil {
 		return err
 	}

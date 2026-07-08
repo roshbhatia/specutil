@@ -29,10 +29,11 @@ var assets embed.FS
 // json.Marshal already escapes <, >, & in the data literals, and DagSVG is
 // assembled from html.EscapeString'd labels below.
 type page struct {
-	GraphJSON  string // the graph.json feed, embedded as a JS literal
-	DetailJSON string // the detail.json feed, embedded as a JS literal
-	DiagJSON   string // manifest diagnostics, embedded as a JS literal (may be [])
-	DagSVG     string // inline cross-change DAG; empty unless 2+ changes have edges
+	GraphJSON     string // the graph.json feed, embedded as a JS literal
+	DetailJSON    string // the detail.json feed, embedded as a JS literal
+	DiagJSON      string // manifest diagnostics, embedded as a JS literal (may be [])
+	SuggestJSON   string // graph --suggest candidates, embedded as a JS literal (may be [])
+	DagSVG        string // inline cross-change DAG; empty unless 2+ changes have edges
 }
 
 // Render returns a self-contained HTML document visualizing g, drilling into the
@@ -40,8 +41,10 @@ type page struct {
 // renderer-independent schemas as graph.json / detail.json, so the data contract
 // is shared with every other consumer. diags surfaces manifest problems (cycles,
 // dangling references) in a health banner so a broken manifest is visible rather
-// than discarded. d may be nil; diags may be empty.
-func Render(g *graph.Graph, d *detail.Feed, diags []graph.Diagnostic) ([]byte, error) {
+// than discarded. candidates are the auto-inferred suggest edges shown in the UI
+// so users don't have to run graph --suggest manually. d may be nil; diags and
+// candidates may be empty.
+func Render(g *graph.Graph, d *detail.Feed, diags []graph.Diagnostic, candidates []graph.Candidate) ([]byte, error) {
 	if g == nil {
 		g = &graph.Graph{Nodes: []graph.Node{}, Edges: []graph.Edge{}}
 	}
@@ -50,6 +53,9 @@ func Render(g *graph.Graph, d *detail.Feed, diags []graph.Diagnostic) ([]byte, e
 	}
 	if diags == nil {
 		diags = []graph.Diagnostic{}
+	}
+	if candidates == nil {
+		candidates = []graph.Candidate{}
 	}
 	// json.Marshal escapes <, >, & by default, so the literals are safe to inline
 	// inside a <script> block without breaking out of it.
@@ -65,6 +71,10 @@ func Render(g *graph.Graph, d *detail.Feed, diags []graph.Diagnostic) ([]byte, e
 	if err != nil {
 		return nil, fmt.Errorf("encoding diagnostics: %w", err)
 	}
+	suggestData, err := json.Marshal(candidates)
+	if err != nil {
+		return nil, fmt.Errorf("encoding suggestions: %w", err)
+	}
 
 	tmplSrc, err := assets.ReadFile("assets/page.html.tmpl")
 	if err != nil {
@@ -77,10 +87,11 @@ func Render(g *graph.Graph, d *detail.Feed, diags []graph.Diagnostic) ([]byte, e
 
 	var buf bytes.Buffer
 	err = tmpl.Execute(&buf, page{
-		GraphJSON:  string(graphData),
-		DetailJSON: string(detailData),
-		DiagJSON:   string(diagData),
-		DagSVG:     dagSVG(g, lifecycleByName(d)),
+		GraphJSON:   string(graphData),
+		DetailJSON:  string(detailData),
+		DiagJSON:    string(diagData),
+		SuggestJSON: string(suggestData),
+		DagSVG:      dagSVG(g, lifecycleByName(d)),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("executing template: %w", err)

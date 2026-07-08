@@ -4,9 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>specutil</title>
-<!-- Pre-paint theme: apply a stored override before the stylesheet so the page
-     never flashes the wrong theme. With no override we leave data-theme unset and
-     fall back to prefers-color-scheme (handled in CSS, and honored by Pico). -->
 <script>
 (function () {
   try {
@@ -15,260 +12,954 @@
   } catch (e) {}
 })();
 </script>
-<!-- Runtime deps load from a pinned, SRI-protected CDN (no vendored/committed
-     bundles). The binary still performs zero network I/O — it only writes this
-     static file. onerror flags a CDN miss so the page can warn instead of
-     silently rendering blank/unstyled when opened offline. -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css" integrity="sha384-7P0NVe9LPDbUCAF+fH2R8Egwz1uqNH83Ns/bfJY0fN2XCDBMUI2S9gGzIOIRBKsA" crossorigin="anonymous" onerror="(window.__cdnFail=window.__cdnFail||[]).push('pico')">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" integrity="sha384-vsrfeLOOY6KuIYKDlmVH5UiBmgIdB1oEf7p01YgWHuqmOHfZr374+odEv96n9tNC" crossorigin="anonymous" onerror="(window.__cdnFail=window.__cdnFail||[]).push('chart')"></script>
 <style>
-  /* ---- Theme tokens. Light is the default; dark applies either when the OS
-     prefers it (and no explicit light override) or when data-theme="dark" is
-     forced. Every color below is a variable so the SVG graph, the chart, and the
-     board all track the theme with no per-component duplication. ---- */
-  :root {
-    --bg: #ffffff;
-    --surface: #ffffff;
-    --surface-2: #f8fafc;
-    --ink: #0f172a;
-    --muted: #64748b;
-    --line: #e5e7eb;
-    --line-strong: #cbd5e1;
-    --track: #e2e8f0;
-    --accent: #2563eb;
-    --code-bg: #f1f5f9;
-    --code-ink: #475569;
+/* ================================================================
+   SPECUTIL — system.css-inspired theme
+   Flat 2px hard shadows, stripe title bars, monochrome with accent.
+   Light by default (authentic to classic Mac); dark via override.
+   ================================================================ */
 
-    --lc-proposed-bg: #f1f5f9; --lc-proposed-ink: #475569; --lc-proposed-line: #e2e8f0;
-    --lc-active-bg:   #fef3c7; --lc-active-ink:   #b45309; --lc-active-line:   #fde68a;
-    --lc-archived-bg: #dcfce7; --lc-archived-ink: #15803d; --lc-archived-line: #bbf7d0;
+:root {
+  /* Base palette — strictly monochrome + status accents */
+  --bg:        #c0c0c0;      /* Mac OS window chrome / desktop */
+  --content:   #ffffff;      /* content area fill */
+  --surface-2: #f0f0f0;      /* secondary surface (inset panels) */
+  --ink:       #000000;
+  --muted:     #666666;
+  --line:      #888888;
+  --line-dark: #000000;
+  --hi:        #ffffff;      /* bevel highlight */
+  --shadow-color: #000000;
 
-    --done: #15803d;
-    --node-bg: var(--surface);
-    --node-stroke: var(--line-strong);
-    --edge: #94a3b8;
+  /* Selection / accent */
+  --accent:    #0055ff;
+  --accent-on: #ffffff;
 
-    --warn-bg: #fef3c7; --warn-line: #fde68a; --warn-ink: #92400e;
-    --danger-bg: #fee2e2; --danger-line: #fecaca; --danger-ink: #b91c1c;
+  /* Lifecycle palette — accent color but staying true to Mac feel */
+  --lc-proposed-bg:   #e8eeff; --lc-proposed-ink: #002299; --lc-proposed-line: #6688cc;
+  --lc-active-bg:     #fff3cc; --lc-active-ink:   #885500; --lc-active-line:   #ccaa33;
+  --lc-archived-bg:   #e0f5e0; --lc-archived-ink: #005500; --lc-archived-line: #44aa44;
+
+  --done:   #006600;
+  --danger: #cc0022;
+
+  /* DAG */
+  --node-bg:     var(--content);
+  --node-stroke: var(--ink);
+  --edge:        #666666;
+
+  /* Banners */
+  --warn-bg:    #fff3cc; --warn-line:   #ccaa33; --warn-ink:   #885500;
+  --danger-bg:  #ffe8e8; --danger-line: #cc6666; --danger-ink: #880000;
+
+  /* Type */
+  --font-ui:   -apple-system, BlinkMacSystemFont, "Geneva", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Monaco", "Menlo", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  /* System.css signature: flat 2px hard shadow, no blur */
+  --hard-shadow: 2px 2px 0 var(--shadow-color);
+  --hard-shadow-sm: 1px 1px 0 var(--shadow-color);
+
+  /* Stripe title bar — alternating 1px black / 1px white */
+  --stripe: linear-gradient(var(--ink) 50%, transparent 50%);
+  --stripe-size: 100% 2px;
+}
+
+/* Dark override — "dark system" (inverted Mac tones) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:        #1a1a1a;
+    --content:   #2a2a2a;
+    --surface-2: #222222;
+    --ink:       #e8e8e8;
+    --muted:     #999999;
+    --line:      #555555;
+    --line-dark: #888888;
+    --hi:        #3d3d3d;
+    --shadow-color: #000000;
+    --accent:    #4488ff;
+    --accent-on: #ffffff;
+    --lc-proposed-bg: #0c1a3a; --lc-proposed-ink: #88aaff; --lc-proposed-line: #224488;
+    --lc-active-bg:   #1a1200; --lc-active-ink:   #ffcc44; --lc-active-line:   #664400;
+    --lc-archived-bg: #001a00; --lc-archived-ink: #44cc44; --lc-archived-line: #226622;
+    --done:   #44cc44;
+    --danger: #ff4466;
+    --node-bg: var(--content); --node-stroke: var(--ink); --edge: #666666;
+    --warn-bg:   #1a1200; --warn-line:   #664400; --warn-ink:   #ffcc44;
+    --danger-bg: #1a0008; --danger-line: #880033; --danger-ink: #ff6688;
+    --stripe: linear-gradient(var(--ink) 50%, transparent 50%);
+    --stripe-size: 100% 2px;
   }
-  /* Dark via system preference (unless the user forced light). */
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #0b1120; --surface: #111827; --surface-2: #0f172a;
-      --ink: #e2e8f0; --muted: #94a3b8; --line: #1f2937; --line-strong: #334155;
-      --track: #1f2937; --accent: #60a5fa; --code-bg: #1e293b; --code-ink: #cbd5e1;
-      --lc-proposed-bg: #1e293b; --lc-proposed-ink: #cbd5e1; --lc-proposed-line: #334155;
-      --lc-active-bg:   #422006; --lc-active-ink:   #fbbf24; --lc-active-line:   #854d0e;
-      --lc-archived-bg: #052e16; --lc-archived-ink: #4ade80; --lc-archived-line: #166534;
-      --done: #4ade80; --node-bg: #1e293b; --node-stroke: #334155; --edge: #475569;
-      --warn-bg: #422006; --warn-line: #854d0e; --warn-ink: #fbbf24;
-      --danger-bg: #450a0a; --danger-line: #7f1d1d; --danger-ink: #fca5a5;
-    }
-  }
-  /* Dark forced by the toggle. */
-  :root[data-theme="dark"] {
-    --bg: #0b1120; --surface: #111827; --surface-2: #0f172a;
-    --ink: #e2e8f0; --muted: #94a3b8; --line: #1f2937; --line-strong: #334155;
-    --track: #1f2937; --accent: #60a5fa; --code-bg: #1e293b; --code-ink: #cbd5e1;
-    --lc-proposed-bg: #1e293b; --lc-proposed-ink: #cbd5e1; --lc-proposed-line: #334155;
-    --lc-active-bg:   #422006; --lc-active-ink:   #fbbf24; --lc-active-line:   #854d0e;
-    --lc-archived-bg: #052e16; --lc-archived-ink: #4ade80; --lc-archived-line: #166534;
-    --done: #4ade80; --node-bg: #1e293b; --node-stroke: #334155; --edge: #475569;
-    --warn-bg: #422006; --warn-line: #854d0e; --warn-ink: #fbbf24;
-    --danger-bg: #450a0a; --danger-line: #7f1d1d; --danger-ink: #fca5a5;
-  }
+}
+:root[data-theme="dark"] {
+  --bg:        #1a1a1a;
+  --content:   #2a2a2a;
+  --surface-2: #222222;
+  --ink:       #e8e8e8;
+  --muted:     #999999;
+  --line:      #555555;
+  --line-dark: #888888;
+  --hi:        #3d3d3d;
+  --shadow-color: #000000;
+  --accent:    #4488ff;
+  --accent-on: #ffffff;
+  --lc-proposed-bg: #0c1a3a; --lc-proposed-ink: #88aaff; --lc-proposed-line: #224488;
+  --lc-active-bg:   #1a1200; --lc-active-ink:   #ffcc44; --lc-active-line:   #664400;
+  --lc-archived-bg: #001a00; --lc-archived-ink: #44cc44; --lc-archived-line: #226622;
+  --done:   #44cc44;
+  --danger: #ff4466;
+  --node-bg: var(--content); --node-stroke: var(--ink); --edge: #666666;
+  --warn-bg:   #1a1200; --warn-line:   #664400; --warn-ink:   #ffcc44;
+  --danger-bg: #1a0008; --danger-line: #880033; --danger-ink: #ff6688;
+  --stripe: linear-gradient(var(--ink) 50%, transparent 50%);
+  --stripe-size: 100% 2px;
+}
 
-  html { font-size: 16px; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    color: var(--ink); background: var(--bg);
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: 66rem; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
-  h1, h2, h3 { letter-spacing: -0.011em; font-weight: 600; line-height: 1.2; color: var(--ink); }
-  h1 { font-size: 2rem; letter-spacing: -0.02em; margin: 0 0 .25rem; }
-  h2 { font-size: 1.375rem; margin: 2rem 0 .5rem; }
-  h3 { font-size: 1.0625rem; margin: 0; }
-  h1:focus, h2:focus { outline: none; }
-  a { color: var(--accent); }
-  .tnum { font-variant-numeric: tabular-nums; }
+/* ---- Reset ---- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+*:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-  /* ---- App bar: brand, view tabs, theme toggle, jump select ---- */
-  .appbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .75rem 1rem; border-bottom: 1px solid var(--line); padding-bottom: .85rem; margin-bottom: 1.5rem; }
-  .appbar .brand { font-weight: 600; letter-spacing: -0.01em; color: inherit; text-decoration: none; font-size: 1.05rem; }
-  .appbar .right { display: flex; align-items: center; gap: .5rem; }
-  .appbar select { font-size: .875rem; padding: .25rem .5rem; border: 1px solid var(--line); border-radius: 8px; margin: 0; width: auto; background: var(--surface); color: var(--ink); }
-  .tabs { display: flex; gap: .25rem; }
-  .tabs a { font-size: .8125rem; font-weight: 500; padding: .3rem .7rem; border-radius: 8px; text-decoration: none; color: var(--muted); }
-  .tabs a:hover { background: var(--surface-2); color: var(--ink); }
-  .tabs a.on { background: var(--accent); color: #fff; }
-  .toggle { font: inherit; font-size: .8125rem; cursor: pointer; padding: .3rem .6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; gap: .35rem; width: auto; }
-  .toggle:hover { border-color: var(--line-strong); }
+/* ---- Layout ---- */
+.wrap { max-width: 70rem; margin: 0 auto; padding: 0 1rem 4rem; }
 
-  .eyebrow { font-size: .6875rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 1.75rem 0 .5rem; }
+/* ---- Typography ---- */
+h1 {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: -.01em;
+  line-height: 1.2;
+  color: var(--ink);
+  margin: 0 0 .25rem;
+}
+h2 {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.2;
+  color: var(--ink);
+  margin: 1.25rem 0 .4rem;
+}
+h3 {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: .875rem;
+  margin: 0;
+}
+h1:focus, h2:focus { outline: none; }
+.tnum { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+code {
+  font-family: var(--font-mono);
+  font-size: .8em;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  padding: .05em .3em;
+  color: var(--ink);
+}
 
-  .badge { display: inline-block; font-size: .6875rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: .125rem .5rem; border-radius: 6px; border: 1px solid transparent; vertical-align: middle; }
-  .badge.proposed { background: var(--lc-proposed-bg); color: var(--lc-proposed-ink); border-color: var(--lc-proposed-line); }
-  .badge.active   { background: var(--lc-active-bg);   color: var(--lc-active-ink);   border-color: var(--lc-active-line); }
-  .badge.archived { background: var(--lc-archived-bg); color: var(--lc-archived-ink); border-color: var(--lc-archived-line); }
+/* ================================================================
+   SYSTEM.CSS CORE PRIMITIVES
+   ================================================================ */
 
-  .meter { height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; margin: .5rem 0; }
-  .meter > span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
-  .metric { font-size: .9rem; color: var(--muted); margin: 0; }
+/* Window panel — the main visual unit.
+   Title bar uses the stripe pattern; content sits below it. */
+.win {
+  background: var(--content);
+  border: 1px solid var(--line-dark);
+  box-shadow: var(--hard-shadow);
+  border-radius: 0;
+  overflow: hidden;
+}
+.win-title {
+  background: var(--stripe);
+  background-size: var(--stripe-size);
+  background-color: var(--content);
+  padding: 3px 6px 3px 24px;    /* 24px left = space for close button area */
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 20px;
+  position: relative;
+  user-select: none;
+}
+/* Decorative close-button dot (purely cosmetic) */
+.win-title::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--ink);
+  background: var(--content);
+  box-shadow: var(--hard-shadow-sm);
+}
+.win-title-label {
+  background: var(--ink);
+  color: var(--content);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.win-title .badge {
+  margin-left: auto;
+}
+.win-body {
+  padding: .85rem 1rem;
+  background: var(--content);
+}
 
-  /* ---- Overview tally + cross-change roll-up ---- */
-  .tally { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
-  .stat { border: 1px solid var(--line); border-radius: 10px; padding: .65rem 1rem; min-width: 6rem; background: var(--surface); }
-  .stat b { display: block; font-size: 1.5rem; font-weight: 600; }
-  .stat span { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .stat.rollup { border-left: 3px solid var(--accent); }
+/* ---- Flat button (system.css style) ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 12px;
+  background: var(--content);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow);
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: none;
+}
+.btn:hover { background: var(--surface-2); text-decoration: none; }
+.btn:active, .btn.on {
+  background: var(--ink);
+  color: var(--content);
+  box-shadow: none;
+  transform: translate(2px, 2px);
+}
 
-  /* ---- Card grid (overview) ---- */
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: 1.25rem; margin-top: 1.5rem; }
-  .card { display: block; border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem; text-decoration: none; color: inherit; background: var(--surface); transition: border-color .12s, box-shadow .12s; }
-  .card:hover { border-color: var(--line-strong); box-shadow: 0 1px 2px rgba(2,6,23,.08); }
-  .card .row { display: flex; justify-content: space-between; align-items: start; gap: .5rem; }
-  .card .why { color: var(--muted); font-size: .875rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: .6rem 0 0; }
-  .card .sub { font-size: .8125rem; color: var(--muted); margin: .5rem 0 0; }
-  .card.lc-active   { border-top: 3px solid var(--lc-active-line); }
-  .card.lc-proposed { border-top: 3px solid var(--lc-proposed-line); }
-  .card.lc-archived { border-top: 3px solid var(--lc-archived-line); }
+/* ================================================================
+   APP BAR — classic Mac menu bar style
+   ================================================================ */
+.appbar {
+  background: var(--content);
+  border-bottom: 2px solid var(--ink);
+  padding: .5rem 0;
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+.appbar .brand {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: -.01em;
+  color: var(--ink);
+  text-decoration: none;
+  padding: 2px 8px;
+  border-right: 1px solid var(--line);
+}
+.appbar .brand:hover { background: var(--ink); color: var(--content); text-decoration: none; }
+.appbar .right { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; padding-right: 2px; }
+.appbar select {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  padding: 2px 6px;
+  border: 1px solid var(--ink);
+  background: var(--content);
+  color: var(--ink);
+  box-shadow: var(--hard-shadow-sm);
+  cursor: pointer;
+}
 
-  /* ---- Board: lifecycle columns ---- */
-  .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.5rem; align-items: start; }
-  .board .col { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: .85rem; min-height: 6rem; }
-  .board .col > header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; }
-  .board .col > header .ct { font-size: .8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .board .bcard { display: block; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: .75rem .85rem; margin-bottom: .65rem; text-decoration: none; color: inherit; }
-  .board .bcard:last-child { margin-bottom: 0; }
-  .board .bcard:hover { border-color: var(--line-strong); }
-  .board .bcard h3 { font-size: .95rem; }
-  .board .bcard .sub { font-size: .75rem; color: var(--muted); margin: .35rem 0 0; }
-  .board .empty-col { font-size: .8125rem; color: var(--muted); }
-  @media (max-width: 48rem) { .board { grid-template-columns: 1fr; } }
+/* ---- Nav tabs — look like menu items ---- */
+.tabs { display: flex; gap: 0; border-left: 1px solid var(--ink); }
+.tabs a {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 10px;
+  text-decoration: none;
+  color: var(--ink);
+  background: var(--content);
+  border-right: 1px solid var(--ink);
+}
+.tabs a:hover { background: var(--surface-2); text-decoration: none; }
+.tabs a.on { background: var(--ink); color: var(--content); }
 
-  /* ---- Graph view (full-width) + inline SVG theming ---- */
-  .dagwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; padding: .75rem; background: var(--surface); margin-top: 1rem; }
-  .dagwrap svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-  .dagwrap .nbox { fill: var(--node-bg); stroke: var(--node-stroke); transition: opacity .12s; }
-  .dagwrap .nlabel { fill: var(--ink); }
-  .dagwrap .lc-proposed .nbox { fill: var(--lc-proposed-bg); stroke: var(--lc-proposed-line); }
-  .dagwrap .lc-active   .nbox { fill: var(--lc-active-bg);   stroke: var(--lc-active-line); }
-  .dagwrap .lc-archived .nbox { fill: var(--lc-archived-bg); stroke: var(--lc-archived-line); }
-  .dagwrap .node { cursor: pointer; }
-  .dagwrap .node:focus { outline: none; }
-  .dagwrap .node:focus .nbox { stroke: var(--accent); stroke-width: 2; }
-  .dagwrap .edge { stroke: var(--edge); transition: opacity .12s; }
-  .dagwrap .arrow path { fill: var(--edge); }
-  /* CSS-only focus+context: hovering or targeting a node dims the rest so the
-     incident node stands out; a small JS enhancement (below) additionally lifts
-     its immediate neighbors and incident edges. Degrades to all-visible with no
-     CSS/JS. */
-  .dagwrap:hover .node:not(:hover) { opacity: .4; }
-  .dagwrap.emph .node:not(.lit) { opacity: .35; }
-  .dagwrap.emph .edge:not(.lit) { opacity: .2; }
-  .dagwrap .node.lit .nbox { stroke-width: 2; }
+/* ---- Theme toggle ---- */
+.toggle {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 10px;
+  border: 1px solid var(--ink);
+  background: var(--content);
+  color: var(--ink);
+  box-shadow: var(--hard-shadow-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  transition: none;
+}
+.toggle:hover { background: var(--surface-2); }
+.toggle:active { transform: translate(1px, 1px); box-shadow: none; }
 
-  /* ---- Two-column document: checklist main + sticky relationships rail ---- */
-  .doc { margin-top: .5rem; }
-  .doclayout { display: grid; grid-template-columns: 1fr 17rem; gap: 2rem; align-items: start; }
-  .doclayout .rail { position: sticky; top: 1rem; }
-  .rail .panel { border: 1px solid var(--line); border-radius: 12px; padding: 1rem; background: var(--surface); }
-  .rail .panel + .panel { margin-top: 1rem; }
-  .rail .eyebrow { margin-top: 0; }
-  @media (max-width: 52rem) { .doclayout { grid-template-columns: 1fr; } .doclayout .rail { position: static; } }
+/* ================================================================
+   SECTION LABELS
+   ================================================================ */
+.eyebrow {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 1.25rem 0 .5rem;
+  padding-bottom: .25rem;
+  border-bottom: 1px solid var(--line);
+}
 
-  .chartwrap { margin: .5rem 0; }
-  .remaining { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; padding: .5rem 1rem; background: var(--surface-2); }
-  .alldone { color: var(--done); font-weight: 600; }
+/* ================================================================
+   LIFECYCLE BADGES
+   ================================================================ */
+.badge {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.badge.proposed { background: var(--lc-proposed-bg); color: var(--lc-proposed-ink); border-color: var(--lc-proposed-line); }
+.badge.active   { background: var(--lc-active-bg);   color: var(--lc-active-ink);   border-color: var(--lc-active-line); }
+.badge.archived { background: var(--lc-archived-bg); color: var(--lc-archived-ink); border-color: var(--lc-archived-line); }
 
-  ul.tasks { list-style: none; padding: 0; margin: .35rem 0 0; }
-  ul.tasks li { display: flex; gap: .55rem; align-items: baseline; padding: .375rem 0; border-bottom: 1px solid var(--line); }
-  ul.tasks li:last-child { border-bottom: 0; }
-  ul.tasks li.done .txt { color: var(--muted); }
-  .key { flex: 0 0 auto; min-width: 2rem; text-align: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .75rem; background: var(--code-bg); color: var(--code-ink); border-radius: 5px; padding: .0625rem .375rem; }
-  .glyph { flex: 0 0 auto; width: 1.1rem; text-align: center; }
-  .glyph.done { color: var(--done); }
-  .glyph.todo { color: var(--muted); }
-  .txt { flex: 1; }
-  /* Task-kind markers: small uppercase tag distinguishing verify/apply/confirm
-     from plain work. Plain ("task") items get none. */
-  .kind { flex: 0 0 auto; font-size: .625rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: .0625rem .3rem; border-radius: 4px; border: 1px solid transparent; }
-  .kind.verify  { background: var(--lc-proposed-bg); color: var(--lc-proposed-ink); border-color: var(--lc-proposed-line); }
-  .kind.apply   { background: var(--lc-active-bg);   color: var(--lc-active-ink);   border-color: var(--lc-active-line); }
-  .kind.confirm { background: var(--lc-archived-bg); color: var(--lc-archived-ink); border-color: var(--lc-archived-line); }
-  .phase-h { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-top: 1.5rem; }
-  .phase-h h2 { margin: 0; }
-  .phase-h .ct { font-size: .8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* ================================================================
+   PROGRESS METER — classic Mac progress bar
+   ================================================================ */
+.meter {
+  height: 12px;
+  background: var(--content);
+  border: 1px solid var(--ink);
+  overflow: hidden;
+  box-shadow: inset 1px 1px 0 var(--line);
+}
+.meter > span {
+  display: block;
+  height: 100%;
+  /* Classic Mac diagonal stripe fill */
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--ink) 0, var(--ink) 4px,
+    transparent 4px, transparent 8px
+  );
+  transition: width .2s ease;
+}
+.metric {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0;
+}
 
-  .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
-  .chip { display: inline-block; font-size: .8125rem; padding: .125rem .625rem; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; color: var(--accent); }
-  .chip:hover { border-color: var(--line-strong); }
-  .rail .none { font-size: .8125rem; color: var(--muted); margin: .25rem 0 0; }
+/* ================================================================
+   STAT TILES
+   ================================================================ */
+.tally { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1rem; }
+.stat {
+  background: var(--content);
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow);
+  padding: .65rem .9rem;
+  min-width: 6.5rem;
+}
+.stat b {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 1.625rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.stat span {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: .2rem;
+}
+.stat.rollup { border-left: 3px solid var(--ink); }
+.stat.rollup b { font-size: 1.25rem; }
 
-  .back { display: inline-block; font-size: .875rem; margin-bottom: 1rem; color: var(--accent); text-decoration: none; }
-  .back:hover { text-decoration: underline; }
+/* ================================================================
+   CARD GRID (overview)
+   ================================================================ */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: .85rem;
+  margin-top: 1.25rem;
+}
+.card {
+  display: block;
+  background: var(--content);
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow);
+  padding: 0;
+  text-decoration: none;
+  color: inherit;
+  transition: none;
+}
+.card:hover {
+  box-shadow: 3px 3px 0 var(--ink);
+  transform: translate(-1px, -1px);
+  text-decoration: none;
+}
+.card .card-head {
+  padding: .65rem .85rem .5rem;
+}
+.card .row { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
+.card h3 { font-size: .875rem; word-break: break-word; }
+.card .why {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: .45rem 0 0;
+}
+.card .sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin: .3rem 0 0;
+}
+/* The meter sits flush at the bottom of the card, full-width */
+.card .meter { border-left: none; border-right: none; border-bottom: none; border-top: 1px solid var(--line); height: 6px; }
+.card.lc-active   { border-top: 3px solid var(--lc-active-line); }
+.card.lc-proposed { border-top: 3px solid var(--lc-proposed-line); }
+.card.lc-archived { border-top: 3px solid var(--lc-archived-line); }
 
-  .doc p { line-height: 1.6; }
-  .doc ul.md { margin: .25rem 0 .75rem; padding-left: 1.25rem; }
-  .doc ul.md li { margin: .25rem 0; line-height: 1.55; }
-  code { background: var(--code-bg); border-radius: 4px; padding: .0625rem .25rem; font-size: .875em; color: var(--code-ink); }
+/* ================================================================
+   BOARD VIEW
+   ================================================================ */
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .85rem;
+  margin-top: 1.25rem;
+  align-items: start;
+}
+.board .col {
+  background: var(--surface-2);
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow);
+}
+.board .col > header {
+  background: var(--stripe);
+  background-size: var(--stripe-size);
+  background-color: var(--content);
+  padding: 3px 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--ink);
+}
+.board .col > header .badge { margin: 0; }
+.board .col > header .ct {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--ink);
+  color: var(--content);
+  padding: 0 4px;
+}
+.board .col-body { padding: .5rem; }
+.board .bcard {
+  display: block;
+  background: var(--content);
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow-sm);
+  padding: .55rem .7rem;
+  margin-bottom: .45rem;
+  text-decoration: none;
+  color: inherit;
+  transition: none;
+}
+.board .bcard:last-child { margin-bottom: 0; }
+.board .bcard:hover { box-shadow: 2px 2px 0 var(--ink); transform: translate(-1px, -1px); text-decoration: none; }
+.board .bcard h3 { font-size: .8125rem; }
+.board .bcard .sub { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin: .25rem 0 0; }
+.board .empty-col { font-size: 11px; color: var(--muted); padding: .5rem; }
+@media (max-width: 48rem) { .board { grid-template-columns: 1fr; } }
 
-  /* ---- Banners ---- */
-  #offline-note { background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-ink); border-radius: 8px; padding: .625rem .875rem; font-size: .875rem; margin-bottom: 1rem; }
-  #diag-banner { background: var(--danger-bg); border: 1px solid var(--danger-line); color: var(--danger-ink); border-radius: 8px; padding: .625rem .875rem; font-size: .875rem; margin-bottom: 1rem; }
-  #diag-banner b { font-weight: 600; }
-  #diag-banner ul { margin: .35rem 0 0; padding-left: 1.1rem; }
-  .empty { color: var(--muted); max-width: 36rem; line-height: 1.6; }
-  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+/* ================================================================
+   GRAPH VIEW
+   ================================================================ */
+.dagwrap {
+  overflow-x: auto;
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow);
+  padding: .75rem;
+  background: var(--content);
+  margin-top: .85rem;
+}
+.dagwrap svg text { font-family: var(--font-ui); font-size: 11px; }
+.dagwrap .nbox { fill: var(--node-bg); stroke: var(--node-stroke); stroke-width: 1; }
+.dagwrap .nlabel { fill: var(--ink); }
+.dagwrap .lc-proposed .nbox { fill: var(--lc-proposed-bg); stroke: var(--lc-proposed-line); }
+.dagwrap .lc-active   .nbox { fill: var(--lc-active-bg);   stroke: var(--lc-active-line); }
+.dagwrap .lc-archived .nbox { fill: var(--lc-archived-bg); stroke: var(--lc-archived-line); }
+.dagwrap .node { cursor: pointer; }
+.dagwrap .node:focus { outline: none; }
+.dagwrap .node:focus .nbox { stroke: var(--accent); stroke-width: 2; }
+.dagwrap .edge { stroke: var(--edge); }
+.dagwrap .arrow path { fill: var(--edge); }
+.dagwrap:hover .node:not(:hover) { opacity: .4; }
+.dagwrap.emph .node:not(.lit) { opacity: .3; }
+.dagwrap.emph .edge:not(.lit) { opacity: .15; }
+.dagwrap .node.lit .nbox { stroke: var(--accent); stroke-width: 2; }
 
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+/* ================================================================
+   DETAIL DOCUMENT — two-column layout
+   ================================================================ */
+.doc { margin-top: .5rem; }
+.doclayout { display: grid; grid-template-columns: 1fr 16rem; gap: 1.5rem; align-items: start; }
+.doclayout .rail { position: sticky; top: .75rem; }
+.rail .panel {
+  background: var(--content);
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow);
+  overflow: hidden;
+  margin-bottom: .65rem;
+}
+.rail .panel-title {
+  background: var(--stripe);
+  background-size: var(--stripe-size);
+  background-color: var(--content);
+  padding: 2px 6px 2px 20px;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+}
+.rail .panel-title::before {
+  content: "";
+  position: absolute;
+  left: 4px; top: 50%; transform: translateY(-50%);
+  width: 10px; height: 10px;
+  border: 1px solid var(--ink);
+  background: var(--content);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+.rail .panel-title-label {
+  background: var(--ink);
+  color: var(--content);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 0 5px;
+  display: inline-block;
+}
+.rail .panel-body { padding: .65rem .75rem; }
+.rail .eyebrow { margin-top: .5rem; }
+.rail .eyebrow:first-child { margin-top: 0; }
+@media (max-width: 52rem) { .doclayout { grid-template-columns: 1fr; } .doclayout .rail { position: static; } }
+
+/* Progress big number */
+.progress-big {
+  text-align: center;
+  padding: .5rem 0 .25rem;
+}
+.progress-big .num {
+  font-family: var(--font-mono);
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+}
+.progress-big .denom {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--muted);
+}
+.progress-big .label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: .2rem;
+}
+
+/* Chartwrap */
+.chartwrap { margin: .5rem 0; }
+
+/* ================================================================
+   REMAINING TASKS — highlighted block
+   ================================================================ */
+.remaining {
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow);
+  overflow: hidden;
+}
+.remaining-head {
+  background: var(--ink);
+  color: var(--content);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+}
+.remaining-body { background: var(--content); }
+.alldone {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  color: var(--done);
+  font-size: .9rem;
+  padding: .6rem .75rem;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+/* ================================================================
+   TASK LISTS
+   ================================================================ */
+ul.tasks { list-style: none; padding: 0; margin: .2rem 0 0; }
+ul.tasks li {
+  display: flex;
+  gap: .4rem;
+  align-items: baseline;
+  padding: .4rem .5rem;
+  border-bottom: 1px solid var(--surface-2);
+  font-size: 12px;
+  line-height: 1.4;
+}
+ul.tasks li:last-child { border-bottom: 0; }
+ul.tasks li.done .txt { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+
+.key {
+  flex: 0 0 auto;
+  min-width: 2.4rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  padding: .1rem .3rem;
+}
+.glyph { flex: 0 0 auto; width: 1rem; text-align: center; font-size: 12px; line-height: 1.3; }
+.glyph.done { color: var(--done); }
+.glyph.todo { color: var(--line); }
+.txt { flex: 1; }
+
+/* Task kind tags */
+.kind {
+  flex: 0 0 auto;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border: 1px solid transparent;
+}
+.kind.verify  { background: var(--lc-proposed-bg); color: var(--lc-proposed-ink); border-color: var(--lc-proposed-line); }
+.kind.apply   { background: var(--lc-active-bg);   color: var(--lc-active-ink);   border-color: var(--lc-active-line); }
+.kind.confirm { background: var(--lc-archived-bg); color: var(--lc-archived-ink); border-color: var(--lc-archived-line); }
+
+/* Phase header */
+.phase-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: .35rem 0;
+  border-bottom: 2px solid var(--ink);
+}
+.phase-h h2 { margin: 0; font-size: .9375rem; }
+.phase-h .ct {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ================================================================
+   WHY → HOW NARRATIVE BLOCK
+   The "problem statement → solution" visual connection.
+   ================================================================ */
+.narrative {
+  margin: 0 0 1.25rem;
+}
+.narrative-problem, .narrative-solution {
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow);
+  overflow: hidden;
+}
+.narrative-label {
+  background: var(--stripe);
+  background-size: var(--stripe-size);
+  background-color: var(--content);
+  padding: 2px 6px 2px 22px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  position: relative;
+}
+.narrative-label::before {
+  content: "";
+  position: absolute;
+  left: 5px; top: 50%; transform: translateY(-50%);
+  width: 10px; height: 10px;
+  border: 1px solid var(--ink);
+  background: var(--content);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+.narrative-label-text {
+  background: var(--ink);
+  color: var(--content);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 0 5px;
+  display: inline-block;
+}
+.narrative-body {
+  padding: .65rem .85rem;
+  background: var(--content);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.narrative-body p { margin: .35rem 0; }
+.narrative-body ul.md { margin: .25rem 0 .5rem; padding-left: 1.2rem; }
+.narrative-body ul.md li { margin: .2rem 0; }
+/* Arrow connector between problem and solution */
+.narrative-arrow {
+  text-align: center;
+  font-size: 1.1rem;
+  color: var(--muted);
+  padding: .2rem 0;
+  line-height: 1;
+  position: relative;
+}
+.narrative-arrow::before, .narrative-arrow::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  height: 1px;
+  width: calc(50% - 1.5rem);
+  background: var(--line);
+}
+.narrative-arrow::before { left: 0; }
+.narrative-arrow::after  { right: 0; }
+
+/* ================================================================
+   RELATIONSHIP CHIPS
+   ================================================================ */
+.chips { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .35rem; }
+.chip {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow-sm);
+  text-decoration: none;
+  color: var(--ink);
+  background: var(--content);
+}
+.chip:hover { background: var(--ink); color: var(--content); text-decoration: none; }
+.rail .none { font-size: 11px; color: var(--muted); margin: .3rem 0 0; }
+
+/* ================================================================
+   BACK LINK + MISC
+   ================================================================ */
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: .85rem;
+  color: var(--ink);
+  text-decoration: none;
+  border: 1px solid var(--ink);
+  padding: 2px 10px;
+  background: var(--content);
+  box-shadow: var(--hard-shadow-sm);
+  transition: none;
+}
+.back:hover { background: var(--ink); color: var(--content); text-decoration: none; }
+.back:active { transform: translate(1px, 1px); box-shadow: none; }
+
+.doc p { line-height: 1.6; margin: .4rem 0; font-size: 12px; }
+.doc ul.md { margin: .25rem 0 .6rem; padding-left: 1.2rem; }
+.doc ul.md li { margin: .2rem 0; line-height: 1.5; font-size: 12px; }
+
+/* ================================================================
+   SUGGESTED EDGES PANEL
+   ================================================================ */
+.suggest-panel {
+  margin-top: 1rem;
+  border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow);
+  overflow: hidden;
+}
+.suggest-head {
+  background: var(--stripe);
+  background-size: var(--stripe-size);
+  background-color: var(--content);
+  padding: 3px 8px 3px 8px;
+  border-bottom: 1px solid var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.suggest-body { background: var(--content); padding: .6rem .75rem; overflow-x: auto; }
+.suggest-table {
+  border-collapse: collapse;
+  font-size: 11px;
+  width: 100%;
+  min-width: 36rem;
+}
+.suggest-table th {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: left;
+  padding: .3rem .5rem;
+  border-bottom: 2px solid var(--ink);
+}
+.suggest-table td {
+  padding: .35rem .5rem;
+  border-bottom: 1px solid var(--surface-2);
+  vertical-align: middle;
+}
+.suggest-table tr:last-child td { border-bottom: 0; }
+
+/* ================================================================
+   BANNERS
+   ================================================================ */
+#offline-note {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  box-shadow: var(--hard-shadow-sm);
+  color: var(--warn-ink);
+  padding: .5rem .75rem;
+  font-size: 11px;
+  margin-bottom: .85rem;
+}
+#diag-banner {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-line);
+  box-shadow: var(--hard-shadow-sm);
+  color: var(--danger-ink);
+  padding: .5rem .75rem;
+  font-size: 11px;
+  margin-bottom: .85rem;
+}
+#diag-banner b { font-weight: 700; }
+#diag-banner ul { margin: .3rem 0 0; padding-left: 1.1rem; }
+
+.empty {
+  color: var(--muted);
+  max-width: 36rem;
+  line-height: 1.6;
+  font-size: 12px;
+  margin-top: .75rem;
+}
+
+/* ================================================================
+   A11Y
+   ================================================================ */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; transform: none !important; }
+}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="appbar" id="appbar">
-    <a class="brand" href="#/">specutil</a>
+    <a class="brand" href="#/">&#9672; specutil</a>
     <div class="right" id="appbar-right"></div>
   </header>
   <div id="diag-banner" hidden></div>
-  <div id="offline-note" hidden>This page loads styling and charts from a CDN and needs network access. Some visuals may be missing offline — the task content below is still readable.</div>
+  <div id="offline-note" hidden>CDN assets failed to load. Task content is still readable below.</div>
   <div id="live" class="sr-only" aria-live="polite"></div>
   <main id="view"></main>
-  <noscript><p>This visualizer renders its content with JavaScript. Enable JavaScript to view the workstreams.</p></noscript>
+  <noscript><p style="margin-top:2rem;color:var(--muted);font-size:12px">This visualizer requires JavaScript.</p></noscript>
 </div>
 
-<!-- Cross-change dependency DAG, pre-rendered as inline SVG in Go (empty unless
-     there are 2+ changes with manifest edges). Cloned into the overview and the
-     dedicated graph view. -->
 <template id="dag">{{.DagSVG}}</template>
 
 <script>
-// Renderer-independent feeds, inlined as JS literals so the page needs no data
-// files. GRAPH is the pure cross-change dependency DAG (change nodes + edges);
-// DETAIL carries per-workstream content, each task tagged with its 0-based level
-// (phase rank), key (0a, 0b, 1a, …) and kind (task/verify/apply/confirm); DIAG
-// carries manifest diagnostics (cycles, dangling refs). json.Marshal escaped
-// <, >, & so these literals cannot break out of the <script> block.
 const GRAPH = {{.GraphJSON}};
 const DETAIL = {{.DetailJSON}};
 const DIAG = {{.DiagJSON}};
+const SUGGEST = {{.SuggestJSON}};
 </script>
 
 <script>
 (function () {
-  const changes = (DETAIL && DETAIL.changes) || [];
-  const edges = (GRAPH && GRAPH.edges) || [];
-  const diags = DIAG || [];
-  const byName = new Map(changes.map((c) => [c.name, c]));
-  const single = changes.length === 1;
-  const multi = changes.length > 1;
+  const changes    = (DETAIL && DETAIL.changes) || [];
+  const edges      = (GRAPH  && GRAPH.edges)   || [];
+  const diags      = DIAG || [];
+  const candidates = SUGGEST || [];
+  const byName  = new Map(changes.map((c) => [c.name, c]));
+  const single  = changes.length === 1;
+  const multi   = changes.length > 1;
 
   const view = document.getElementById("view");
   const live = document.getElementById("live");
   let sel = null;
 
-  // ---- escaping + minimal markdown (flat bullets + inline code only) --------
+  /* ---- escaping + minimal markdown ---- */
   const esc = (s) => String(s == null ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const inline = (s) => s
@@ -282,7 +973,12 @@ const DIAG = {{.DiagJSON}};
     for (const raw of lines) {
       const line = raw.replace(/\s+$/, "");
       const item = line.match(/^\s*[-*]\s+(.*)$/);
-      if (item) { flushPara(); if (!inList) { html += '<ul class="md">'; inList = true; } html += "<li>" + inline(esc(item[1])) + "</li>"; continue; }
+      if (item) {
+        flushPara();
+        if (!inList) { html += '<ul class="md">'; inList = true; }
+        html += "<li>" + inline(esc(item[1])) + "</li>";
+        continue;
+      }
       if (line.trim() === "") { flushPara(); closeList(); continue; }
       closeList(); para.push(line.trim());
     }
@@ -290,11 +986,11 @@ const DIAG = {{.DiagJSON}};
     return html;
   }
 
-  // ---- derived helpers ------------------------------------------------------
-  const pctOf = (c) => (c.total ? Math.round((c.done / c.total) * 100) : 0);
-  const dependsOn = (name) => edges.filter((e) => e.to === name).map((e) => e.from).sort();
-  const blocks = (name) => edges.filter((e) => e.from === name).map((e) => e.to).sort();
-  const chipLink = (n) => '<a class="chip" href="#/c/' + encodeURIComponent(n) + '">' + esc(n) + "</a>";
+  /* ---- helpers ---- */
+  const pctOf      = (c) => (c.total ? Math.round((c.done / c.total) * 100) : 0);
+  const dependsOn  = (name) => edges.filter((e) => e.to   === name).map((e) => e.from).sort();
+  const blocks     = (name) => edges.filter((e) => e.from === name).map((e) => e.to).sort();
+  const chipLink   = (n) => '<a class="chip" href="#/c/' + encodeURIComponent(n) + '">' + esc(n) + "</a>";
   const LIFECYCLES = ["proposed", "active", "archived"];
 
   function destroyChart() { if (window.__chart) { window.__chart.destroy(); window.__chart = null; } }
@@ -305,47 +1001,46 @@ const DIAG = {{.DiagJSON}};
     syncTabs();
   }
 
-  // ---- per-phase progress chart (the one place Chart.js earns its keep) ------
-  // Colors are read from the resolved CSS variables so the chart matches the
-  // active theme; re-rendered on theme change (see the toggle handler).
-  function cssVar(name) {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#888";
-  }
+  /* ---- phase chart ---- */
+  function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || "#888"; }
   function phaseChartLabel(c) {
     return "Progress by phase. " + (c.phases || []).map((p) => {
       const d = p.items.filter((i) => i.done).length;
-      return "Phase " + p.number + ", " + d + " of " + p.items.length + " complete";
+      return "Phase " + p.number + ": " + d + " of " + p.items.length;
     }).join(". ");
   }
   function initPhaseChart(c) {
-    if (typeof Chart === "undefined") return; // CDN miss / offline — sr-only list still conveys it
+    if (typeof Chart === "undefined") return;
     const ctx = document.getElementById("phasechart");
     if (!ctx) return;
-    const labels = c.phases.map((p) => "Phase " + p.number);
-    const done = c.phases.map((p) => p.items.filter((i) => i.done).length);
-    const rem = c.phases.map((p) => p.items.length - p.items.filter((i) => i.done).length);
+    const labels = c.phases.map((p) => "P" + p.number);
+    const done   = c.phases.map((p) => p.items.filter((i) => i.done).length);
+    const rem    = c.phases.map((p) => p.items.length - p.items.filter((i) => i.done).length);
     const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const accent = cssVar("--accent"), track = cssVar("--track"), muted = cssVar("--muted"), ink = cssVar("--ink");
+    const ink = cssVar("--ink"), muted = cssVar("--muted"), surface = cssVar("--surface-2");
     window.__chartChange = c.name;
     window.__chart = new Chart(ctx, {
       type: "bar",
-      data: { labels, datasets: [
-        { label: "Done", data: done, backgroundColor: accent, borderWidth: 0, borderRadius: 3 },
-        { label: "Remaining", data: rem, backgroundColor: track, borderWidth: 0, borderRadius: 3 },
-      ] },
+      data: {
+        labels,
+        datasets: [
+          { label: "Done",      data: done, backgroundColor: ink,     borderWidth: 0, borderRadius: 0 },
+          { label: "Remaining", data: rem,  backgroundColor: surface, borderWidth: 1, borderColor: muted, borderRadius: 0 },
+        ],
+      },
       options: {
         indexAxis: "y", responsive: true, maintainAspectRatio: false,
-        animation: reduce ? false : { duration: 300 },
+        animation: reduce ? false : { duration: 200 },
         scales: {
-          x: { stacked: true, beginAtZero: true, ticks: { precision: 0, font: { size: 12 }, color: muted }, grid: { display: false } },
-          y: { stacked: true, ticks: { font: { size: 12 }, color: ink }, grid: { display: false } },
+          x: { stacked: true, beginAtZero: true, ticks: { precision: 0, font: { family: "monospace", size: 10 }, color: muted }, grid: { display: false } },
+          y: { stacked: true, ticks: { font: { family: "monospace", size: 10 }, color: ink }, grid: { display: false } },
         },
         plugins: { legend: { display: false } },
       },
     });
   }
 
-  // ---- inline SVG DAG: clone + wire optional hover emphasis -----------------
+  /* ---- DAG mount ---- */
   function hasDag() {
     const t = document.getElementById("dag");
     return t && t.content && t.content.childElementCount > 0;
@@ -355,9 +1050,6 @@ const DIAG = {{.DiagJSON}};
     slot.appendChild(t.content.cloneNode(true));
     const svg = slot.querySelector("svg");
     if (!svg) return;
-    // Progressive enhancement: hovering a node lights its incident edges and
-    // immediate neighbors. With JS off, the CSS :hover dimming still applies and
-    // the anchors still navigate.
     const nodes = Array.from(svg.querySelectorAll(".node"));
     const lines = Array.from(svg.querySelectorAll(".edge"));
     nodes.forEach((n) => {
@@ -379,46 +1071,66 @@ const DIAG = {{.DiagJSON}};
     });
   }
 
-  // ---- views ----------------------------------------------------------------
+  /* ---- window panel helper ---- */
+  function winPanel(title, badge, body) {
+    return '<div class="win">' +
+      '<div class="win-title"><span class="win-title-label">' + esc(title) + "</span>" +
+      (badge ? " " + badge : "") + "</div>" +
+      '<div class="win-body">' + body + "</div></div>";
+  }
+
+  /* ---- views ---- */
   function renderEmpty() {
-    view.innerHTML =
-      '<h1 tabindex="-1" id="view-title">No workstreams</h1>' +
+    view.innerHTML = winPanel("specutil — no workstreams", "",
+      '<h1 tabindex="-1" id="view-title" style="font-size:1rem;margin-bottom:.5rem">No workstreams found</h1>' +
       '<p class="empty">Create changes under <code>openspec/changes/&lt;name&gt;/</code>, ' +
-      "define cross-change dependencies in <code>openspec/specutil.yaml</code> " +
-      "(or run <code>specutil graph --suggest</code>), then regenerate this page.</p>";
+      "seed dependencies with <code>specutil graph --suggest</code>, then run <code>specutil serve</code>.</p>"
+    );
     afterRender();
   }
 
-  function stat(n, label, cls) { return '<div class="stat' + (cls ? " " + cls : "") + '"><b class="tnum">' + (n || 0) + "</b><span>" + label + "</span></div>"; }
+  function stat(n, label, cls) {
+    return '<div class="stat' + (cls ? " " + cls : "") + '"><b class="tnum">' + (n || 0) +
+      "</b><span>" + label + "</span></div>";
+  }
 
   function renderOverview() {
     const tally = { active: 0, proposed: 0, archived: 0 };
     let done = 0, total = 0;
     changes.forEach((c) => { tally[c.lifecycle] = (tally[c.lifecycle] || 0) + 1; done += c.done; total += c.total; });
+    const pct = total ? Math.round((done / total) * 100) : 0;
 
-    let h = '<h1 tabindex="-1" id="view-title">Workstreams</h1>';
+    const edgeSet    = new Set(edges.map((e) => e.from + "\x00" + e.to));
+    const novelCands = candidates.filter((c) => !edgeSet.has(c.from + "\x00" + c.to));
+
+    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.75rem">Workstreams</h1>';
     h += '<div class="tally">' +
-      stat(tally.active, "active") + stat(tally.proposed, "proposed") + stat(tally.archived, "archived") +
-      // Cross-change roll-up: overall completed vs. total tasks across all changes.
-      '<div class="stat rollup"><b class="tnum">' + done + " / " + total + '</b><span>tasks done</span></div>' +
+      stat(tally.active,   "active")   +
+      stat(tally.proposed, "proposed") +
+      stat(tally.archived, "archived") +
+      '<div class="stat rollup"><b class="tnum">' + done + '<span style="font-size:.6em;font-weight:400;color:var(--muted)">/' + total + '</span></b><span>tasks &middot; ' + pct + '%</span></div>' +
+      (novelCands.length ? '<a class="stat" href="#/graph" style="text-decoration:none;border-style:dashed;cursor:pointer">' +
+        '<b class="tnum">' + novelCands.length + '</b><span>suggested deps</span></a>' : "") +
       "</div>";
 
     h += '<div class="grid">';
     changes.forEach((c) => {
       const pct = pctOf(c);
       h += '<a class="card lc-' + esc(c.lifecycle) + '" href="#/c/' + encodeURIComponent(c.name) + '">' +
+        '<div class="card-head">' +
         '<div class="row"><h3>' + esc(c.name) + '</h3><span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + "</span></div>" +
-        '<p class="metric tnum" style="margin:.6rem 0 0">' + c.done + " / " + c.total + " &middot; " + pct + "%</p>" +
-        '<div class="meter"><span style="width:' + pct + '%"></span></div>' +
+        '<p class="metric tnum" style="margin:.35rem 0 .2rem">' + c.done + " / " + c.total + " tasks &middot; " + pct + "%</p>" +
         '<p class="sub">' + ((c.phases || []).length) + " phases</p>" +
         (c.why ? '<p class="why">' + esc(c.why) + "</p>" : "") +
+        "</div>" +
+        '<div class="meter"><span style="width:' + pct + '%"></span></div>' +
         "</a>";
     });
     h += "</div>";
 
-    if (!hasDag() && edges.length === 0) {
-      h += '<p class="sub" style="margin-top:2rem;color:var(--muted)">No cross-change dependencies defined. ' +
-        "Seed them with <code>specutil graph --suggest</code> or edit <code>openspec/specutil.yaml</code>.</p>";
+    if (!hasDag() && edges.length === 0 && !novelCands.length) {
+      h += '<p style="margin-top:1.5rem;font-size:11px;color:var(--muted)">No cross-change dependencies defined ' +
+        "and no shared capabilities found to infer from. Add edges to <code>openspec/specutil.yaml</code>.</p>";
     }
 
     view.innerHTML = h;
@@ -427,12 +1139,13 @@ const DIAG = {{.DiagJSON}};
   }
 
   function renderBoard() {
-    let h = '<h1 tabindex="-1" id="view-title">Board</h1>';
-    h += '<p class="metric">Changes grouped by lifecycle.</p>';
+    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.75rem">Board</h1>';
     h += '<div class="board">';
     LIFECYCLES.forEach((lc) => {
       const col = changes.filter((c) => c.lifecycle === lc);
-      h += '<section class="col"><header><span class="badge ' + lc + '">' + lc + '</span><span class="ct">' + col.length + "</span></header>";
+      h += '<section class="col">' +
+        '<header><span class="badge ' + lc + '">' + lc + '</span><span class="ct">' + col.length + "</span></header>" +
+        '<div class="col-body">';
       if (!col.length) {
         h += '<p class="empty-col">None</p>';
       } else {
@@ -440,12 +1153,12 @@ const DIAG = {{.DiagJSON}};
           const pct = pctOf(c);
           h += '<a class="bcard" href="#/c/' + encodeURIComponent(c.name) + '">' +
             "<h3>" + esc(c.name) + "</h3>" +
-            '<div class="meter"><span style="width:' + pct + '%"></span></div>' +
-            '<p class="sub tnum">' + c.done + " / " + c.total + " &middot; " + ((c.phases || []).length) + " phases</p>" +
+            '<div class="meter" style="margin:.3rem 0 .2rem"><span style="width:' + pct + '%"></span></div>' +
+            '<p class="sub tnum">' + c.done + "/" + c.total + " &middot; " + pct + "% &middot; " + ((c.phases || []).length) + " ph</p>" +
             "</a>";
         });
       }
-      h += "</section>";
+      h += "</div></section>";
     });
     h += "</div>";
     view.innerHTML = h;
@@ -454,14 +1167,37 @@ const DIAG = {{.DiagJSON}};
   }
 
   function renderGraph() {
-    let h = '<h1 tabindex="-1" id="view-title">Graph</h1>';
+    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.75rem">Dependency Graph</h1>';
     if (hasDag()) {
-      h += '<p class="metric">Cross-change dependencies — arrows point from a prerequisite to what depends on it. Hover a node to focus its neighbors; click to open it.</p>';
+      h += '<p style="font-size:11px;color:var(--muted);margin-bottom:.5rem">Arrows point from prerequisite to dependent. Hover a node to highlight neighbors; click to open.</p>';
       h += '<div class="dagwrap"></div>';
     } else {
-      h += '<p class="empty" style="margin-top:1rem">No cross-change dependencies to graph. ' +
-        "Seed them with <code>specutil graph --suggest</code> or edit <code>openspec/specutil.yaml</code>.</p>";
+      h += '<p class="empty">No confirmed cross-change dependencies in <code>openspec/specutil.yaml</code>.</p>';
     }
+
+    /* ---- Suggested edges (always shown when present) ---- */
+    if (candidates.length) {
+      /* Filter out candidates already in the manifest */
+      const edgeSet = new Set(edges.map((e) => e.from + "\x00" + e.to));
+      const novel = candidates.filter((c) => !edgeSet.has(c.from + "\x00" + c.to));
+      if (novel.length) {
+        h += '<div class="suggest-panel">';
+        h += '<div class="suggest-head">&#9670; Suggested edges (' + novel.length + ') &mdash; inferred from shared capabilities</div>';
+        h += '<div class="suggest-body"><table class="suggest-table">' +
+          '<thead><tr><th>From (prerequisite)</th><th>To (dependent)</th><th>Shared capability</th><th>Add to specutil.yaml</th></tr></thead><tbody>';
+        novel.forEach((c) => {
+          const snippet = esc("- from: " + c.from + "\n  to: " + c.to);
+          h += '<tr>' +
+            '<td><a class="chip" href="#/c/' + encodeURIComponent(c.from) + '">' + esc(c.from) + "</a></td>" +
+            '<td><a class="chip" href="#/c/' + encodeURIComponent(c.to)   + '">' + esc(c.to)   + "</a></td>" +
+            '<td><code>' + esc(c.capability) + "</code></td>" +
+            '<td><code style="font-size:10px;white-space:pre">' + snippet + "</code></td>" +
+            "</tr>";
+        });
+        h += "</tbody></table></div></div>";
+      }
+    }
+
     view.innerHTML = h;
     if (hasDag()) { const slot = view.querySelector(".dagwrap"); if (slot) mountDag(slot); }
     if (sel) sel.value = "__graph__";
@@ -477,78 +1213,126 @@ const DIAG = {{.DiagJSON}};
   function renderDetail(name) {
     const c = byName.get(name);
     if (!c) { renderOverview(); return; }
-    const pct = pctOf(c);
+    const pct       = pctOf(c);
     const remaining = [];
     (c.phases || []).forEach((p) => (p.items || []).forEach((it) => { if (!it.done) remaining.push(it); }));
     const deps = dependsOn(name), blks = blocks(name);
 
     let h = "";
-    if (!single) h += '<a class="back" href="#/">&larr; All workstreams</a>';
+    if (!single) h += '<a class="back" href="#/">&#9664; All workstreams</a>';
     h += '<div class="doc">';
-    h += '<h1 tabindex="-1" id="view-title">' + esc(c.name) + "</h1>";
-    h += '<p><span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + "</span> " +
-         '<span class="metric tnum">' + c.done + " / " + c.total + " &middot; " + pct + "%</span></p>";
 
-    // Two-column: checklist + narrative on the left, relationships/progress rail
-    // on the right. Collapses to one column on narrow viewports (CSS).
+    /* ---- Header with title + badge ---- */
+    h += '<div style="display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;margin-bottom:.85rem">';
+    h += '<h1 tabindex="-1" id="view-title">' + esc(c.name) + "</h1>";
+    h += '<span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + "</span>";
+    h += "</div>";
+
     h += '<div class="doclayout"><div class="main">';
 
-    h += '<p class="eyebrow">Remaining</p>';
+    /* ---- WHY → HOW narrative block ---- */
+    /* This is the key UX improvement: connect the problem statement (Why)
+       to the solution (What Changes) with a clear visual bridge. */
+    if (c.why || c.whatChanges) {
+      h += '<div class="narrative">';
+      if (c.why) {
+        h += '<div class="narrative-problem">' +
+          '<div class="narrative-label"><span class="narrative-label-text">Problem</span></div>' +
+          '<div class="narrative-body">' + md(c.why) + '</div>' +
+          '</div>';
+      }
+      if (c.why && c.whatChanges) {
+        h += '<div class="narrative-arrow" aria-hidden="true">&#8595; solves it by</div>';
+      }
+      if (c.whatChanges) {
+        h += '<div class="narrative-solution">' +
+          '<div class="narrative-label"><span class="narrative-label-text">Solution</span></div>' +
+          '<div class="narrative-body">' + md(c.whatChanges) + '</div>' +
+          '</div>';
+      }
+      h += '</div>';
+    }
+
+    /* ---- Remaining tasks ---- */
+    h += '<div class="remaining">';
+    h += '<div class="remaining-head">Remaining &mdash; ' + remaining.length + " of " + c.total + " outstanding</div>";
     if (remaining.length === 0) {
       h += '<p class="alldone">&#10003; All ' + c.total + " tasks complete</p>";
     } else {
-      h += '<div class="remaining"><ul class="tasks">';
+      h += '<div class="remaining-body"><ul class="tasks">';
       remaining.forEach((it) => {
-        h += '<li><span class="key">' + esc(it.key) + "</span>" + kindTag(it) + '<span class="txt">' + esc(it.text) + "</span></li>";
+        h += '<li>' +
+          '<span class="glyph todo" aria-hidden="true">&#9744;</span>' +
+          '<span class="key">' + esc(it.key) + "</span>" +
+          kindTag(it) +
+          '<span class="txt">' + esc(it.text) + "</span></li>";
       });
       h += "</ul></div>";
     }
+    h += "</div>"; /* remaining */
 
-    if (c.why) { h += '<p class="eyebrow">Why</p>' + md(c.why); }
-    if (c.whatChanges) { h += '<p class="eyebrow">What changes</p>' + md(c.whatChanges); }
-
-    h += '<p class="eyebrow">Tasks by phase</p>';
+    /* ---- Tasks by phase ---- */
+    h += '<p class="eyebrow" style="margin-top:1.25rem">All tasks by phase</p>';
     (c.phases || []).forEach((p) => {
       const items = p.items || [];
-      const d = items.filter((i) => i.done).length;
-      h += '<div class="phase-h"><h2>' + esc(p.number) + ". " + esc(p.name) + '</h2><span class="ct tnum">' + d + "/" + items.length + "</span></div>";
+      const d     = items.filter((i) => i.done).length;
+      const phPct = items.length ? Math.round((d / items.length) * 100) : 0;
+      h += '<div class="phase-h">' +
+        '<h2>' + esc(p.number) + ". " + esc(p.name) + "</h2>" +
+        '<span class="ct tnum">' + d + "/" + items.length + " &middot; " + phPct + "%</span>" +
+        "</div>";
+      h += '<div class="meter" style="margin:.2rem 0 .4rem"><span style="width:' + phPct + '%"></span></div>';
       h += '<ul class="tasks">';
       items.forEach((it) => {
         h += '<li class="' + (it.done ? "done" : "") + '">' +
-          '<span class="glyph ' + (it.done ? "done" : "todo") + '" aria-hidden="true">' + (it.done ? "&#10003;" : "&#9744;") + "</span>" +
-          '<span class="sr-only">' + (it.done ? "Completed: " : "To do: ") + "</span>" +
-          '<span class="key">' + esc(it.key) + "</span>" + kindTag(it) +
+          '<span class="glyph ' + (it.done ? "done" : "todo") + '" aria-hidden="true">' +
+          (it.done ? "&#10003;" : "&#9744;") + "</span>" +
+          '<span class="sr-only">' + (it.done ? "Done: " : "To do: ") + "</span>" +
+          '<span class="key">' + esc(it.key) + "</span>" +
+          kindTag(it) +
           '<span class="txt">' + esc(it.text) + "</span></li>";
       });
       h += "</ul>";
     });
-    h += "</div>"; // .main
+    h += "</div>"; /* .main */
 
-    // ---- relationships + progress rail ----
+    /* ---- Rail ---- */
     h += '<aside class="rail">';
-    h += '<div class="panel">';
-    h += '<p class="eyebrow">Progress</p>';
-    h += '<p class="metric tnum">' + c.done + " / " + c.total + " &middot; " + pct + "%</p>";
-    h += '<div class="meter" role="img" aria-label="' + pct + ' percent of tasks complete"><span style="width:' + pct + '%"></span></div>';
+
+    /* Progress panel */
+    h += '<div class="panel">' +
+      '<div class="panel-title"><span class="panel-title-label">Progress</span></div>' +
+      '<div class="panel-body">' +
+      '<div class="progress-big">' +
+      '<span class="num">' + pct + '</span>' +
+      '<span style="font-family:var(--font-mono);font-size:.9rem;color:var(--muted)">%</span>' +
+      '<p class="label">' + c.done + " / " + c.total + " tasks</p>" +
+      "</div>" +
+      '<div class="meter" role="img" aria-label="' + pct + ' percent complete"><span style="width:' + pct + '%"></span></div>';
+
     if ((c.phases || []).length) {
-      h += '<div class="chartwrap" style="height:' + (c.phases.length * 30 + 12) + 'px">' +
-           '<canvas id="phasechart" role="img" aria-label="' + esc(phaseChartLabel(c)) + '"></canvas></div>';
+      h += '<div class="chartwrap" style="height:' + (c.phases.length * 26 + 14) + 'px">' +
+        '<canvas id="phasechart" role="img" aria-label="' + esc(phaseChartLabel(c)) + '"></canvas></div>';
       h += '<ul class="sr-only">' + c.phases.map((p) => {
         const d = p.items.filter((i) => i.done).length;
-        return "<li>Phase " + esc(p.number) + " " + esc(p.name) + ": " + d + " of " + p.items.length + " complete</li>";
+        return "<li>Phase " + esc(p.number) + " " + esc(p.name) + ": " + d + " of " + p.items.length + " done</li>";
       }).join("") + "</ul>";
     }
-    h += "</div>"; // .panel
-    h += '<div class="panel">';
+    h += "</div></div>"; /* panel-body, panel */
+
+    /* Relationships panel */
+    h += '<div class="panel">' +
+      '<div class="panel-title"><span class="panel-title-label">Relationships</span></div>' +
+      '<div class="panel-body">';
     h += '<p class="eyebrow">Depends on</p>';
-    h += deps.length ? '<div class="chips">' + deps.map(chipLink).join("") + "</div>" : '<p class="none">Nothing — ready to start.</p>';
+    h += deps.length ? '<div class="chips">' + deps.map(chipLink).join("") + "</div>" : '<p class="none">Nothing &mdash; ready to start.</p>';
     h += '<p class="eyebrow">Blocks</p>';
     h += blks.length ? '<div class="chips">' + blks.map(chipLink).join("") + "</div>" : '<p class="none">Nothing downstream.</p>';
-    h += "</div>"; // .panel
-    h += "</aside>";
+    h += "</div></div>"; /* panel-body, panel */
 
-    h += "</div>"; // .doclayout
-    h += "</div>"; // .doc
+    h += "</aside>";
+    h += "</div>"; /* .doclayout */
+    h += "</div>"; /* .doc */
 
     view.innerHTML = h;
     if (sel) sel.value = single ? "__overview__" : name;
@@ -556,7 +1340,7 @@ const DIAG = {{.DiagJSON}};
     if ((c.phases || []).length) initPhaseChart(c);
   }
 
-  // ---- routing (hash is the single source of truth; works on file://) -------
+  /* ---- routing ---- */
   let currentRoute = "/";
   function route() {
     destroyChart();
@@ -573,13 +1357,13 @@ const DIAG = {{.DiagJSON}};
     currentRoute = "/"; renderOverview();
   }
 
-  // ---- app bar: view tabs, theme toggle, jump-to select ---------------------
+  /* ---- app bar ---- */
   const right = document.getElementById("appbar-right");
 
   function syncTabs() {
     document.querySelectorAll(".tabs a").forEach((a) => {
-      const r = a.getAttribute("data-route");
-      const on = (r === "/" && (currentRoute === "/" )) ||
+      const r  = a.getAttribute("data-route");
+      const on = (r === "/" && currentRoute === "/") ||
                  (r === "/board" && currentRoute === "/board") ||
                  (r === "/graph" && currentRoute === "/graph");
       a.classList.toggle("on", !!on);
@@ -597,8 +1381,7 @@ const DIAG = {{.DiagJSON}};
     right.appendChild(tabs);
   }
 
-  // Theme toggle: cycles Auto -> Light -> Dark. Auto removes data-theme so the
-  // page follows prefers-color-scheme; Light/Dark force it and persist.
+  /* Theme toggle */
   const toggle = document.createElement("button");
   toggle.className = "toggle"; toggle.type = "button";
   toggle.setAttribute("aria-label", "Toggle color theme");
@@ -610,13 +1393,10 @@ const DIAG = {{.DiagJSON}};
     else document.documentElement.setAttribute("data-theme", mode);
     try { localStorage.setItem("specutil-theme", mode); } catch (e) {}
     const glyph = mode === "light" ? "&#9728;" : mode === "dark" ? "&#9789;" : "&#9681;";
-    const label = mode.charAt(0).toUpperCase() + mode.slice(1);
-    toggle.innerHTML = '<span aria-hidden="true">' + glyph + "</span> " + label;
-    // Re-theme the chart (its colors were baked from CSS vars at init).
+    const label = mode === "auto" ? "Auto" : mode.charAt(0).toUpperCase() + mode.slice(1);
+    toggle.innerHTML = glyph + " " + label;
     if (window.__chart && window.__chartChange) {
-      const c = byName.get(window.__chartChange);
-      destroyChart();
-      if (c) initPhaseChart(c);
+      const c = byName.get(window.__chartChange); destroyChart(); if (c) initPhaseChart(c);
     }
   }
   toggle.addEventListener("click", () => {
@@ -626,13 +1406,15 @@ const DIAG = {{.DiagJSON}};
   applyMode(currentMode());
   right.appendChild(toggle);
 
-  // System theme changes while in Auto must re-theme the chart too.
   if (window.matchMedia) {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const onSys = () => { if (currentMode() === "auto" && window.__chart && window.__chartChange) {
-      const c = byName.get(window.__chartChange); destroyChart(); if (c) initPhaseChart(c);
-    } };
-    if (mq.addEventListener) mq.addEventListener("change", onSys); else if (mq.addListener) mq.addListener(onSys);
+    const onSys = () => {
+      if (currentMode() === "auto" && window.__chart && window.__chartChange) {
+        const c = byName.get(window.__chartChange); destroyChart(); if (c) initPhaseChart(c);
+      }
+    };
+    if (mq.addEventListener) mq.addEventListener("change", onSys);
+    else if (mq.addListener) mq.addListener(onSys);
   }
 
   if (multi) {
@@ -641,17 +1423,22 @@ const DIAG = {{.DiagJSON}};
     const o0 = document.createElement("option");
     o0.value = "__overview__"; o0.textContent = "Overview";
     sel.appendChild(o0);
-    changes.forEach((c) => { const o = document.createElement("option"); o.value = c.name; o.textContent = c.name; sel.appendChild(o); });
+    changes.forEach((c) => {
+      const o = document.createElement("option"); o.value = c.name; o.textContent = c.name; sel.appendChild(o);
+    });
     sel.addEventListener("change", () => {
       const v = sel.value;
-      location.hash = v === "__overview__" ? "#/" : v === "__board__" ? "#/board" : v === "__graph__" ? "#/graph" : "#/c/" + encodeURIComponent(v);
+      location.hash = v === "__overview__" ? "#/" :
+                      v === "__board__"    ? "#/board" :
+                      v === "__graph__"    ? "#/graph" :
+                                            "#/c/" + encodeURIComponent(v);
     });
     right.appendChild(sel);
   }
 
-  // ---- diagnostics banner ---------------------------------------------------
+  /* ---- diagnostics banner ---- */
   if (diags.length) {
-    const b = document.getElementById("diag-banner");
+    const b     = document.getElementById("diag-banner");
     const kinds = Array.from(new Set(diags.map((d) => d.kind))).join(", ");
     b.innerHTML = "<b>Manifest problems (" + esc(kinds) + "):</b><ul>" +
       diags.map((d) => "<li>" + esc(d.msg) + "</li>").join("") + "</ul>";
