@@ -22,7 +22,14 @@ jobs:
         run: go vet ./...
 
       - name: test
-        run: go test ./...
+        run: go test -race -coverprofile=coverage.out ./...
 
       - name: build
         run: go build ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage.out

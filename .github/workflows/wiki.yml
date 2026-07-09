@@ -7,7 +7,8 @@ on:
       - "README.md"
       - "skills/**"
       - ".github/CONTRIBUTING.md"
-      - "internal/cli/root.go"
+      - "internal/cli/**"
+      - "examples/**"
 
 permissions:
   contents: write
@@ -31,9 +32,13 @@ jobs:
           path: wiki
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build specutil
+        run: go build -o specutil-bin ./cmd/specutil
+
       - name: Generate wiki pages
         run: |
           set -euo pipefail
+          BIN="./specutil-bin"
 
           # Home — project overview extracted from README up to first ## section
           awk '/^## /{found=1} !found{print}' README.md > wiki/Home.md
@@ -45,7 +50,8 @@ jobs:
           **Pages**
           - [[Installation]]
           - [[Providers]]
-          - [[CLI Reference]]
+          - [[CLI-Reference]]
+          - [[Examples]]
           - [[Skills]]
           - [[Contributing]]
           EOF
@@ -60,12 +66,55 @@ jobs:
             awk '/^## Quickstart/,/^## Commands/' README.md | head -n -1
           } > wiki/Providers.md
 
-          # CLI Reference
+          # CLI Reference — generated from binary --help output
           {
             echo "# CLI Reference"
             echo ""
-            awk '/^## Commands/,/^## OpenSpec Integration/' README.md | head -n -1
+            echo "> Auto-generated from \`specutil --help\` output. Always reflects the current binary."
+            echo ""
+
+            # Top-level help
+            echo "## specutil"
+            echo '```'
+            "$BIN" --help 2>&1 || true
+            echo '```'
+            echo ""
+
+            # Per-verb help
+            for verb in render plan diff lock graph tui web; do
+              echo "## specutil $verb"
+              echo '```'
+              "$BIN" "$verb" --help 2>&1 || true
+              echo '```'
+              echo ""
+            done
+
+            # lock subcommands
+            echo "## specutil lock get / set"
+            echo '```'
+            "$BIN" lock get --help 2>&1 || true
+            echo ""
+            "$BIN" lock set --help 2>&1 || true
+            echo '```'
+            echo ""
           } > wiki/"CLI-Reference.md"
+
+          # Examples — collate all examples/*/README.md
+          {
+            echo "# Examples"
+            echo ""
+            echo "Working examples live in the [\`examples/\`](https://github.com/${{ github.repository }}/tree/main/examples) directory."
+            echo ""
+            for example_dir in examples/*/; do
+              example_name=$(basename "$example_dir")
+              echo "## $example_name"
+              echo ""
+              if [ -f "$example_dir/README.md" ]; then
+                cat "$example_dir/README.md"
+              fi
+              echo ""
+            done
+          } > wiki/Examples.md
 
           # Skills
           {
