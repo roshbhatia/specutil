@@ -59,9 +59,16 @@ Operation kinds:
   not delete anything. Surface it to the user and let them decide (close the
   Linear issue, leave it, or remove the lock entry).
 
-If you want richer issue bodies than the bare task title, also run
-`specutil render <change> --as tickets` and pull matching content by `ref`. For
-v1, title from the plan plus the task text as the description is sufficient.
+After planning, always render the full ticket content:
+
+```bash
+specutil render <change> --as tickets
+```
+
+This emits Markdown for every task. Correlate each rendered block to its plan
+operation by `ref` (e.g. `1.2`). Use the rendered Markdown as the Linear issue
+`description` — it is the canonical body, not a nice-to-have. The bare task
+title alone is never sufficient.
 
 ### 2. Review (confirmation default)
 
