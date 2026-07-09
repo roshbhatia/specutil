@@ -238,6 +238,120 @@ func TestGraphFocusDimsUnrelatedNodes(t *testing.T) {
 	}
 }
 
+func TestWorkStatus(t *testing.T) {
+	// Graph: db -> api -> ui ; solo has no edges
+	g := &graph.Graph{
+		Nodes: []graph.Node{{ID: "db"}, {ID: "api"}, {ID: "ui"}, {ID: "solo"}},
+		Edges: []graph.Edge{{From: "db", To: "api"}, {From: "api", To: "ui"}},
+	}
+	// db=proposed/no deps -> ready; api=proposed/dep on db (not done) -> waiting
+	// ui=proposed/dep on api (not done) -> waiting; solo=proposed/no deps -> ready
+	// archived -> done
+	db := mkChange("db", 0, 1)     // proposed, no deps
+	api := mkChange("api", 0, 1)   // proposed, depends on db (not done)
+	ui := mkChange("ui", 0, 1)     // proposed, depends on api (not done)
+	solo := mkChange("solo", 0, 1) // proposed, no edges
+	done := mkChange("done", 1, 1) // archived
+
+	m := New([]*ir.Change{db, api, ui, solo, done}, g, nil)
+
+	cases := []struct{ name, want string }{
+		{"db", "ready"},
+		{"api", "waiting"},
+		{"ui", "waiting"},
+		{"solo", "ready"},
+		{"done", "done"},
+	}
+	for _, tc := range cases {
+		if got := m.workStatus(m.byName[tc.name]); got != tc.want {
+			t.Errorf("workStatus(%q) = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+
+	// active + unmet dep -> blocked; active + all deps done -> in-progress
+	apiActive := mkChange("api-active", 1, 2) // active (partial)
+	dbDone := mkChange("db-done", 1, 1)       // archived
+	g2 := &graph.Graph{
+		Nodes: []graph.Node{{ID: "db-done"}, {ID: "api-active"}},
+		Edges: []graph.Edge{{From: "db-done", To: "api-active"}},
+	}
+	m2 := New([]*ir.Change{dbDone, apiActive}, g2, nil)
+	if got := m2.workStatus(apiActive); got != "in-progress" {
+		t.Errorf("active with done dep: workStatus = %q, want in-progress", got)
+	}
+
+	// active + unmet dep (proposed prereq)
+	prereq := mkChange("prereq", 0, 1)     // proposed
+	dep := mkChange("dep", 1, 2)           // active
+	g3 := &graph.Graph{
+		Nodes: []graph.Node{{ID: "prereq"}, {ID: "dep"}},
+		Edges: []graph.Edge{{From: "prereq", To: "dep"}},
+	}
+	m3 := New([]*ir.Change{prereq, dep}, g3, nil)
+	if got := m3.workStatus(dep); got != "blocked" {
+		t.Errorf("active with unmet dep: workStatus = %q, want blocked", got)
+	}
+}
+
+func TestDepContext(t *testing.T) {
+	g := &graph.Graph{
+		Nodes: []graph.Node{{ID: "a"}, {ID: "b"}, {ID: "c"}, {ID: "d"}},
+		// a -> b -> c ; a -> d
+		Edges: []graph.Edge{{From: "a", To: "b"}, {From: "b", To: "c"}, {From: "a", To: "d"}},
+	}
+	// a=proposed/no deps=ready; b,d=proposed/dep on a=waiting; c=proposed/dep on b=waiting
+	a := mkChange("a", 0, 1)
+	b := mkChange("b", 0, 1)
+	c := mkChange("c", 0, 1)
+	d := mkChange("d", 0, 1)
+	m := New([]*ir.Change{a, b, c, d}, g, nil)
+
+	// "a" is ready, blocks b and d -> "blocks 2"
+	if ctx := m.depContext("a", "ready"); ctx != "blocks 2" {
+		t.Errorf("depContext(a, ready) = %q, want %q", ctx, "blocks 2")
+	}
+	// "b" is waiting (dep on a, not done), blocked by a -> "blocked by a"
+	if ctx := m.depContext("b", "waiting"); ctx != "blocked by a" {
+		t.Errorf("depContext(b, waiting) = %q, want %q", ctx, "blocked by a")
+	}
+	// "c" is waiting, blocked by b -> "blocked by b"
+	if ctx := m.depContext("c", "waiting"); ctx != "blocked by b" {
+		t.Errorf("depContext(c, waiting) = %q, want %q", ctx, "blocked by b")
+	}
+	// no dep context for something with nothing to say (no edges at all)
+	solo := mkChange("solo", 0, 1)
+	mSolo := New([]*ir.Change{solo}, &graph.Graph{}, nil)
+	if ctx := mSolo.depContext("solo", "ready"); ctx != "" {
+		t.Errorf("depContext(solo, ready) = %q, want empty", ctx)
+	}
+}
+
+func TestCardShowsStatusDotAndDepContext(t *testing.T) {
+	g := &graph.Graph{
+		Nodes: []graph.Node{{ID: "prereq"}, {ID: "dep"}},
+		Edges: []graph.Edge{{From: "prereq", To: "dep"}},
+	}
+	prereq := mkChange("prereq", 0, 1)  // proposed, no deps -> ready
+	dep := mkChange("dep", 1, 2)        // active, unmet dep -> blocked
+
+	m := New([]*ir.Change{prereq, dep}, g, nil)
+
+	// Card for ready prereq should have dot and "blocks dep"
+	prereqCard := m.card(prereq, styleCard)
+	if !strings.Contains(prereqCard, "●") {
+		t.Error("card missing status dot ●")
+	}
+	if !strings.Contains(prereqCard, "blocks dep") {
+		t.Errorf("ready card should show 'blocks dep', got:\n%s", prereqCard)
+	}
+
+	// Card for blocked dep should have "blocked by prereq"
+	depCard := m.card(dep, styleCard)
+	if !strings.Contains(depCard, "blocked by prereq") {
+		t.Errorf("blocked card should show 'blocked by prereq', got:\n%s", depCard)
+	}
+}
+
 func TestLayersToleratesCycle(t *testing.T) {
 	// a <-> b cycle must not loop forever; both pin to depth 0.
 	g := &graph.Graph{

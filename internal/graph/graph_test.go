@@ -196,3 +196,87 @@ func TestSuggestSharedCapability(t *testing.T) {
 		t.Errorf("unexpected candidate: %+v", cands[0])
 	}
 }
+
+func TestBuildSuggestPrompt(t *testing.T) {
+	changes := []*ir.Change{
+		{Name: "add-db", Proposal: &ir.Proposal{
+			Why:         "need persistence",
+			WhatChanges: "adds postgres",
+			Capabilities: ir.Capabilities{
+				New:      []ir.Capability{{Name: "storage"}},
+				Modified: []ir.Capability{{Name: "config"}},
+			},
+		}},
+		{Name: "no-proposal"},
+	}
+	prompt := buildSuggestPrompt(changes)
+	for _, want := range []string{
+		"add-db", "need persistence", "adds postgres",
+		"Adds capability: storage", "Modifies capability: config",
+		"no-proposal",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("prompt missing %q", want)
+		}
+	}
+}
+
+func TestParseHarnessOutput(t *testing.T) {
+	known := map[string]bool{"add-db": true, "add-auth": true}
+
+	cases := []struct {
+		name    string
+		raw     []byte
+		wantN   int
+		wantErr bool
+	}{
+		{
+			name:  "valid suggestions",
+			raw:   []byte(`{"suggestions":[{"from":"add-db","to":"add-auth","reason":"auth uses storage"}]}`),
+			wantN: 1,
+		},
+		{
+			name:  "empty suggestions",
+			raw:   []byte(`{"suggestions":[]}`),
+			wantN: 0,
+		},
+		{
+			name:  "strips markdown fences",
+			raw:   []byte("```json\n{\"suggestions\":[{\"from\":\"add-db\",\"to\":\"add-auth\",\"reason\":\"r\"}]}\n```"),
+			wantN: 1,
+		},
+		{
+			name:  "unknown change names dropped",
+			raw:   []byte(`{"suggestions":[{"from":"ghost","to":"add-auth","reason":"?"}]}`),
+			wantN: 0,
+		},
+		{
+			name:  "self-edges dropped",
+			raw:   []byte(`{"suggestions":[{"from":"add-db","to":"add-db","reason":"self"}]}`),
+			wantN: 0,
+		},
+		{
+			name:    "invalid json",
+			raw:     []byte(`not json`),
+			wantErr: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseHarnessOutput(tc.raw, known)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("err = %v, wantErr = %v", err, tc.wantErr)
+			}
+			if !tc.wantErr && len(got) != tc.wantN {
+				t.Errorf("got %d candidates, want %d: %+v", len(got), tc.wantN, got)
+			}
+		})
+	}
+}
+
+func TestHarnessSuggestRejectsEmptyName(t *testing.T) {
+	_, err := HarnessSuggest(nil, "")
+	if err == nil {
+		t.Fatal("expected error for empty harness name")
+	}
+}
