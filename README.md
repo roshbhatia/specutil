@@ -24,7 +24,7 @@ script adapters      ──────────▶                ──▶ 
                                                 ──▶ web     → HTML dashboard
 ```
 
-The **determinism boundary** is the core invariant: everything predictable lives in the binary (pure functions, no network); everything stateful (remote writes, auth, drift reconciliation) is delegated to a shipped AI skill that drives the agent's Linear/Notion/GitHub MCP tools.
+The binary reads local artifacts and emits structured output — no network I/O. Remote writes (auth, drift reconciliation, actual Linear/Notion/GitHub API calls) are handled by a shipped AI skill that drives the agent's MCP tools.
 
 ## Installation
 
@@ -152,7 +152,7 @@ cat plan.md | specutil render --from stdin --as rfc
 
 ### `plan`
 
-Emits a deterministic create/update/orphan plan for syncing to a remote target.
+Emits a create/update/orphan plan for syncing to a remote target.
 
 ```bash
 specutil plan [change] --target linear|notion|github-issues [--from <provider>] [-o plan.json]

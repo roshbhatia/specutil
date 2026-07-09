@@ -1,6 +1,6 @@
 ---
 name: sync-to-linear
-description: Sync an OpenSpec change's tasks to Linear issues using the deterministic specutil CLI for planning and the Linear MCP tools for the remote writes. Use when the user wants to push, sync, or reconcile OpenSpec tasks as Linear issues, or asks to "create Linear tickets" from a change.
+description: Sync an OpenSpec change's tasks to Linear issues using specutil CLI for planning and the Linear MCP tools for the remote writes. Use when the user wants to push, sync, or reconcile OpenSpec tasks as Linear issues, or asks to "create Linear tickets" from a change.
 license: MIT
 compatibility: Requires the specutil binary on PATH and the Linear MCP server connected.
 allowed-tools: Bash(specutil:*) mcp__claude_ai_Linear__save_issue mcp__claude_ai_Linear__get_issue mcp__claude_ai_Linear__list_teams AskUserQuestion
@@ -11,11 +11,10 @@ metadata:
 
 # Sync OpenSpec tasks to Linear
 
-This skill is the **apply** half of specutil's determinism boundary. The
-`specutil` binary is pure and never touches the network: it parses the change,
-computes a deterministic plan, and owns the local identity map (lockfile). You,
-the agent, are the **only** thing that talks to Linear — via the Linear MCP
-tools — and every local-state mutation routes back through `specutil lock set`.
+The `specutil` binary reads your local change artifacts and produces a plan; it
+never touches the network. You, the agent, are the **only** thing that talks to
+Linear — via the Linear MCP tools — and every local-state mutation routes back
+through `specutil lock set`.
 
 Never reimplement planning, hashing, or diffing here. If you need to know what
 to do, ask the binary.
@@ -31,7 +30,7 @@ to do, ask the binary.
 
 ## Flow: plan → review → write → lock set
 
-### 1. Plan (deterministic, offline)
+### 1. Plan
 
 ```bash
 specutil plan <change> --target linear

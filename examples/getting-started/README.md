@@ -30,7 +30,7 @@ Run all commands from this directory (`examples/getting-started/`).
 specutil tui
 
 # Open the web dashboard in your browser
-specutil serve
+specutil web
 
 # Inspect the dependency graph
 specutil graph --as mermaid

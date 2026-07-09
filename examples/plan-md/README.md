@@ -16,16 +16,16 @@ Run all commands from this directory (`examples/plan-md/`).
 
 ```bash
 # Render the plan as an RFC
-specutil --from plan render --as rfc --change billing-retry plan.md
+specutil --from plan render --as rfc --change billing-retry
 
 # Render as a design doc
-specutil --from plan render --as design --change billing-retry plan.md
+specutil --from plan render --as design --change billing-retry
 
 # See the Linear sync plan
-specutil --from plan plan --target linear --change billing-retry plan.md
+specutil --from plan plan --target linear --change billing-retry
 
 # View in the TUI kanban
-specutil --from plan tui plan.md
+specutil --from plan tui
 ```
 
 ## Reading from stdin

@@ -58,7 +58,10 @@ jobs:
           BIN="./specutil-bin"
 
           # Home — project overview extracted from README up to first ## section
-          awk '/^## /{found=1} !found{print}' README.md > wiki/Home.md
+          # Replace relative asset paths with raw GitHub URLs so the wiki can render them
+          awk '/^## /{found=1} !found{print}' README.md \
+            | sed 's|src="assets/|src="https://raw.githubusercontent.com/${{ github.repository }}/main/assets/|g' \
+            > wiki/Home.md
           printf '\n---\n> This wiki is auto-generated. Edit source files in the repo, not here.\n\n**Pages**\n- [[Installation]]\n- [[Providers]]\n- [[CLI-Reference]]\n- [[Examples]]\n- [[Skills]]\n- [[Contributing]]\n' >> wiki/Home.md
 
           # Installation
@@ -98,6 +101,7 @@ jobs:
           } > wiki/"CLI-Reference.md"
 
           # Examples — collate all examples/*/README.md
+          # Demote H1 and H2 from embedded READMEs to avoid collisions with wiki structure
           {
             echo "# Examples"
             echo ""
@@ -106,21 +110,31 @@ jobs:
             for example_dir in examples/*/; do
               echo "## $(basename "$example_dir")"
               echo ""
-              [ -f "$example_dir/README.md" ] && cat "$example_dir/README.md"
+              if [ -f "$example_dir/README.md" ]; then
+                sed 's/^# /### /; s/^## /#### /' "$example_dir/README.md"
+              fi
               echo ""
             done
           } > wiki/Examples.md
 
-          # Skills
+          # Skills — show human-readable description only (skip YAML frontmatter)
           {
             echo "# Skills"
             echo ""
             echo "Skills drive remote writes — the binary produces a plan; a skill applies it."
+            echo "Install skills via your AI coding assistant (Claude Code, Cursor, etc.)."
             echo ""
             for skill_dir in skills/*/; do
-              echo "## $(basename "$skill_dir")"
+              skill_name="$(basename "$skill_dir")"
+              echo "## $skill_name"
               echo ""
-              [ -f "$skill_dir/SKILL.md" ] && head -60 "$skill_dir/SKILL.md"
+              if [ -f "$skill_dir/SKILL.md" ]; then
+                # Extract description from frontmatter and body content after the closing ---
+                desc=$(awk '/^description:/{sub(/^description: */,""); print; exit}' "$skill_dir/SKILL.md")
+                [ -n "$desc" ] && echo "$desc" && echo ""
+                # Print body content after the second --- (end of frontmatter)
+                awk 'BEGIN{n=0} /^---/{n++; next} n>=2{print}' "$skill_dir/SKILL.md" | head -40
+              fi
               echo ""
             done
           } > wiki/Skills.md

@@ -1,6 +1,6 @@
 ---
 name: sync-to-github-issues
-description: Sync an OpenSpec change's tasks to GitHub Issues using the deterministic specutil CLI for planning and the gh CLI for the remote writes. Use when the user wants to push, sync, or reconcile OpenSpec tasks as GitHub Issues, or asks to "create GitHub issues" from a change.
+description: Sync an OpenSpec change's tasks to GitHub Issues using specutil CLI for planning and the gh CLI for the remote writes. Use when the user wants to push, sync, or reconcile OpenSpec tasks as GitHub Issues, or asks to "create GitHub issues" from a change.
 license: MIT
 compatibility: Requires the specutil binary on PATH and the gh CLI authenticated.
 allowed-tools: Bash(specutil:*) Bash(gh:*) AskUserQuestion
@@ -11,12 +11,10 @@ metadata:
 
 # Sync OpenSpec tasks to GitHub Issues
 
-This skill is the **apply** half of specutil's determinism boundary. The
-`specutil` binary is pure and never touches the network: it parses the change,
-computes a deterministic plan with pre-rendered issue bodies, and owns the
-local identity map (lockfile). You, the agent, are the **only** thing that
-calls the GitHub API — via `gh issue` — and every local-state mutation routes
-back through `specutil lock set`.
+The `specutil` binary reads your local change artifacts and produces a plan
+with pre-rendered issue bodies; it never touches the network. You, the agent,
+are the **only** thing that calls the GitHub API — via `gh issue` — and every
+local-state mutation routes back through `specutil lock set`.
 
 Never reimplement planning, label derivation, or body rendering. If you need
 to know what to do, ask the binary.
@@ -31,7 +29,7 @@ to know what to do, ask the binary.
 
 ## Flow: plan → review → write → lock set
 
-### 1. Plan (deterministic, offline)
+### 1. Plan
 
 ```bash
 specutil plan --change <change> --target github-issues
@@ -185,5 +183,5 @@ Create all required phase labels before the first `gh issue create`.
 - Never invent identities or content hashes — always copy them from the plan.
 - `gh issue create` with no `--issue-number` creates; `gh issue edit <number>`
   updates. Do not confuse the two.
-- Use the `github.body` from the plan JSON verbatim — it is pre-rendered and
-  deterministic. Do not re-template it.
+- Use the `github.body` from the plan JSON verbatim — it is pre-rendered by
+  the binary. Do not re-template it.

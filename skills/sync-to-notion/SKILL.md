@@ -1,6 +1,6 @@
 ---
 name: sync-to-notion
-description: Sync an OpenSpec change to Notion as an RFC or design doc using the deterministic specutil CLI for rendering/planning and the Notion MCP tools for the remote writes. Use when the user wants to push, sync, or publish an OpenSpec proposal as a Notion RFC or a spec as a Notion design doc.
+description: Sync an OpenSpec change to Notion as an RFC or design doc using specutil CLI for rendering/planning and the Notion MCP tools for the remote writes. Use when the user wants to push, sync, or publish an OpenSpec proposal as a Notion RFC or a spec as a Notion design doc.
 license: MIT
 compatibility: Requires the specutil binary on PATH and the Notion MCP server connected.
 allowed-tools: Bash(specutil:*) mcp__claude_ai_Notion__notion-create-pages mcp__claude_ai_Notion__notion-update-page mcp__claude_ai_Notion__notion-fetch AskUserQuestion
@@ -11,11 +11,10 @@ metadata:
 
 # Sync an OpenSpec change to Notion
 
-This skill is the **apply** half of specutil's determinism boundary. The
-`specutil` binary is pure and never touches the network: it renders the change
-to Markdown deterministically and owns the local identity map (lockfile). You,
-the agent, are the **only** thing that talks to Notion — via the Notion MCP
-tools — and every local-state mutation routes back through `specutil lock set`.
+The `specutil` binary renders your local change artifacts to Markdown; it never
+touches the network. You, the agent, are the **only** thing that talks to
+Notion — via the Notion MCP tools — and every local-state mutation routes back
+through `specutil lock set`.
 
 Notion is **document-grained**, not task-grained: a change projects to one
 Notion page (an RFC from the proposal, or a design doc from the design/specs),
@@ -43,7 +42,7 @@ adjust the rendered Markdown to match. Do **not** put the page title inside
 
 ## Flow: render → review → write → lock set
 
-### 1. Render (deterministic, offline)
+### 1. Render
 
 ```bash
 specutil render <change> --as rfc      # or: --as design

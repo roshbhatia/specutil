@@ -1,7 +1,6 @@
-// Package cli wires the cobra command tree. The verb surface is deliberately
-// small and deterministic: render, plan, diff, lock, graph, tui, web. There is
-// no `sync` verb — orchestration of remote writes lives in the shipped skills,
-// never in the binary.
+// Package cli wires the cobra command tree. Verbs: render, plan, diff, lock,
+// graph, tui, web. No `sync` verb — orchestration of remote writes lives in
+// the shipped skills, never in the binary.
 package cli
 
 import (
@@ -45,8 +44,8 @@ func NewRootCmd() *cobra.Command {
 		Short: "Project OpenSpec change artifacts into other artifacts and visualizations",
 		Long: "specutil parses spec-framework change artifacts (OpenSpec in v1) into a " +
 			"normalized IR and projects them into RFCs, design docs, tickets, dependency " +
-			"graphs, and visualizations. The binary is deterministic and performs no network " +
-			"I/O; remote writes are delegated to an agent via the shipped sync skills.",
+			"graphs, and visualizations. Remote writes are delegated to an agent via the " +
+			"shipped sync skills.",
 		SilenceUsage:  true,
 		SilenceErrors: false,
 	}
@@ -229,8 +228,7 @@ func newPlanCmd() *cobra.Command {
 			"  2. specutil plan --target linear --change my-change\n" +
 			"  3. A skill reads the plan and performs the actual Linear/Notion API calls\n" +
 			"  4. The skill calls `specutil lock set` to record the mapping\n\n" +
-			"Invoke manually when debugging sync issues or building custom integrations.\n" +
-			"The plan is deterministic — identical input always produces identical output.",
+			"Invoke manually when debugging sync issues or building custom integrations.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: runPlan,
 	}
