@@ -25,36 +25,39 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Check wiki exists
+        id: wiki-check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git ls-remote "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.wiki.git" HEAD 2>/dev/null | grep -q HEAD; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Wiki not initialized — go to https://github.com/${{ github.repository }}/wiki and create the first page to enable auto-generation."
+          fi
+
+      - name: Build specutil
+        if: steps.wiki-check.outputs.exists == 'true'
+        run: go build -o specutil-bin ./cmd/specutil
+
       - name: Checkout wiki
+        if: steps.wiki-check.outputs.exists == 'true'
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}.wiki
           path: wiki
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build specutil
-        run: go build -o specutil-bin ./cmd/specutil
-
       - name: Generate wiki pages
+        if: steps.wiki-check.outputs.exists == 'true'
         run: |
           set -euo pipefail
           BIN="./specutil-bin"
 
           # Home — project overview extracted from README up to first ## section
           awk '/^## /{found=1} !found{print}' README.md > wiki/Home.md
-          cat >> wiki/Home.md << 'EOF'
-
-          ---
-          > This wiki is auto-generated from the repository. Edit source files in the repo, not here.
-
-          **Pages**
-          - [[Installation]]
-          - [[Providers]]
-          - [[CLI-Reference]]
-          - [[Examples]]
-          - [[Skills]]
-          - [[Contributing]]
-          EOF
+          printf '\n---\n> This wiki is auto-generated. Edit source files in the repo, not here.\n\n**Pages**\n- [[Installation]]\n- [[Providers]]\n- [[CLI-Reference]]\n- [[Examples]]\n- [[Skills]]\n- [[Contributing]]\n' >> wiki/Home.md
 
           # Installation
           awk '/^## Installation/,/^## [^I]/' README.md | head -n -1 > wiki/Installation.md
@@ -70,17 +73,13 @@ jobs:
           {
             echo "# CLI Reference"
             echo ""
-            echo "> Auto-generated from \`specutil --help\` output. Always reflects the current binary."
+            echo "> Auto-generated from \`specutil --help\`. Always reflects the current binary."
             echo ""
-
-            # Top-level help
             echo "## specutil"
             echo '```'
             "$BIN" --help 2>&1 || true
             echo '```'
             echo ""
-
-            # Per-verb help
             for verb in render plan diff lock graph tui web; do
               echo "## specutil $verb"
               echo '```'
@@ -88,15 +87,12 @@ jobs:
               echo '```'
               echo ""
             done
-
-            # lock subcommands
             echo "## specutil lock get / set"
             echo '```'
             "$BIN" lock get --help 2>&1 || true
             echo ""
             "$BIN" lock set --help 2>&1 || true
             echo '```'
-            echo ""
           } > wiki/"CLI-Reference.md"
 
           # Examples — collate all examples/*/README.md
@@ -106,12 +102,9 @@ jobs:
             echo "Working examples live in the [\`examples/\`](https://github.com/${{ github.repository }}/tree/main/examples) directory."
             echo ""
             for example_dir in examples/*/; do
-              example_name=$(basename "$example_dir")
-              echo "## $example_name"
+              echo "## $(basename "$example_dir")"
               echo ""
-              if [ -f "$example_dir/README.md" ]; then
-                cat "$example_dir/README.md"
-              fi
+              [ -f "$example_dir/README.md" ] && cat "$example_dir/README.md"
               echo ""
             done
           } > wiki/Examples.md
@@ -123,20 +116,17 @@ jobs:
             echo "Skills drive remote writes — the binary produces a plan; a skill applies it."
             echo ""
             for skill_dir in skills/*/; do
-              skill_name=$(basename "$skill_dir")
-              echo "## $skill_name"
+              echo "## $(basename "$skill_dir")"
               echo ""
-              if [ -f "$skill_dir/SKILL.md" ]; then
-                head -60 "$skill_dir/SKILL.md"
-              fi
+              [ -f "$skill_dir/SKILL.md" ] && head -60 "$skill_dir/SKILL.md"
               echo ""
             done
           } > wiki/Skills.md
 
-          # Contributing
           cp .github/CONTRIBUTING.md wiki/Contributing.md
 
       - name: Commit wiki changes
+        if: steps.wiki-check.outputs.exists == 'true'
         working-directory: wiki
         run: |
           git config user.name "github-actions[bot]"
