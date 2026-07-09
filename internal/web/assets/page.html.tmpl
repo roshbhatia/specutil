@@ -1149,6 +1149,31 @@ const SUGGEST = {{.SuggestJSON}};
     return '<div class="stat"><b class="tnum">' + (n || 0) + "</b><span>" + label + "</span></div>";
   }
 
+  /* criticalPath returns the set of change names on the longest dependency path.
+     Only meaningful when edges exist; single-node graphs have no critical path. */
+  function criticalPath() {
+    const names = changes.map((c) => c.name);
+    if (!names.length || !edges.length) return new Set();
+    const adj = {};
+    names.forEach((n) => { adj[n] = []; });
+    edges.forEach((e) => { if (adj[e.from]) adj[e.from].push(e.to); });
+    const memo = {};
+    function longest(n) {
+      if (memo[n] !== undefined) return memo[n];
+      const succs = adj[n] || [];
+      if (!succs.length) { memo[n] = [n]; return [n]; }
+      let best = [];
+      succs.forEach((s) => { const p = longest(s); if (p.length > best.length) best = p; });
+      memo[n] = [n, ...best];
+      return memo[n];
+    }
+    const hasIncoming = new Set(edges.map((e) => e.to));
+    const roots = names.filter((n) => !hasIncoming.has(n));
+    let globalBest = [];
+    roots.forEach((r) => { const p = longest(r); if (p.length > globalBest.length) globalBest = p; });
+    return new Set(globalBest);
+  }
+
   /* ================================================================
      KANBAN VIEW
      ================================================================ */
@@ -1172,6 +1197,12 @@ const SUGGEST = {{.SuggestJSON}};
       '<span style="font-size:.6em;font-weight:400;color:var(--muted)">/' + total + '</span></b>' +
       '<span>tasks · ' + pct + '%</span></div></div>';
 
+    const critical = criticalPath();
+    const dotColors = {
+      done: "#9ca3af", "in-progress": "#4f46e5",
+      blocked: "#f97316", ready: "#16a34a", waiting: "#d1d5db"
+    };
+
     h += '<div class="board">';
     LIFECYCLES.forEach((lc) => {
       const col = changes.filter((c) => c.lifecycle === lc);
@@ -1183,10 +1214,35 @@ const SUGGEST = {{.SuggestJSON}};
         col.forEach((c) => {
           const p = progressOf(c);
           const stgCount = (c.phases || []).length;
+          const st = changeStatus(c);
+          const dotColor = dotColors[st] || "#d1d5db";
+          const dep = dependsOn(c.name);
+          const blks = blocks(c.name);
+          const blockedBy = dep.filter((d) => { const dc = byName.get(d); return !dc || dc.lifecycle !== "archived"; });
+          let depLine = "";
+          if ((st === "blocked" || st === "waiting") && blockedBy.length) {
+            depLine = blockedBy.length === 1
+              ? "blocked by " + esc(blockedBy[0])
+              : "blocked by " + blockedBy.length + " changes";
+          } else if (blks.length) {
+            depLine = blks.length === 1
+              ? "blocks " + esc(blks[0])
+              : "blocks " + blks.length + " changes";
+          }
+          const depLineColor = (st === "blocked" || st === "waiting") ? "var(--lc-active-ink)" : "var(--muted)";
           h += '<button class="bcard" data-change="' + esc(c.name) + '">' +
-            "<h3>" + esc(c.name) + "</h3>" +
+            '<div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem">' +
+              '<span style="width:8px;height:8px;border-radius:50%;background:' + dotColor + ';flex-shrink:0"></span>' +
+              '<h3 style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0">' +
+                esc(c.name) +
+                (critical.has(c.name) ? ' <span title="Critical path" style="color:#f59e0b;font-size:10px">&#9733;</span>' : '') +
+              '</h3>' +
+              '<span class="badge ' + esc(c.lifecycle || "proposed") + '" style="flex-shrink:0;font-size:.65rem">' + esc(c.lifecycle || "proposed") + '</span>' +
+            '</div>' +
             '<div class="meter"><span style="width:' + p.pct + '%"></span></div>' +
-            '<p class="sub">' + progressLabel(c) + " &middot; " + stgCount + (stgCount === 1 ? " stage" : " stages") + "</p></button>";
+            '<p class="sub">' + progressLabel(c) + (stgCount ? ' &middot; ' + stgCount + (stgCount === 1 ? ' stage' : ' stages') : '') + '</p>' +
+            (depLine ? '<p class="sub" style="color:' + depLineColor + ';margin-top:.1rem">' + depLine + '</p>' : '') +
+            '</button>';
         });
       }
       h += "</div></section>";

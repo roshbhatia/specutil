@@ -398,22 +398,24 @@ func (m Model) cardStyle(c *ir.Change) lipgloss.Style {
 	return styleCard.BorderForeground(lifecycleColor(Classify(c)))
 }
 
-// card renders a single workstream as a compact progress card: name, an inline
-// lifecycle-colored meter, done/total, and a phase count — mirroring the web
-// board's cards. The pieces degrade gracefully on a narrow terminal because the
-// column width clips them rather than overflowing.
+// card renders a single workstream as a compact progress card: status dot,
+// name, progress meter, lifecycle chip, and dep context line.
 func (m Model) card(c *ir.Change, style lipgloss.Style) string {
 	done, total := Progress(c)
 	lc := Classify(c)
-	phases := 0
-	if c.Tasks != nil {
-		phases = len(c.Tasks.Phases)
-	}
+	status := m.workStatus(c)
+	dotColor := statusDotColor(status)
+
+	dot := lipgloss.NewStyle().Foreground(dotColor).Render("●")
+	lcChip := lipgloss.NewStyle().Foreground(lifecycleColor(lc)).Render("[" + string(lc) + "]")
+
 	var b strings.Builder
-	b.WriteString(styleName.Render(c.Name) + "\n")
-	b.WriteString(miniBar(done, total, lifecycleColor(lc)) + "\n")
-	b.WriteString(styleMuted.Render(fmt.Sprintf("%d/%d · %d phase%s", done, total, phases, plural(phases))))
-	return zone.Mark("card:"+c.Name, style.Render(b.String()))
+	b.WriteString(dot + " " + styleName.Render(c.Name) + "\n")
+	b.WriteString(miniBar(done, total, dotColor) + "  " + styleMuted.Render(fmt.Sprintf("%d/%d", done, total)) + "  " + lcChip + "\n")
+	if ctx := m.depContext(c.Name, status); ctx != "" {
+		b.WriteString(styleMuted.Render(ctx))
+	}
+	return zone.Mark("card:"+c.Name, style.Render(strings.TrimRight(b.String(), "\n")))
 }
 
 // miniBar draws a short fixed-width progress meter; the filled run takes the
@@ -487,6 +489,77 @@ func (m Model) blocks(name string) []string {
 	return out
 }
 
+// workStatus computes the work-graph status for a change: blocked = active but
+// unmet deps, in-progress = active + all deps done, ready = proposed + all deps
+// done, waiting = proposed + unmet deps, done = archived.
+func (m Model) workStatus(c *ir.Change) string {
+	lc := Classify(c)
+	if lc == Archived {
+		return "done"
+	}
+	allDepsDone := true
+	for _, d := range m.dependsOn(c.Name) {
+		dep := m.byName[d]
+		if dep == nil || Classify(dep) != Archived {
+			allDepsDone = false
+			break
+		}
+	}
+	if lc == Active {
+		if allDepsDone {
+			return "in-progress"
+		}
+		return "blocked"
+	}
+	if allDepsDone {
+		return "ready"
+	}
+	return "waiting"
+}
+
+// statusDotColor maps work-graph status to its terminal color.
+func statusDotColor(status string) lipgloss.AdaptiveColor {
+	switch status {
+	case "blocked":
+		return colWarn
+	case "ready":
+		return colArchived
+	case "in-progress":
+		return colActive
+	case "done":
+		return colMuted
+	default:
+		return colProposed
+	}
+}
+
+// depContext returns a short dep-relationship line for a card.
+func (m Model) depContext(name, status string) string {
+	switch status {
+	case "blocked", "waiting":
+		var blockers []string
+		for _, d := range m.dependsOn(name) {
+			dep := m.byName[d]
+			if dep == nil || Classify(dep) != Archived {
+				blockers = append(blockers, d)
+			}
+		}
+		if len(blockers) == 1 {
+			return "blocked by " + blockers[0]
+		} else if len(blockers) > 1 {
+			return fmt.Sprintf("blocked by %d changes", len(blockers))
+		}
+	default:
+		blks := m.blocks(name)
+		if len(blks) == 1 {
+			return "blocks " + blks[0]
+		} else if len(blks) > 1 {
+			return fmt.Sprintf("blocks %d", len(blks))
+		}
+	}
+	return ""
+}
+
 // neighbors is the set of immediate prerequisites and dependents of name, used
 // for focus+context highlighting.
 func (m Model) neighbors(name string) map[string]bool {
@@ -540,7 +613,6 @@ func (m Model) detailPanel(innerW int) string {
 		meta.WriteString(styleHeader.Render("What changes") + "\n" + c.Proposal.WhatChanges + "\n\n")
 	}
 
-	pipeline := m.detailPipeline(c)
 	outstanding := m.detailOutstanding(c)
 	checklist := m.detailChecklist(c)
 	rail := m.detailRail(c)
@@ -562,9 +634,6 @@ func (m Model) detailPanel(innerW int) string {
 	}
 
 	parts := []string{strings.TrimRight(head.String(), "\n")}
-	if pipeline != "" {
-		parts = append(parts, pipeline)
-	}
 	if s := strings.TrimRight(meta.String(), "\n"); s != "" {
 		parts = append(parts, s)
 	}
@@ -664,18 +733,10 @@ func (m Model) detailChecklist(c *ir.Change) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// detailRail is the side rail: per-phase progress meters and the depends-on /
-// blocks relationships, the TUI counterpart to the web document's aside.
+// detailRail is the side rail: depends-on and blocks relationships, the TUI
+// counterpart to the web document's aside. Stage data is in the checklist.
 func (m Model) detailRail(c *ir.Change) string {
 	var b strings.Builder
-	if c.Tasks != nil && len(c.Tasks.Phases) > 0 {
-		b.WriteString(styleHeader.Render("Stages") + "\n")
-		for _, p := range c.Tasks.Phases {
-			pd, pt := phaseProgress(p)
-			b.WriteString(miniBar(pd, pt, colAccent) + " " + styleMuted.Render("Stage "+p.Number+": "+p.Name) + "\n")
-		}
-		b.WriteString("\n")
-	}
 	b.WriteString(styleHeader.Render("Depends on") + "\n")
 	if dep := m.dependsOn(c.Name); len(dep) > 0 {
 		for _, d := range dep {

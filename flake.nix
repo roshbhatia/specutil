@@ -55,8 +55,9 @@
       # when this flake is consumed as an input, so consumers can use them
       # directly as home.file sources without any build step.
       lib.skills = {
-        "sync-to-linear" = ./skills/sync-to-linear/SKILL.md;
-        "sync-to-notion" = ./skills/sync-to-notion/SKILL.md;
+        "sync-to-linear"  = ./skills/sync-to-linear/SKILL.md;
+        "sync-to-notion"  = ./skills/sync-to-notion/SKILL.md;
+        "discover-deps"   = ./skills/discover-deps/SKILL.md;
       };
     };
 }

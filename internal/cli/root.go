@@ -451,17 +451,19 @@ func newGraphCmd() *cobra.Command {
 			"  dot      — Graphviz DOT format for rendering with graphviz tools\n" +
 			"  detail   — Per-change ticket detail feed (same as DETAIL in web view)\n\n" +
 			"The --suggest flag infers candidate edges from shared capabilities without\n" +
-			"writing anything — useful for discovering dependency relationships before\n" +
-			"recording them in openspec/specutil.yaml.\n\n" +
+			"writing anything. Pair with --harness to use an AI model (claude, gemini,\n" +
+			"codex, pi, or any binary on PATH) for deeper semantic analysis.\n\n" +
 			"Typical invocations:\n" +
-			"  specutil graph --as mermaid           # insert into a doc or README\n" +
-			"  specutil graph --suggest              # discover implied edges\n" +
-			"  specutil graph --as json | jq         # pipe to other tools",
+			"  specutil graph --as mermaid                      # insert into a doc or README\n" +
+			"  specutil graph --suggest                         # discover implied edges\n" +
+			"  specutil graph --suggest --harness claude        # AI-powered discovery\n" +
+			"  specutil graph --as json | jq                    # pipe to other tools",
 		Args: cobra.NoArgs,
 		RunE: runGraph,
 	}
 	cmd.Flags().String("as", "json", "output format: json|mermaid|dot|detail")
 	cmd.Flags().Bool("suggest", false, "infer candidate edges from shared capabilities (read-only)")
+	cmd.Flags().String("harness", "", "AI harness for --suggest: claude|gemini|codex|pi|<binary> (default: heuristic only)")
 	cmd.Flags().StringP("out", "o", "", "write output to a file instead of stdout")
 	return cmd
 }
@@ -477,7 +479,18 @@ func runGraph(cmd *cobra.Command, args []string) error {
 	}
 
 	if suggest, _ := cmd.Flags().GetBool("suggest"); suggest {
-		cands := graph.Suggest(changes)
+		harness, _ := cmd.Flags().GetString("harness")
+		var cands []graph.Candidate
+		if harness != "" {
+			fmt.Fprintf(cmd.ErrOrStderr(), "running %s harness for dependency suggestions...\n", harness)
+			var herr error
+			cands, herr = graph.HarnessSuggest(changes, harness)
+			if herr != nil {
+				return fmt.Errorf("harness suggest: %w", herr)
+			}
+		} else {
+			cands = graph.Suggest(changes)
+		}
 		if cands == nil {
 			cands = []graph.Candidate{}
 		}
