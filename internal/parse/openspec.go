@@ -14,7 +14,51 @@ var (
 	deltaTitleRe  = regexp.MustCompile(`(?i)^(ADDED|MODIFIED|REMOVED|RENAMED)\s+Requirements?$`)
 	capNameRe     = regexp.MustCompile("^[*`]*\\s*([^*`:]+?)\\s*[*`]*\\s*:\\s*(.*)$")
 	phaseNumberRe = regexp.MustCompile(`^(\d+)\.?\s*`)
+	bracketTagRe  = regexp.MustCompile(`^\[([^\]]+)\]\s*`)
+	// ticketRefRe matches Jira/Linear-style IDs (INF-2345, PR-123, etc.)
+	ticketRefRe = regexp.MustCompile(`\b([A-Z]{2,10}-\d+)\b`)
+	// prRefRe matches GitHub PR/issue refs (#219); no leading \b since # is non-word
+	prRefRe = regexp.MustCompile(`#(\d+)\b`)
 )
+
+// extractBracketTags peels leading [TAG] tokens from text, returning the tags
+// and the cleaned text with those tokens removed.
+func extractBracketTags(text string) ([]string, string) {
+	text = strings.TrimSpace(text)
+	var tags []string
+	for {
+		m := bracketTagRe.FindStringSubmatchIndex(text)
+		if m == nil {
+			break
+		}
+		tags = append(tags, text[m[2]:m[3]])
+		text = text[m[1]:]
+	}
+	return tags, strings.TrimSpace(text)
+}
+
+// extractInlineRefs finds ticket/PR identifiers embedded in text, deduped and
+// in order of first appearance.
+func extractInlineRefs(text string) []string {
+	seen := make(map[string]bool)
+	var out []string
+	for _, m := range ticketRefRe.FindAllString(text, -1) {
+		if !seen[m] {
+			seen[m] = true
+			out = append(out, m)
+		}
+	}
+	for _, m := range prRefRe.FindAllString(text, -1) {
+		if !seen[m] {
+			seen[m] = true
+			out = append(out, m)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
 
 // ParseProposal maps a proposal.md section forest into ir.Proposal.
 func ParseProposal(file, src string) (*ir.Proposal, []ir.Warning) {
@@ -177,6 +221,8 @@ func ParseDesign(file, src string) (*ir.Design, []ir.Warning) {
 		switch {
 		case strings.HasPrefix(title, "context"):
 			d.Context = body
+		case strings.Contains(title, "non-goal"):
+			d.NonGoals = body
 		case strings.Contains(title, "goal"):
 			d.Goals = body
 		case strings.HasPrefix(title, "decision"):
@@ -219,6 +265,8 @@ func ParseTasks(file, src string) (*ir.Tasks, []ir.Warning) {
 				item.Text = it.text
 				warns = append(warns, ir.Warning{File: file, Msg: "task item missing N.M identifier: " + it.text})
 			}
+			item.Tags, item.Text = extractBracketTags(item.Text)
+			item.InlineRefs = extractInlineRefs(item.Text)
 			item.Kind = classifyTask(item.Text)
 			phase.Items = append(phase.Items, item)
 		}

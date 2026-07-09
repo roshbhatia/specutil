@@ -24,13 +24,26 @@ type Feed struct {
 
 // Change is the per-workstream ticket content.
 type Change struct {
-	Name        string  `json:"name"`
-	Lifecycle   string  `json:"lifecycle"`
-	Done        int     `json:"done"`
-	Total       int     `json:"total"`
-	Why         string  `json:"why,omitempty"`
-	WhatChanges string  `json:"whatChanges,omitempty"`
-	Phases      []Phase `json:"phases"`
+	Name        string          `json:"name"`
+	Lifecycle   string          `json:"lifecycle"`
+	Done        int             `json:"done"`
+	Total       int             `json:"total"`
+	Why         string          `json:"why,omitempty"`
+	WhatChanges string          `json:"whatChanges,omitempty"`
+	Design      *DesignSections `json:"design,omitempty"`
+	Phases      []Phase         `json:"phases"`
+}
+
+// DesignSections surfaces design.md content for visualizers.
+type DesignSections struct {
+	Context       string `json:"context,omitempty"`
+	Goals         string `json:"goals,omitempty"`
+	NonGoals      string `json:"nonGoals,omitempty"`
+	Decisions     string `json:"decisions,omitempty"`
+	Risks         string `json:"risks,omitempty"`
+	Rollout       string `json:"rollout,omitempty"`
+	Migration     string `json:"migration,omitempty"`
+	OpenQuestions string `json:"openQuestions,omitempty"`
 }
 
 // Phase mirrors a tasks.md phase with its checkbox items.
@@ -54,6 +67,8 @@ type Item struct {
 	Kind         string        `json:"kind"`
 	Level        int           `json:"level"`
 	Key          string        `json:"key"`
+	Tags         []string      `json:"tags,omitempty"`
+	InlineRefs   []string      `json:"inlineRefs,omitempty"`
 	ExternalRefs []ExternalRef `json:"externalRefs,omitempty"`
 }
 
@@ -99,16 +114,35 @@ func BuildWithRefs(changes []*ir.Change, refs RefsByKey) *Feed {
 			dc.Why = c.Proposal.Why
 			dc.WhatChanges = c.Proposal.WhatChanges
 		}
+		if c.Design != nil {
+			ds := &DesignSections{
+				Context:       c.Design.Context,
+				Goals:         c.Design.Goals,
+				NonGoals:      c.Design.NonGoals,
+				Decisions:     c.Design.Decisions,
+				Risks:         c.Design.Risks,
+				Rollout:       c.Design.Rollout,
+				Migration:     c.Design.Migration,
+				OpenQuestions: c.Design.OpenQuestions,
+			}
+			// Only attach when at least one section is non-empty.
+			if ds.Context != "" || ds.Goals != "" || ds.NonGoals != "" || ds.Decisions != "" ||
+				ds.Risks != "" || ds.Rollout != "" || ds.Migration != "" || ds.OpenQuestions != "" {
+				dc.Design = ds
+			}
+		}
 		if c.Tasks != nil {
 			for pi, p := range c.Tasks.Phases {
 				ph := Phase{Number: p.Number, Name: p.Name, Items: []Item{}}
 				for ii, it := range p.Items {
 					it2 := Item{
-						Text:  it.Text,
-						Done:  it.Done,
-						Kind:  string(it.Kind),
-						Level: pi,
-						Key:   levelKey(pi, ii),
+						Text:       it.Text,
+						Done:       it.Done,
+						Kind:       string(it.Kind),
+						Level:      pi,
+						Key:        levelKey(pi, ii),
+						Tags:       it.Tags,
+						InlineRefs: it.InlineRefs,
 					}
 					if len(refs) > 0 {
 						key := c.Name + "\x00" + p.Name + "\x00" + it.Text

@@ -337,15 +337,45 @@ details.narrative-block[open] summary.narrative-summary::before { content: "−"
   padding: 5px 8px; border-bottom: 1px solid var(--surface-3); font-size: 12px;
 }
 .task-row:last-child { border-bottom: 0; }
-.task-row.done .task-title { text-decoration: line-through; text-decoration-thickness: 1px; color: var(--muted); }
-.task-row.done .task-check { color: var(--done); }
-.task-check { text-align: center; font-size: 13px; color: var(--line); }
-.task-key { font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--muted); padding-right: 6px; }
-.task-body { display: flex; align-items: center; gap: .35rem; min-width: 0; }
-.task-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.task-meta { display: flex; align-items: center; gap: .25rem; flex-shrink: 0; }
-.task-ext {
-  font-family: var(--font-mono); font-size: 9px; font-weight: 700; padding: 1px 5px;
+/* ------------------------------------------------------------------ task cards */
+.task-card {
+  display: flex; gap: .5rem;
+  padding: .45rem .6rem; margin: .3rem 0;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--content); transition: border-color .1s;
+}
+.task-card:hover { border-color: var(--line-dark); }
+.task-card.done { opacity: .6; }
+.tc-status {
+  display: flex; flex-direction: column; align-items: center;
+  gap: .15rem; flex-shrink: 0; padding-top: .1rem; min-width: 1.8rem;
+}
+.tc-check { font-size: 14px; color: var(--line-dark); line-height: 1; }
+.tc-check.done { color: var(--done); }
+.tc-key {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  color: var(--muted); text-align: center;
+}
+.tc-body { flex: 1; min-width: 0; }
+.tc-title {
+  font-size: 12.5px; line-height: 1.55; word-break: break-word;
+  color: var(--ink);
+}
+.task-card.done .tc-title { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.tc-chips { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .3rem; }
+/* task tags: bracket-extracted labels */
+.task-tag {
+  font-size: 9.5px; font-family: var(--font-mono); font-weight: 700;
+  letter-spacing: .04em; padding: 1px 5px; border-radius: 3px;
+  border: 1px solid transparent; text-transform: uppercase;
+}
+.task-tag.tag-blocker { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+.task-tag.tag-done    { background: var(--lc-archived-bg); color: var(--lc-archived-ink); border-color: var(--lc-archived-line); }
+.task-tag.tag-cat     { background: var(--lc-proposed-bg); color: var(--lc-proposed-ink); border-color: var(--lc-proposed-line); }
+/* inline ticket refs extracted from task text */
+.task-ref {
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 700;
+  padding: 1px 5px; border-radius: 3px;
   background: var(--surface-3); border: 1px solid var(--line); color: var(--muted);
 }
 
@@ -572,7 +602,7 @@ const SUGGEST = {{.SuggestJSON}};
     return "changes:\n  " + JSON.stringify(c.to) + ":\n    depends_on:\n      - " + JSON.stringify(c.from);
   }
   function firstRemaining(c) {
-    for (const p of (c.phases || [])) for (const it of (p.items || [])) if (!it.done) return it.text;
+    for (const p of (c.phases || [])) for (const it of (p.items || [])) if (!it.done) return plainText(it.text);
     return progressOf(c).hasTasks ? "All complete" : "No tasks";
   }
   function kindTag(it) {
@@ -581,6 +611,22 @@ const SUGGEST = {{.SuggestJSON}};
   }
   function extRefChips(it) {
     return (it.externalRefs || []).map((r) => '<span class="ext-ref" title="' + esc(r.target) + '">' + esc(r.externalId) + "</span>").join("");
+  }
+  function tagChips(it) {
+    return (it.tags || []).map((t) => {
+      const up = t.toUpperCase();
+      const cls = up === "BLOCKER" || up === "URGENT" ? "tag-blocker"
+                : up === "DONE" ? "tag-done"
+                : "tag-cat";
+      return '<span class="task-tag ' + cls + '">' + esc(t) + '</span>';
+    }).join("");
+  }
+  function inlineRefChips(it) {
+    return (it.inlineRefs || []).map((r) => '<span class="task-ref">' + esc(r) + '</span>').join("");
+  }
+  // plainText strips markdown markers for use in title attributes
+  function plainText(s) {
+    return s.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1").replace(/`([^`]+)`/g, "$1");
   }
   function destroyChart() { if (window.__chart) { window.__chart.destroy(); window.__chart = null; } }
   function destroyCy() {
@@ -638,29 +684,6 @@ const SUGGEST = {{.SuggestJSON}};
   }
 
   /* ---- task pipeline HTML (inspector/graph hover only) ---- */
-  function pipelineHTML(c) {
-    const phases = c.phases || [];
-    if (!phases.length) return "";
-    let h = '<div class="pipeline">';
-    phases.forEach((p, pi) => {
-      if (pi > 0) h += '<div class="pipe-arrow">&#8594;</div>';
-      const items = p.items || [];
-      const d = items.filter((i) => i.done).length;
-      const pct = items.length ? Math.round((d / items.length) * 100) : 0;
-      h += '<div class="pipe-stage">';
-      h += '<div class="pipe-phase-head">Stage ' + esc(p.number) + ': ' + esc(p.name) + '</div>';
-      h += '<div class="pipe-tasks">';
-      items.forEach((it) => {
-        h += '<div class="pipe-task' + (it.done ? ' done' : '') + '" title="' + esc(it.text) + '">' +
-          '<span class="pipe-key">' + esc(it.key) + '</span>' +
-          esc(it.text.length > 26 ? it.text.slice(0, 25) + '…' : it.text) + '</div>';
-      });
-      h += '</div><div class="pipe-bar"><span style="width:' + pct + '%"></span></div></div>';
-    });
-    h += '</div>';
-    return h;
-  }
-
   /* ================================================================
      WORK GRAPH — status computation
      Answers: what can I work on now? what's blocked? what's done?
@@ -728,7 +751,7 @@ const SUGGEST = {{.SuggestJSON}};
     /* next action */
     if (st !== "done") {
       h += '<p class="eyebrow" style="margin-top:.5rem">Next task</p>';
-      h += '<p style="font-size:11px;margin:.2rem 0 .5rem">' + esc(nextTask) + '</p>';
+      h += '<p style="font-size:11px;margin:.2rem 0 .5rem">' + inline(esc(nextTask)) + '</p>';
     }
 
     /* blocked by */
@@ -1365,14 +1388,18 @@ const SUGGEST = {{.SuggestJSON}};
      ================================================================ */
   function taskRowHTML(it) {
     const done = it.done;
-    const refs  = (it.externalRefs || []).map((r) => '<span class="task-ext" title="' + esc(r.target) + '">' + esc(r.externalId) + "</span>").join("");
-    const k     = it.kind && it.kind !== "task" ? '<span class="kind ' + esc(it.kind) + '">' + esc(it.kind) + "</span>" : "";
-    return '<div class="task-row' + (done ? " done" : "") + '">' +
-      '<div class="task-check' + (done ? " done" : "") + '">' + (done ? "&#10003;" : "&#9744;") + "</div>" +
-      '<div class="task-key">' + esc(it.key) + "</div>" +
-      '<div class="task-body">' + k + '<span class="task-title" title="' + esc(it.text) + '">' + esc(it.text) + "</span></div>" +
-      '<div class="task-meta">' + refs + "</div>" +
-      "</div>";
+    const k = kindTag(it);
+    const chips = tagChips(it) + inlineRefChips(it) + extRefChips(it);
+    return '<div class="task-card' + (done ? " done" : "") + '">' +
+      '<div class="tc-status">' +
+        '<span class="tc-check' + (done ? " done" : "") + '">' + (done ? "&#10003;" : "&#9744;") + '</span>' +
+        '<span class="tc-key">' + esc(it.key) + '</span>' +
+      '</div>' +
+      '<div class="tc-body">' +
+        '<div class="tc-title">' + (k ? k + ' ' : '') + inline(esc(it.text)) + '</div>' +
+        (chips ? '<div class="tc-chips">' + chips + '</div>' : '') +
+      '</div>' +
+      '</div>';
   }
 
   function renderDetail(name) {
@@ -1405,6 +1432,27 @@ const SUGGEST = {{.SuggestJSON}};
         h += '<details class="narrative-block"><summary class="narrative-summary">What changes</summary>' +
           '<div class="narrative-body">' + md(c.whatChanges) + '</div></details>';
       }
+      h += '</div>';
+    }
+
+    /* Design sections — Goals, Decisions, Risks, Rollout, Migration */
+    const dsec = c.design || {};
+    const designFields = [
+      { key: "context",       label: "Context" },
+      { key: "goals",         label: "Goals" },
+      { key: "nonGoals",      label: "Non-goals" },
+      { key: "decisions",     label: "Decisions" },
+      { key: "risks",         label: "Risks" },
+      { key: "rollout",       label: "Rollout" },
+      { key: "migration",     label: "Migration" },
+      { key: "openQuestions", label: "Open questions" },
+    ].filter((f) => dsec[f.key]);
+    if (designFields.length) {
+      h += '<div class="narrative" style="margin-top:.5rem">';
+      designFields.forEach((f) => {
+        h += '<details class="narrative-block"><summary class="narrative-summary">' + esc(f.label) + '</summary>' +
+          '<div class="narrative-body">' + md(dsec[f.key]) + '</div></details>';
+      });
       h += '</div>';
     }
 

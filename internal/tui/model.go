@@ -434,14 +434,6 @@ func miniBar(done, total int, c lipgloss.TerminalColor) string {
 	return fill + track
 }
 
-func plural(n int) string {
-	if n == 1 {
-		return ""
-	}
-	return "s"
-}
-
-
 // graphView renders the dependency DAG as a Sugiyama-laid-out ASCII graph.
 // Nodes are boxes connected by ASCII lines; the selected change is marked with
 // a '*' corner. Diagnostics (cycles, dangling refs) appear below the graph.
@@ -612,6 +604,22 @@ func (m Model) detailPanel(innerW int) string {
 	if c.Proposal != nil && c.Proposal.WhatChanges != "" {
 		meta.WriteString(styleHeader.Render("What changes") + "\n" + c.Proposal.WhatChanges + "\n\n")
 	}
+	if c.Design != nil {
+		type dsec struct{ label, body string }
+		for _, s := range []dsec{
+			{"Goals", c.Design.Goals},
+			{"Non-goals", c.Design.NonGoals},
+			{"Decisions", c.Design.Decisions},
+			{"Risks", c.Design.Risks},
+			{"Rollout", c.Design.Rollout},
+			{"Migration", c.Design.Migration},
+			{"Open questions", c.Design.OpenQuestions},
+		} {
+			if s.body != "" {
+				meta.WriteString(styleHeader.Render(s.label) + "\n" + s.body + "\n\n")
+			}
+		}
+	}
 
 	outstanding := m.detailOutstanding(c)
 	checklist := m.detailChecklist(c)
@@ -724,6 +732,9 @@ func (m Model) detailChecklist(c *ir.Change) string {
 				glyph = "[x]"
 			}
 			line := fmt.Sprintf("  %s %s%s", glyph, kindMarker(it.Kind), it.Text)
+			for _, tag := range it.Tags {
+				line += " " + styleChip.Render("["+tag+"]")
+			}
 			if it.Done {
 				line = styleDone.Render(line)
 			}

@@ -262,3 +262,98 @@ func titles(ns []*Node) []string {
 	}
 	return out
 }
+
+func TestExtractBracketTags(t *testing.T) {
+	cases := []struct {
+		in       string
+		wantTags []string
+		wantText string
+	}{
+		{"[BLOCKER] do the thing", []string{"BLOCKER"}, "do the thing"},
+		{"[residency] [last] some work", []string{"residency", "last"}, "some work"},
+		{"plain task text", nil, "plain task text"},
+		{"[done] **bold text**", []string{"done"}, "**bold text**"},
+		{"[BLOCKER] [Urgent] foo", []string{"BLOCKER", "Urgent"}, "foo"},
+		{"  [tag]  text  ", []string{"tag"}, "text"},
+	}
+	for _, tc := range cases {
+		tags, text := extractBracketTags(tc.in)
+		if len(tags) != len(tc.wantTags) {
+			t.Errorf("extractBracketTags(%q) tags = %v, want %v", tc.in, tags, tc.wantTags)
+			continue
+		}
+		for i, tag := range tags {
+			if tag != tc.wantTags[i] {
+				t.Errorf("extractBracketTags(%q) tag[%d] = %q, want %q", tc.in, i, tag, tc.wantTags[i])
+			}
+		}
+		if text != tc.wantText {
+			t.Errorf("extractBracketTags(%q) text = %q, want %q", tc.in, text, tc.wantText)
+		}
+	}
+}
+
+func TestExtractInlineRefs(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{"do the thing (INF-2345)", []string{"INF-2345"}},
+		{"INF-2149 and INF-2154 — two deps", []string{"INF-2149", "INF-2154"}},
+		{"merged PR #219 into main", []string{"#219"}},
+		{"INF-2345 twice, INF-2345 again", []string{"INF-2345"}}, // deduped
+		{"no refs here at all", nil},
+		{"**bold** `code` plain", nil},
+	}
+	for _, tc := range cases {
+		got := extractInlineRefs(tc.in)
+		if len(got) != len(tc.want) {
+			t.Errorf("extractInlineRefs(%q) = %v, want %v", tc.in, got, tc.want)
+			continue
+		}
+		for i, r := range got {
+			if r != tc.want[i] {
+				t.Errorf("extractInlineRefs(%q)[%d] = %q, want %q", tc.in, i, r, tc.want[i])
+			}
+		}
+	}
+}
+
+func TestParseTasksExtractsTagsAndRefs(t *testing.T) {
+	src := `## 1. Setup
+
+- [ ] 1.1 [BLOCKER] **provision the cluster** (INF-2345); clone ` + "`lhr.tf`" + `
+- [x] 1.2 [done] DNS retired (INF-2454)
+- [ ] 1.3 plain task with no tags
+`
+	tasks, _ := ParseTasks("t.md", src)
+	if len(tasks.Phases) == 0 || len(tasks.Phases[0].Items) < 3 {
+		t.Fatal("expected 3 items in phase 1")
+	}
+	item0 := tasks.Phases[0].Items[0]
+	if len(item0.Tags) != 1 || item0.Tags[0] != "BLOCKER" {
+		t.Errorf("item0 tags = %v, want [BLOCKER]", item0.Tags)
+	}
+	if len(item0.InlineRefs) != 1 || item0.InlineRefs[0] != "INF-2345" {
+		t.Errorf("item0 inlineRefs = %v, want [INF-2345]", item0.InlineRefs)
+	}
+	if strings.Contains(item0.Text, "[BLOCKER]") {
+		t.Errorf("item0.Text should not contain the bracket tag: %q", item0.Text)
+	}
+
+	item1 := tasks.Phases[0].Items[1]
+	if len(item1.Tags) != 1 || item1.Tags[0] != "done" {
+		t.Errorf("item1 tags = %v, want [done]", item1.Tags)
+	}
+	if len(item1.InlineRefs) != 1 || item1.InlineRefs[0] != "INF-2454" {
+		t.Errorf("item1 inlineRefs = %v, want [INF-2454]", item1.InlineRefs)
+	}
+
+	item2 := tasks.Phases[0].Items[2]
+	if len(item2.Tags) != 0 {
+		t.Errorf("item2 should have no tags, got %v", item2.Tags)
+	}
+	if len(item2.InlineRefs) != 0 {
+		t.Errorf("item2 should have no inlineRefs, got %v", item2.InlineRefs)
+	}
+}

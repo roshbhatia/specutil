@@ -119,10 +119,25 @@ type Phase struct {
 
 // TaskItem is a single `- [ ] N.M` checkbox.
 type TaskItem struct {
-	ID   string
-	Text string
-	Done bool
-	Kind TaskKind
+	ID         string
+	Text       string
+	Done       bool
+	Kind       TaskKind
+	Tags       []string // bracket-prefixed labels extracted from text: [BLOCKER], [residency], …
+	InlineRefs []string // ticket/PR references found in text: INF-2345, #219, …
+}
+
+// DesignSections holds the structured sections from design.md that are useful
+// to surface in visualizers without requiring a full re-parse of Raw.
+type DesignSections struct {
+	Context       string
+	Goals         string
+	NonGoals      string
+	Decisions     string
+	Risks         string
+	Rollout       string
+	Migration     string
+	OpenQuestions string
 }
 
 // Warning records a recoverable parse problem so malformed input is surfaced
