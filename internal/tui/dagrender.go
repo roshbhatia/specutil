@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"io"
+	"log"
 	"sort"
 	"strings"
 
@@ -51,7 +53,13 @@ func (m Model) dagASCII() string {
 		gl.Edges[[2]uint64{from, to}] = ggl.Edge{}
 	}
 
+	// Suppress debug output from the layout library (it log.Printf-s during
+	// Warfield optimizer epochs and gonum coordinate passes).
+	origOut := log.Writer()
+	log.SetOutput(io.Discard)
 	// Apply Sugiyama layered layout. Delta/margin values are in character cells.
+	// StraightEdgePathAssigner is required (nil panics); we ignore its output and
+	// compute orthogonal paths from node positions in the drawing loop below.
 	ggl.SugiyamaLayersStrategyGraphLayout{
 		CycleRemover:   ggl.NewSimpleCycleRemover(),
 		LevelsAssigner: ggl.NewLayeredGraph,
@@ -74,6 +82,7 @@ func (m Model) dagASCII() string {
 		},
 		EdgePathAssigner: ggl.StraightEdgePathAssigner{}.UpdateGraphLayout,
 	}.UpdateGraphLayout(gl)
+	log.SetOutput(origOut)
 
 	// Compute bounding box and allocate rune grid.
 	minX, minY, maxX, maxY := gl.BoundingBox()
@@ -100,38 +109,31 @@ func (m Model) dagASCII() string {
 		}
 	}
 
-	// Draw edge paths first so nodes paint over them.
-	for eid, e := range gl.Edges {
+	// Draw orthogonal edge paths first so nodes paint over them. Each edge is
+	// routed as three axis-aligned segments: vertical from source center down to
+	// a midpoint row, horizontal across to the target column, then vertical down
+	// to the target center. Both endpoints land inside their node boxes and are
+	// covered by the node drawing pass below — this is intentional.
+	for eid := range gl.Edges {
 		from := eid[0]
 		to := eid[1]
 		fn := gl.Nodes[from]
 		tn := gl.Nodes[to]
-		path := e.Path
-		if len(path) == 0 {
-			// fallback: center of source to center of target
-			path = []ggl.Position{
-				{X: fn.X + fn.W/2, Y: fn.Y + fn.H/2},
-				{X: tn.X + tn.W/2, Y: tn.Y + tn.H/2},
-			}
-		}
-		for i := 1; i < len(path); i++ {
-			p0, p1 := path[i-1], path[i]
-			drawSegment(set, p0.X, p0.Y, p1.X, p1.Y)
-		}
-		// Arrow tip at final waypoint.
-		if len(path) >= 2 {
-			last := path[len(path)-1]
-			prev := path[len(path)-2]
-			switch {
-			case prev.X == last.X && last.Y > prev.Y:
-				set(last.X, last.Y, 'v')
-			case prev.X == last.X && last.Y < prev.Y:
-				set(last.X, last.Y, '^')
-			case prev.Y == last.Y && last.X > prev.X:
-				set(last.X, last.Y, '>')
-			case prev.Y == last.Y && last.X < prev.X:
-				set(last.X, last.Y, '<')
-			}
+
+		srcX := fn.X + fn.W/2
+		srcY := fn.Y + fn.H/2
+		tgtX := tn.X + tn.W/2
+		tgtY := tn.Y + tn.H/2
+		midY := (srcY + tgtY) / 2
+
+		if srcX == tgtX {
+			drawSegment(set, srcX, srcY, srcX, tgtY)
+		} else {
+			drawSegment(set, srcX, srcY, srcX, midY)
+			drawSegment(set, srcX, midY, tgtX, midY)
+			drawSegment(set, tgtX, midY, tgtX, tgtY)
+			set(srcX, midY, '+')
+			set(tgtX, midY, '+')
 		}
 	}
 
