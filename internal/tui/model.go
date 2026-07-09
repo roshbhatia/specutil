@@ -134,13 +134,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				pageSize = 5
 			}
 			m.scroll(-pageSize)
-		case "ctrl+d":
+		case "d":
 			half := m.height / 2
 			if half < 3 {
 				half = 3
 			}
 			m.scroll(half)
-		case "ctrl+u":
+		case "u":
 			half := m.height / 2
 			if half < 3 {
 				half = 3
@@ -301,9 +301,9 @@ func (m Model) footer() string {
 	if m.view == viewGraph {
 		v = "graph"
 	}
-	keys := "tab: view  ·  ←/→: select  ·  j/k: scroll  ·  ^d/^u: page  ·  g/G: top/bot  ·  enter: open  ·  q: quit"
+	keys := "tab: view  ·  ←/→: select  ·  j/k: scroll  ·  d/u: page  ·  g/G: top/bot  ·  enter: open  ·  q: quit"
 	if m.detailOpen {
-		keys = "j/k: scroll  ·  ^d/^u: page  ·  g/G: top/bot  ·  esc: close  ·  q: quit"
+		keys = "j/k: scroll  ·  d/u: page  ·  g/G: top/bot  ·  esc: close  ·  q: quit"
 	}
 	return styleHint.Render(fmt.Sprintf("[%s]  %s", v, keys))
 }

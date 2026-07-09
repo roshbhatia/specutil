@@ -746,6 +746,51 @@ const SUGGEST = {{.SuggestJSON}};
     return h;
   }
 
+  /* inspector for a single expanded stage node */
+  function stageInspectorHTML(node) {
+    const changeId = node.data("changeId");
+    const c = byName.get(changeId);
+    if (!c) return '<p class="empty" style="margin-top:0">No detail.</p>';
+
+    /* find the phase by matching the node's encoded id: "changeName\x00phaseIndex" */
+    const nodeId = node.id();
+    const sep    = nodeId.indexOf("\x00");
+    const pi     = sep >= 0 ? parseInt(nodeId.slice(sep + 1), 10) : -1;
+    const p      = (c.phases || [])[pi];
+    if (!p) return inspectorHTML(changeId);
+
+    const items  = p.items || [];
+    const done   = items.filter((i) => i.done).length;
+    const pct    = items.length ? Math.round(done / items.length * 100) : 0;
+    const open   = items.length - done;
+
+    let h = '<div style="display:flex;align-items:baseline;gap:.4rem;flex-wrap:wrap;margin-bottom:.4rem">';
+    h += '<span style="font-size:10px;color:var(--muted);font-family:var(--font-mono)">' + esc(changeId) + '</span></div>';
+    h += '<strong>Stage ' + esc(p.number) + ': ' + esc(p.name) + '</strong>';
+
+    if (items.length) {
+      h += '<div class="meter" style="margin:.35rem 0 .15rem"><span style="width:' + pct + '%"></span></div>';
+      h += '<p class="metric">' + done + '/' + items.length + ' tasks · ' + pct + '%' + (open ? ' · <strong>' + open + ' open</strong>' : '') + '</p>';
+    }
+
+    /* task list for this stage */
+    if (items.length) {
+      h += '<div class="task-list" style="margin:.5rem 0">';
+      items.forEach((it) => {
+        const isDone = !!it.done;
+        h += '<div class="task-row' + (isDone ? ' done' : '') + '">' +
+          '<div class="task-check">' + (isDone ? '&#10003;' : '&#9744;') + '</div>' +
+          '<div class="task-key">' + esc(it.key) + '</div>' +
+          '<div class="task-body"><span class="task-title">' + esc(it.text) + '</span></div>' +
+          '</div>';
+      });
+      h += '</div>';
+    }
+
+    h += '<p style="margin-top:.6rem"><a class="btn" href="#/c/' + encodeURIComponent(changeId) + '">Open change</a></p>';
+    return h;
+  }
+
   /* ================================================================
      GRAPH STATE — expand/collapse ontology: Changes → Stages
      Default view shows one node per change; double-click to expand
@@ -879,11 +924,18 @@ const SUGGEST = {{.SuggestJSON}};
     const inspBody = document.getElementById("graph-inspector-body");
 
     cyInstance.on("mouseover", "node", function (evt) {
-      const node     = evt.target;
+      const node = evt.target;
+      const type = node.data("type");
+      if (inspBody) {
+        inspBody.innerHTML = type === "stage"
+          ? stageInspectorHTML(node)
+          : inspectorHTML(node.data("changeId") || node.id());
+      }
       const changeId = node.data("changeId") || node.id();
-      if (inspBody) inspBody.innerHTML = inspectorHTML(changeId);
       cyInstance.elements().addClass("dim");
-      cyInstance.nodes().filter((n) => (n.data("changeId") || n.id()) === changeId).removeClass("dim").addClass("focused");
+      /* for stage nodes: highlight only THIS node; for change nodes: all stages */
+      const focusTarget = node.data("type") === "stage" ? node : cyInstance.nodes().filter((n) => (n.data("changeId") || n.id()) === changeId);
+      focusTarget.removeClass("dim").addClass("focused");
       const conn = node.connectedEdges();
       conn.removeClass("dim").addClass("focused");
       conn.connectedNodes().removeClass("dim");
