@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/template"
 
+	sprig "github.com/Masterminds/sprig/v3"
 	"github.com/roshbhatia/specutil/internal/ir"
 )
 
@@ -40,7 +41,7 @@ type templateData struct {
 // target is an error naming the supported set.
 func Render(change *ir.Change, target string, opts Options) ([]byte, []ir.Warning, error) {
 	mapping, ok := mappings[target]
-	if !ok {
+	if !ok || internalTargets[target] {
 		return nil, nil, fmt.Errorf("unknown render target %q; supported targets: %s",
 			target, strings.Join(SupportedTargets(), ", "))
 	}
@@ -67,9 +68,9 @@ func Render(change *ir.Change, target string, opts Options) ([]byte, []ir.Warnin
 		warns = append(warns, *tmplWarn)
 	}
 
-	funcs := template.FuncMap{
-		"section": func(m map[string]string, key string) string { return m[key] },
-	}
+	// Merge Sprig functions; our section func takes precedence on any conflict.
+	funcs := sprig.FuncMap()
+	funcs["section"] = func(m map[string]string, key string) string { return m[key] }
 	tmpl, err := template.New(target).Funcs(funcs).Parse(tmplText)
 	if err != nil {
 		return nil, warns, fmt.Errorf("parsing %s template: %w", target, err)
@@ -85,6 +86,54 @@ func Render(change *ir.Change, target string, opts Options) ([]byte, []ir.Warnin
 		return nil, warns, fmt.Errorf("executing %s template: %w", target, err)
 	}
 	return buf.Bytes(), warns, nil
+}
+
+// IssueBodyData carries per-task fields injected alongside the change when
+// rendering a github-issues body. These supplement the change-level sections.
+type IssueBodyData struct {
+	PhaseName string
+	TaskRef   string
+	TaskTitle string
+}
+
+// RenderIssueBody renders the github-issues body template for a single task.
+// overrideDir follows the same semantics as Options.OverrideDir.
+// The second return value carries the override-not-found warning when applicable.
+func RenderIssueBody(change *ir.Change, d IssueBodyData, overrideDir string) (string, *ir.Warning, error) {
+	const target = "github-issues"
+	tmplText, tmplWarn, err := loadTemplate(target, overrideDir)
+	if err != nil {
+		return "", nil, err
+	}
+
+	sections := map[string]string{
+		"summary": func() string {
+			if change.Proposal != nil && change.Proposal.Why != "" {
+				return change.Proposal.Why
+			}
+			return placeholder
+		}(),
+		"phase": d.PhaseName,
+		"ref":   d.TaskRef,
+		"title": d.TaskTitle,
+	}
+
+	funcs := sprig.FuncMap()
+	funcs["section"] = func(m map[string]string, key string) string { return m[key] }
+	tmpl, err := template.New(target).Funcs(funcs).Parse(tmplText)
+	if err != nil {
+		return "", nil, fmt.Errorf("parsing github-issues template: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, templateData{
+		Title:   d.TaskTitle,
+		Change:  change,
+		Section: sections,
+	}); err != nil {
+		return "", nil, fmt.Errorf("executing github-issues template: %w", err)
+	}
+	return buf.String(), tmplWarn, nil
 }
 
 // loadTemplate returns the template text for target, preferring an override file

@@ -17,7 +17,7 @@ import (
 	"github.com/roshbhatia/specutil/internal/detail"
 	"github.com/roshbhatia/specutil/internal/graph"
 	"github.com/roshbhatia/specutil/internal/ir"
-	"github.com/roshbhatia/specutil/internal/provider/openspec"
+	"github.com/roshbhatia/specutil/internal/registry"
 	"github.com/roshbhatia/specutil/internal/render"
 	"github.com/roshbhatia/specutil/internal/syncplan"
 	"github.com/roshbhatia/specutil/internal/tui"
@@ -51,8 +51,9 @@ func NewRootCmd() *cobra.Command {
 		SilenceErrors: false,
 	}
 
-	// Global flag: which repository to read changes from.
+	// Global flags inherited by all subcommands.
 	root.PersistentFlags().StringP("repo", "C", ".", "repository root containing the openspec/ directory")
+	root.PersistentFlags().String("from", "", "input provider: openspec|bmad|plan|stdin|<script-adapter> (default: auto-detect)")
 
 	root.AddCommand(
 		newRenderCmd(),
@@ -112,15 +113,46 @@ func runRender(cmd *cobra.Command, args []string) error {
 	return writeOut(cmd, out)
 }
 
-// resolveChange loads the change named by --change or the first positional arg
-// from the repository rooted at --repo.
+// resolveChange loads the change named by --change or the first positional arg,
+// dispatching to the provider selected by --from (or auto-detected).
 func resolveChange(cmd *cobra.Command, args []string) (*ir.Change, error) {
 	repo, _ := cmd.Flags().GetString("repo")
+	from, _ := cmd.Flags().GetString("from")
 	name, _ := cmd.Flags().GetString("change")
+
+	// For path-based providers, the first positional arg is the file path.
+	// For openspec, it is the change name. Detect which is which below.
+	var pathArg string
 	if name == "" && len(args) > 0 {
-		name = args[0]
+		// If --from is a path-based provider or looks like a file, treat as path.
+		if isPathBased(from) {
+			pathArg = args[0]
+		} else {
+			name = args[0]
+		}
 	}
-	p := openspec.New(repo)
+
+	// Enforce --change when using stdin — without it, resolveChange would call
+	// p.List() then p.Load() on the same stdin-backed provider, and even with
+	// caching the second read's parsed name may differ from what the caller wants.
+	if from == "stdin" && name == "" {
+		return nil, fmt.Errorf("%s: --change is required when --from stdin", cmd.Name())
+	}
+
+	manifest, err := graph.LoadManifest(repo)
+	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading specutil.yaml: %v\n", err)
+	}
+	var providerCfgs []graph.ProviderConfig
+	if manifest != nil {
+		providerCfgs = manifest.Providers
+	}
+
+	p, err := registry.SelectProvider(from, repo, pathArg, providerCfgs)
+	if err != nil {
+		return nil, err
+	}
+
 	if name == "" {
 		names, err := p.List()
 		if err != nil {
@@ -128,7 +160,7 @@ func resolveChange(cmd *cobra.Command, args []string) (*ir.Change, error) {
 		}
 		switch len(names) {
 		case 0:
-			return nil, fmt.Errorf("no changes found under %s/openspec/changes", repo)
+			return nil, fmt.Errorf("no changes found via provider %q", p.Name())
 		case 1:
 			name = names[0]
 		default:
@@ -136,6 +168,16 @@ func resolveChange(cmd *cobra.Command, args []string) (*ir.Change, error) {
 		}
 	}
 	return p.Load(name)
+}
+
+// isPathBased reports whether the --from value selects a provider that
+// interprets a positional arg as a file path rather than a change name.
+func isPathBased(from string) bool {
+	switch from {
+	case "bmad", "plan", "stdin":
+		return true
+	}
+	return false
 }
 
 // emitWarnings prints parse/render warnings to stderr; the binary stays silent
@@ -152,6 +194,27 @@ func emitWarnings(cmd *cobra.Command, warns []ir.Warning) {
 			fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s\n", w.Msg)
 		}
 	}
+}
+
+// loadAllChanges uses the registry to load all changes for graph/tui/web.
+func loadAllChanges(cmd *cobra.Command) ([]*ir.Change, error) {
+	repo, _ := cmd.Flags().GetString("repo")
+	from, _ := cmd.Flags().GetString("from")
+
+	manifest, err := graph.LoadManifest(repo)
+	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading specutil.yaml: %v\n", err)
+	}
+	var providerCfgs []graph.ProviderConfig
+	if manifest != nil {
+		providerCfgs = manifest.Providers
+	}
+
+	p, err := registry.SelectProvider(from, repo, "", providerCfgs)
+	if err != nil {
+		return nil, err
+	}
+	return p.LoadAll()
 }
 
 func newPlanCmd() *cobra.Command {
@@ -171,8 +234,9 @@ func newPlanCmd() *cobra.Command {
 		Args: cobra.MaximumNArgs(1),
 		RunE: runPlan,
 	}
-	cmd.Flags().String("target", "", "sync target namespace: linear|notion (required)")
+	cmd.Flags().String("target", "", "sync target namespace: linear|notion|github-issues (required)")
 	cmd.Flags().String("change", "", "change name to plan (or pass as positional arg)")
+	cmd.Flags().String("templates", "", "override built-in template directory (used for github-issues body rendering)")
 	cmd.Flags().StringP("out", "o", "", "write output to a file instead of stdout")
 	return cmd
 }
@@ -192,7 +256,13 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	plan := syncplan.BuildPlan(change, lock, target)
+	overrideDir, _ := cmd.Flags().GetString("templates")
+	plan, err := syncplan.BuildPlanWithOptions(change, lock, target, syncplan.BuildPlanOptions{
+		TemplateOverrideDir: overrideDir,
+	})
+	if err != nil {
+		return err
+	}
 	out, err := json.MarshalIndent(plan, "", "  ")
 	if err != nil {
 		return err
@@ -215,7 +285,7 @@ func newDiffCmd() *cobra.Command {
 		Args: cobra.MaximumNArgs(1),
 		RunE: runDiff,
 	}
-	cmd.Flags().String("target", "", "sync target namespace: linear|notion (required)")
+	cmd.Flags().String("target", "", "sync target namespace: linear|notion|github-issues (required)")
 	cmd.Flags().String("change", "", "change name to diff (or pass as positional arg)")
 	cmd.Flags().StringP("out", "o", "", "write output to a file instead of stdout")
 	return cmd
@@ -291,8 +361,26 @@ func lockChangeName(cmd *cobra.Command) (string, error) {
 	if name != "" {
 		return name, nil
 	}
+	from, _ := cmd.Flags().GetString("from")
+	// stdin requires --change because lockfile path depends on the change name and
+	// consuming stdin just to extract a name would hang on interactive terminals.
+	if from == "stdin" {
+		return "", fmt.Errorf("lock: --change is required when --from stdin")
+	}
 	repo, _ := cmd.Flags().GetString("repo")
-	names, err := openspec.New(repo).List()
+	manifest, err := graph.LoadManifest(repo)
+	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading specutil.yaml: %v\n", err)
+	}
+	var providerCfgs []graph.ProviderConfig
+	if manifest != nil {
+		providerCfgs = manifest.Providers
+	}
+	p, err := registry.SelectProvider(from, repo, "", providerCfgs)
+	if err != nil {
+		return "", err
+	}
+	names, err := p.List()
 	if err != nil {
 		return "", err
 	}
@@ -338,6 +426,9 @@ func runLockSet(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	if args[1] == "" {
+		return fmt.Errorf("lock set: external-id must not be empty")
+	}
 	contentHash, _ := cmd.Flags().GetString("content-hash")
 	title, _ := cmd.Flags().GetString("title")
 	lock.Set(target, args[0], syncplan.Ref{ExternalID: args[1], ContentHash: contentHash, Title: title})
@@ -374,8 +465,7 @@ func newGraphCmd() *cobra.Command {
 
 func runGraph(cmd *cobra.Command, args []string) error {
 	repo, _ := cmd.Flags().GetString("repo")
-	p := openspec.New(repo)
-	changes, err := p.LoadAll()
+	changes, err := loadAllChanges(cmd)
 	if err != nil {
 		return err
 	}
@@ -426,8 +516,8 @@ func writeOut(cmd *cobra.Command, b []byte) error {
 	if outPath, _ := cmd.Flags().GetString("out"); outPath != "" {
 		return os.WriteFile(outPath, b, 0o644)
 	}
-	cmd.OutOrStdout().Write(b)
-	return nil
+	_, err := cmd.OutOrStdout().Write(b)
+	return err
 }
 
 func newTUICmd() *cobra.Command {
@@ -451,7 +541,7 @@ func newTUICmd() *cobra.Command {
 
 func runTUI(cmd *cobra.Command, args []string) error {
 	repo, _ := cmd.Flags().GetString("repo")
-	changes, err := openspec.New(repo).LoadAll()
+	changes, err := loadAllChanges(cmd)
 	if err != nil {
 		return err
 	}
@@ -494,7 +584,7 @@ func newWebCmd() *cobra.Command {
 
 func runWeb(cmd *cobra.Command, args []string) error {
 	repo, _ := cmd.Flags().GetString("repo")
-	changes, err := openspec.New(repo).LoadAll()
+	changes, err := loadAllChanges(cmd)
 	if err != nil {
 		return err
 	}
@@ -541,8 +631,8 @@ func runWeb(cmd *cobra.Command, args []string) error {
 
 	outPath, _ := cmd.Flags().GetString("out")
 	if outPath == "-" {
-		cmd.OutOrStdout().Write(html)
-		return nil
+		_, err := cmd.OutOrStdout().Write(html)
+		return err
 	}
 	if outPath == "" {
 		var b [4]byte

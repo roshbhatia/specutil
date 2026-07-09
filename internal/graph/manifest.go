@@ -19,12 +19,21 @@ const ManifestFile = "openspec/specutil.yaml"
 // prerequisites), so `add-auth.depends_on: [add-db]` yields edge add-db ->
 // add-auth.
 type Manifest struct {
-	Changes map[string]ManifestEntry `yaml:"changes"`
+	Changes   map[string]ManifestEntry `yaml:"changes"`
+	Providers []ProviderConfig         `yaml:"providers"`
 }
 
 // ManifestEntry is one change's manifest record.
 type ManifestEntry struct {
 	DependsOn []string `yaml:"depends_on"`
+}
+
+// ProviderConfig declares a user-defined script adapter. The script is executed
+// with {change} substituted by the --change value; its stdout is parsed as
+// openspec-compatible markdown.
+type ProviderConfig struct {
+	Name    string `yaml:"name"`
+	Command string `yaml:"command"`
 }
 
 // LoadManifest reads <repoRoot>/openspec/specutil.yaml. An absent file is not an

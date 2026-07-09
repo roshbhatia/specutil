@@ -27,6 +27,12 @@ type Mapping struct {
 	Fields []Field
 }
 
+// internalTargets are render targets used by other packages (e.g. plan) but not
+// exposed as user-facing --as values.
+var internalTargets = map[string]bool{
+	"github-issues": true,
+}
+
 // mappings is the registry of supported render targets. Adding a target is a
 // matter of declaring its section routing here and shipping a matching template.
 var mappings = map[string]Mapping{
@@ -63,13 +69,24 @@ var mappings = map[string]Mapping{
 			{"summary", proposalWhy},
 		},
 	},
+	// github-issues is an internal target used by plan --target github-issues to
+	// pre-render issue bodies. Not exposed as a user-facing --as value.
+	"github-issues": {
+		Target: "github-issues",
+		Fields: []Field{
+			{"summary", proposalWhy},
+		},
+	},
 }
 
-// SupportedTargets returns the sorted list of render targets.
+// SupportedTargets returns the sorted list of user-facing render targets
+// (internal-only targets like github-issues are excluded).
 func SupportedTargets() []string {
 	out := make([]string, 0, len(mappings))
 	for k := range mappings {
-		out = append(out, k)
+		if !internalTargets[k] {
+			out = append(out, k)
+		}
 	}
 	sort.Strings(out)
 	return out

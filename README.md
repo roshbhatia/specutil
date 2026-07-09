@@ -1,29 +1,26 @@
 # specutil
 
-A deterministic CLI that projects [OpenSpec](https://openspec.dev) change artifacts into renderable documents, sync plans, and visualizations. It performs no network I/O — all remote writes are delegated to an AI agent via shipped skills.
+A deterministic CLI that reads spec changes from multiple input formats and projects them into renderable documents, sync plans, and visualizations. It performs no network I/O — all remote writes are delegated to an AI agent via shipped skills.
 
 ```
-specutil [render|plan|diff|lock|graph|tui|serve] [flags]
+specutil [render|plan|diff|lock|graph|tui|web] [--from <provider>] [flags]
 ```
 
 ## What it does
 
 ```
-OpenSpec changes (openspec/changes/<name>/)
-       │
-       ▼
-  specutil (pure Go binary, zero network I/O)
-       │
-       ├── render   → RFC / design doc / ticket markdown
-       ├── plan     → create/update/orphan plan.json
-       ├── diff     → local IR vs lockfile delta
-       ├── lock     → identity map (content hash → external ID)
-       ├── graph    → cross-change DAG (json / mermaid / dot)
-       ├── tui      → terminal kanban + dependency graph
-       └── serve    → static HTML dashboard (inline SVG DAG)
+Input providers (--from)           Core IR              Output
+────────────────────────           ────────             ──────
+openspec (default)   ──────────▶                ──▶ render  → RFC / design doc / tickets
+bmad stories/*.md    ──────────▶  ir.Change     ──▶ plan    → create/update/orphan JSON
+plan.md convention   ──────────▶                ──▶ diff    → lockfile delta
+stdin / pipe         ──────────▶                ──▶ lock    → identity map
+script adapters      ──────────▶                ──▶ graph   → DAG (json/mermaid/dot)
+                                                ──▶ tui     → terminal kanban + graph
+                                                ──▶ web     → HTML dashboard
 ```
 
-The **determinism boundary** is the core invariant: everything predictable lives in the binary (pure functions, no network); everything stateful (remote writes, auth, drift reconciliation) is delegated to a shipped AI skill that drives the agent's Linear/Notion MCP tools.
+The **determinism boundary** is the core invariant: everything predictable lives in the binary (pure functions, no network); everything stateful (remote writes, auth, drift reconciliation) is delegated to a shipped AI skill that drives the agent's Linear/Notion/GitHub MCP tools.
 
 ## Installation
 
@@ -54,31 +51,68 @@ go build -o specutil ./cmd/specutil
 
 ## Quickstart
 
-Given an OpenSpec repo with at least one change:
-
-```
-my-repo/
-└── openspec/
-    └── changes/
-        └── my-feature/
-            ├── proposal.md
-            ├── tasks.md
-            └── design.md
-```
-
 ```bash
-# Open the interactive dashboard in your browser
-specutil serve
-
-# Open the terminal kanban
-specutil tui
-
-# Render as an RFC
+# OpenSpec project (auto-detected)
 specutil render --as rfc
-
-# Emit a sync plan for Linear
 specutil plan --target linear
+
+# BMAD project
+specutil render --from bmad stories/story-1.1.md --as tickets
+specutil plan --from bmad --target github-issues
+
+# AI-generated plan.md
+specutil render --from plan plan.md --as rfc
+
+# Pipe from any tool
+./my-adapter.sh my-change | specutil render --from stdin --as design
+
+# Script adapter (declared in openspec/specutil.yaml)
+specutil render --from jira --change PROJ-123 --as rfc
 ```
+
+### Input provider auto-detection
+
+When `--from` is omitted, specutil detects the provider from the repo layout:
+
+| Signal | Provider |
+|--------|----------|
+| `openspec/changes/` directory | `openspec` |
+| `stories/*.md` files | `bmad` |
+| `plan.md` at root | `plan` |
+
+### plan.md convention
+
+Any markdown file that follows this structure works with `--from plan`:
+
+```markdown
+# change-name
+
+## Why
+One paragraph explaining the motivation.
+
+## What Changes
+- capability: description
+
+## Tasks
+
+### Phase 1: Foundation
+- [ ] 1.1 First task
+- [ ] 1.2 Second task
+```
+
+### Script adapters
+
+Declare custom providers in `openspec/specutil.yaml`:
+
+```yaml
+providers:
+  - name: jira
+    command: "./hack/fetch-jira.sh {change}"
+  - name: confluence
+    command: "./hack/fetch-confluence.sh {change}"
+```
+
+Scripts receive the `--change` value as `{change}` and emit openspec-compatible markdown to stdout.
 
 ## Commands
 
@@ -87,22 +121,29 @@ specutil plan --target linear
 Projects a change's IR into a target artifact format.
 
 ```bash
-specutil render [change] --as rfc|design|tickets [-o output.md]
+specutil render [change] --as rfc|design|tickets [--from <provider>] [-o output.md]
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--as` | Target format: `rfc`, `design`, or `tickets` (required) |
+| `--from` | Input provider: `openspec`, `bmad`, `plan`, `stdin`, or a script adapter name |
 | `--change` | Change name (or pass as positional arg) |
 | `--templates` | Override template directory |
 | `-o` | Write to file instead of stdout |
 
 ```bash
-# Render the change named "my-feature" as an RFC
+# OpenSpec repo (auto-detected)
 specutil render my-feature --as rfc -o docs/rfc.md
 
-# Single-change repo: no name needed
-specutil render --as design
+# BMAD story file
+specutil render --from bmad stories/story-1.1.md --as tickets
+
+# AI plan file
+specutil render --from plan plan.md --as design
+
+# Stdin (pipe from any tool)
+cat plan.md | specutil render --from stdin --as rfc
 ```
 
 ### `plan`
@@ -110,10 +151,12 @@ specutil render --as design
 Emits a deterministic create/update/orphan plan for syncing to a remote target.
 
 ```bash
-specutil plan [change] --target linear|notion [-o plan.json]
+specutil plan [change] --target linear|notion|github-issues [--from <provider>] [-o plan.json]
 ```
 
 The plan is a list of operations (`create`, `update`, `orphan`) keyed by stable content hashes, with no network calls made by the binary itself.
+
+For `--target github-issues`, each operation includes a pre-rendered `github.body` field (markdown), `github.labels` derived from the phase name, and `github.milestone` set to the change name. The `sync-to-github-issues` skill reads these fields directly — no re-templating required.
 
 ### `diff`
 
@@ -354,23 +397,29 @@ nix flake check
 ### Package layout
 
 ```
-cmd/specutil/           CLI entrypoint
+cmd/specutil/             CLI entrypoint
 internal/
-  ir/                   Intermediate representation (framework-agnostic types)
-  provider/openspec/    OpenSpec adapter (discovery + loading)
-  parse/                goldmark-based lenient markdown parser
-  render/               Artifact rendering (mapping + templates)
-  graph/                Cross-change DAG (build, project, suggest)
-  detail/               Per-change detail feed for visualizers
-  syncplan/             Plan/diff/lock (content-hash identity)
-  tui/                  Bubbletea terminal UI
-  web/                  Static HTML generator
-  lifecycle/            Lifecycle classification helpers
-  cli/                  Cobra command wiring
+  ir/                     Intermediate representation (framework-agnostic types)
+  provider/               Provider port definition
+    openspec/             OpenSpec adapter (discovery + loading)
+    bmad/                 BMAD story file adapter
+    plan/                 plan.md convention adapter (+ stdin)
+    script/               User-defined script adapter
+  registry/               Provider selection and auto-detection
+  parse/                  goldmark-based lenient markdown parser
+  render/                 Artifact rendering (mapping + templates + Sprig)
+  graph/                  Cross-change DAG (build, project, suggest)
+  detail/                 Per-change detail feed for visualizers
+  syncplan/               Plan/diff/lock (content-hash identity)
+  tui/                    Bubbletea terminal UI
+  web/                    Static HTML generator
+  lifecycle/              Lifecycle classification helpers
+  cli/                    Cobra command wiring
 skills/
-  sync-to-linear/       Linear sync skill
-  sync-to-notion/       Notion sync skill
-openspec/               specutil's own OpenSpec change (specutil-core)
+  sync-to-linear/         Linear sync skill
+  sync-to-notion/         Notion sync skill
+  sync-to-github-issues/  GitHub Issues sync skill
+openspec/                 specutil's own OpenSpec change (specutil-providers)
 ```
 
 ## License
