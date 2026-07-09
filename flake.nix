@@ -1,5 +1,5 @@
 {
-  description = "specutil — deterministic projection of spec-framework change artifacts";
+  description = "specutil — projection of spec-framework change artifacts into docs and sync plans";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -40,6 +40,9 @@
             pkgs.gotools
             pkgs.go-tools # staticcheck
             pkgs.gofumpt
+            pkgs.go-task
+            pkgs.goreleaser
+            pkgs.shfmt
           ];
           shellHook = ''
             export GOTOOLCHAIN=local
