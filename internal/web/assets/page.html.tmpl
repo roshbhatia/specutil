@@ -178,6 +178,17 @@ code {
 .graph-inspector-head span { opacity: .65; font-weight: 400; }
 .graph-inspector-body { padding: .65rem .75rem; overflow-y: auto; max-height: 420px; }
 .graph-empty { padding: 1.5rem; color: var(--muted); line-height: 1.6; }
+.graph-toolbar { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+.graph-hint-text { font-size: 11px; color: var(--muted); }
+.graph-legend {
+  display: flex; gap: .75rem; flex-wrap: wrap; margin-top: .4rem;
+  font-size: 10px; color: var(--muted); align-items: center;
+}
+.legend-item { display: flex; align-items: center; gap: .3rem; }
+.legend-line { display: inline-block; width: 24px; height: 0; vertical-align: middle; }
+.legend-line.sequential { border-top: 2px solid #999; }
+.legend-line.cross      { border-top: 2px dashed #002f86; }
+.legend-line.suggested  { border-top: 2px dotted #bbb; }
 @media (max-width: 52rem) { .graph-shell { grid-template-columns: 1fr; } }
 
 /* ================================================================
@@ -223,24 +234,24 @@ code {
 .chartwrap { margin: .45rem 0; }
 
 /* ================================================================
-   NARRATIVE
+   NARRATIVE — collapsed by default (progressive disclosure)
    ================================================================ */
-.narrative { margin: 0 0 1rem; }
-.narrative-problem, .narrative-solution { border: 1px solid var(--ink); box-shadow: var(--hard-shadow); overflow: hidden; }
-.narrative-label {
+.narrative { margin: 0 0 1rem; display: flex; flex-direction: column; gap: .35rem; }
+details.narrative-block { border: 1px solid var(--ink); box-shadow: var(--hard-shadow); overflow: hidden; }
+summary.narrative-summary {
   background: var(--panel-head-bg); color: var(--panel-head-fg);
-  padding: 3px 8px; border-bottom: 1px solid var(--ink);
-  display: flex; align-items: center; gap: .5rem;
+  padding: 3px 8px; cursor: pointer; list-style: none; user-select: none;
+  display: flex; align-items: center; gap: .4rem; border-bottom: 0;
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
 }
-.narrative-label-text {
-  color: var(--panel-head-fg); font-size: 10px; font-weight: 700;
-  letter-spacing: .08em; text-transform: uppercase;
-}
+details.narrative-block[open] summary.narrative-summary { border-bottom: 1px solid var(--ink); }
+summary.narrative-summary::-webkit-details-marker { display: none; }
+summary.narrative-summary::before { content: "+"; font-family: var(--font-mono); font-weight: 700; }
+details.narrative-block[open] summary.narrative-summary::before { content: "−"; }
 .narrative-body { padding: .6rem .85rem; background: var(--content); font-size: 12px; line-height: 1.55; }
 .narrative-body p { margin: .3rem 0; }
 .narrative-body ul.md { margin: .25rem 0 .5rem; padding-left: 1.2rem; }
 .narrative-body ul.md li { margin: .2rem 0; }
-.narrative-arrow { text-align: center; font-size: 1rem; color: var(--muted); padding: .2rem 0; }
 
 /* ================================================================
    TASK PIPELINE
@@ -273,19 +284,28 @@ code {
 .pipe-bar > span { display: block; height: 100%; background: var(--accent); }
 
 /* ================================================================
-   REMAINING / TASK LISTS
+   TASK ROWS — Linear/Jira style
    ================================================================ */
-.remaining { border: 1px solid var(--ink); box-shadow: var(--hard-shadow); overflow: hidden; }
-.remaining-head {
-  background: var(--ink); color: var(--content); font-size: 11px; font-weight: 700;
-  letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px;
+.task-list { border: 1px solid var(--ink); box-shadow: var(--hard-shadow-sm); overflow: hidden; }
+.task-row {
+  display: grid; grid-template-columns: 22px 36px 1fr auto;
+  align-items: center; gap: 0;
+  padding: 5px 8px; border-bottom: 1px solid var(--surface-3); font-size: 12px;
 }
-.remaining-body { background: var(--content); }
-.alldone {
-  font-weight: 700; color: var(--done); font-size: .875rem;
-  padding: .5rem .75rem; display: flex; align-items: center; gap: .35rem;
+.task-row:last-child { border-bottom: 0; }
+.task-row.done .task-title { text-decoration: line-through; text-decoration-thickness: 1px; color: var(--muted); }
+.task-row.done .task-check { color: var(--done); }
+.task-check { text-align: center; font-size: 13px; color: var(--line); }
+.task-key { font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--muted); padding-right: 6px; }
+.task-body { display: flex; align-items: center; gap: .35rem; min-width: 0; }
+.task-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task-meta { display: flex; align-items: center; gap: .25rem; flex-shrink: 0; }
+.task-ext {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700; padding: 1px 5px;
+  background: var(--surface-3); border: 1px solid var(--line); color: var(--muted);
 }
 
+/* legacy task list kept for inspector only */
 ul.tasks { list-style: none; padding: 0; margin: .2rem 0 0; }
 ul.tasks li {
   display: flex; gap: .4rem; align-items: baseline;
@@ -328,6 +348,12 @@ ul.tasks li.done .txt { color: var(--muted); text-decoration: line-through; text
 .phase-block[open] .phase-h::before { content: "−"; }
 .phase-h h2 { margin: 0; font-size: .875rem; }
 .phase-h .ct { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--muted); }
+.phase-block.has-open > summary .phase-h { border-bottom-color: var(--accent); }
+.phase-open-badge {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700; padding: 1px 4px;
+  background: var(--lc-proposed-bg); color: var(--lc-proposed-ink); border: 1px solid var(--lc-proposed-line);
+  margin-left: .3rem;
+}
 
 /* ================================================================
    EYEBROW / CHIPS / MISC
@@ -550,6 +576,92 @@ const SUGGEST = {{.SuggestJSON}};
       '<p style="margin-top:.65rem"><a class="btn" href="#/c/' + encodeURIComponent(c.name) + '">Open detail</a></p>';
   }
 
+  /* ================================================================
+     GRAPH STATE — expand/collapse ontology: Changes → Stages
+     Default view shows one node per change; double-click to expand
+     into its constituent stages.
+     ================================================================ */
+  const expandedChanges = new Set();
+  const trunc = (s, n) => s && s.length > n ? s.slice(0, n - 1) + "…" : (s || "");
+  const phId  = (cn, pi) => cn + "\x00" + pi;
+
+  function graphElems() {
+    const elems = [];
+    changes.forEach((c) => {
+      const phases = c.phases || [];
+      if (expandedChanges.has(c.name) && phases.length) {
+        phases.forEach((p, pi) => {
+          const id    = phId(c.name, pi);
+          const items = p.items || [];
+          const done  = items.filter((i) => i.done).length;
+          const pct   = items.length ? Math.round(done / items.length * 100) : 0;
+          elems.push({
+            group: "nodes",
+            data: { id, label: "Stage " + p.number + "\n" + trunc(p.name, 16), lifecycle: c.lifecycle || "proposed", changeId: c.name, type: "stage", pct, done, total: items.length },
+          });
+          if (pi > 0) elems.push({ group: "edges", data: { id: "seq:" + id, source: phId(c.name, pi - 1), target: id, type: "sequential" } });
+        });
+      } else {
+        const prog  = progressOf(c);
+        const label = trunc(c.name, 20) + "\n" + prog.pct + "% · " + phases.length + (phases.length === 1 ? " stage" : " stages");
+        elems.push({
+          group: "nodes",
+          data: { id: c.name, label, lifecycle: c.lifecycle || "proposed", changeId: c.name, type: "change", pct: prog.pct, canExpand: phases.length > 0 },
+        });
+      }
+    });
+    const confirmed = new Set(edges.map((e) => e.from + ":" + e.to));
+    edges.forEach((e) => {
+      const fromC = byName.get(e.from), toC = byName.get(e.to);
+      const fromPh = fromC && fromC.phases || [];
+      const toPh   = toC  && toC.phases   || [];
+      const fromExp = expandedChanges.has(e.from) && fromPh.length;
+      const toExp   = expandedChanges.has(e.to)   && toPh.length;
+      elems.push({ group: "edges", data: { id: "dep:" + e.from + ":" + e.to, source: fromExp ? phId(e.from, fromPh.length - 1) : e.from, target: toExp ? phId(e.to, 0) : e.to, type: "cross" } });
+    });
+    novelCandidateGroups().forEach((c) => {
+      if (!confirmed.has(c.from + ":" + c.to)) {
+        const fromC = byName.get(c.from), toC = byName.get(c.to);
+        const fromPh = fromC && fromC.phases || [];
+        const toPh   = toC  && toC.phases   || [];
+        const fromExp = expandedChanges.has(c.from) && fromPh.length;
+        const toExp   = expandedChanges.has(c.to)   && toPh.length;
+        elems.push({ group: "edges", data: { id: "sug:" + c.from + ":" + c.to, source: fromExp ? phId(c.from, fromPh.length - 1) : c.from, target: toExp ? phId(c.to, 0) : c.to, suggested: true } });
+      }
+    });
+    return elems;
+  }
+
+  /* LR (left-to-right) layout via BFS depth → preset positions */
+  function lrPositions(elems) {
+    const nids  = elems.filter((e) => e.group === "nodes").map((e) => e.data.id);
+    const elist = elems.filter((e) => e.group === "edges" && !e.data.suggested);
+    const inDeg = Object.fromEntries(nids.map((id) => [id, 0]));
+    const adj   = Object.fromEntries(nids.map((id) => [id, []]));
+    elist.forEach((e) => {
+      if (inDeg[e.data.target] !== undefined) inDeg[e.data.target]++;
+      if (adj[e.data.source]) adj[e.data.source].push(e.data.target);
+    });
+    const depth = Object.fromEntries(nids.map((id) => [id, 0]));
+    const q = nids.filter((id) => inDeg[id] === 0);
+    for (let head = 0; head < q.length; head++) {
+      const id = q[head];
+      (adj[id] || []).forEach((next) => {
+        depth[next] = Math.max(depth[next], depth[id] + 1);
+        if (--inDeg[next] === 0) q.push(next);
+      });
+    }
+    const cols = {};
+    elems.filter((e) => e.group === "nodes").forEach((n) => { (cols[depth[n.data.id] || 0] = cols[depth[n.data.id] || 0] || []).push(n); });
+    const COL_W = 220, ROW_H = 90;
+    const pos = {};
+    Object.entries(cols).sort((a, b) => +a[0] - +b[0]).forEach(([d, ns]) => {
+      ns.sort((a, b) => (a.data.changeId || "").localeCompare(b.data.changeId || "") || (a.data.id || "").localeCompare(b.data.id || ""));
+      ns.forEach((n, i) => { pos[n.data.id] = { x: +d * COL_W, y: i * ROW_H }; });
+    });
+    return pos;
+  }
+
   /* ---- Cytoscape graph initialiser ---- */
   function initCy(containerId) {
     if (typeof cytoscape === "undefined") {
@@ -558,115 +670,36 @@ const SUGGEST = {{.SuggestJSON}};
       return;
     }
     destroyCy();
-
-    const trunc = (s, n) => s && s.length > n ? s.slice(0, n - 1) + "…" : (s || "");
-    const phNodeId = (changeName, phaseIdx) => changeName + "\x00" + phaseIdx;
-
-    const elems = [];
-
-    /* Within-change structure: one node per phase, sequential edges between phases.
-       Changes with no phases get a single summary node. */
-    changes.forEach((c) => {
-      const phases = c.phases || [];
-      if (!phases.length) {
-        elems.push({
-          group: "nodes",
-          data: { id: c.name, label: c.name, lifecycle: c.lifecycle || "proposed", changeId: c.name, type: "change" },
-        });
-      } else {
-        phases.forEach((p, pi) => {
-          const id = phNodeId(c.name, pi);
-          const items = p.items || [];
-          const done = items.filter((i) => i.done).length;
-          const pct = items.length ? Math.round((done / items.length) * 100) : 0;
-          const label = pi === 0
-            ? trunc(c.name, 18) + "\n" + "Stage " + p.number + ": " + trunc(p.name, 14)
-            : "Stage " + p.number + ": " + trunc(p.name, 18);
-          elems.push({
-            group: "nodes",
-            data: { id, label, lifecycle: c.lifecycle || "proposed", changeId: c.name, type: "stage", pct, done, total: items.length, stageNum: p.number, stageName: p.name },
-            classes: pi === 0 ? "stage-entry" : "stage-mid",
-          });
-          if (pi > 0) {
-            elems.push({
-              group: "edges",
-              data: { id: "seq:" + id, source: phNodeId(c.name, pi - 1), target: id, type: "sequential" },
-            });
-          }
-        });
-      }
-    });
-
-    /* Cross-change dependency edges: connect last stage of prereq to first stage of dep. */
-    edges.forEach((e) => {
-      const fromC = byName.get(e.from), toC = byName.get(e.to);
-      const fromPh = fromC && fromC.phases || [];
-      const toPh = toC && toC.phases || [];
-      const srcId = fromPh.length ? phNodeId(e.from, fromPh.length - 1) : e.from;
-      const tgtId = toPh.length ? phNodeId(e.to, 0) : e.to;
-      elems.push({
-        group: "edges",
-        data: { id: "dep:" + e.from + ":" + e.to, source: srcId, target: tgtId, type: "cross" },
-      });
-    });
-
-    /* Suggested cross-change edges */
-    const confirmed = new Set(edges.map((e) => e.from + ":" + e.to));
-    novelCandidateGroups().forEach((c) => {
-      if (!confirmed.has(c.from + ":" + c.to)) {
-        const fromC = byName.get(c.from), toC = byName.get(c.to);
-        const fromPh = fromC && fromC.phases || [];
-        const toPh = toC && toC.phases || [];
-        const srcId = fromPh.length ? phNodeId(c.from, fromPh.length - 1) : c.from;
-        const tgtId = toPh.length ? phNodeId(c.to, 0) : c.to;
-        elems.push({
-          group: "edges",
-          data: { id: "sug:" + c.from + ":" + c.to, source: srcId, target: tgtId, suggested: true },
-        });
-      }
-    });
+    const elems = graphElems();
+    const pos   = lrPositions(elems);
 
     cyInstance = cytoscape({
       container: document.getElementById(containerId),
       elements: elems,
       style: [
-        {
-          selector: "node",
-          style: {
-            shape: "rectangle", width: 148, height: 40,
-            "background-color": "#fffefa", "border-width": 1.5, "border-color": "#111",
-            label: "data(label)",
-            "font-family": '"Monaco", "Menlo", monospace', "font-size": 9,
-            "text-valign": "center", "text-halign": "center", color: "#111",
-            "text-wrap": "wrap", "text-max-width": 136,
-          },
-        },
-        { selector: "node.stage-entry", style: { height: 50, "border-width": 2, "font-size": 9 } },
+        { selector: "node", style: { shape: "rectangle", width: 160, height: 44, "background-color": "#fffefa", "border-width": 1.5, "border-color": "#111", label: "data(label)", "font-family": '"Monaco","Menlo",monospace', "font-size": 9, "text-valign": "center", "text-halign": "center", color: "#111", "text-wrap": "wrap", "text-max-width": 148 } },
+        { selector: 'node[type = "change"]', style: { height: 52, "border-width": 2, "font-size": 10 } },
         { selector: 'node[lifecycle = "active"]',   style: { "background-color": "#fff1c8", "border-color": "#d0a53b" } },
         { selector: 'node[lifecycle = "proposed"]', style: { "background-color": "#dce6ff", "border-color": "#8ca7d9" } },
         { selector: 'node[lifecycle = "archived"]', style: { "background-color": "#dcf0df", "border-color": "#79aa80" } },
-        { selector: "node.focused",                 style: { "border-width": 2.5, "border-color": "#002f86" } },
-        { selector: "node.dim",                     style: { opacity: 0.2 } },
-        {
-          selector: "edge",
-          style: { "curve-style": "bezier", "target-arrow-shape": "triangle", "arrow-scale": 1, "line-color": "#999", "target-arrow-color": "#999", width: 1 },
-        },
+        { selector: "node.focused", style: { "border-width": 2.5, "border-color": "#002f86" } },
+        { selector: "node.dim",     style: { opacity: 0.2 } },
+        { selector: "edge", style: { "curve-style": "bezier", "target-arrow-shape": "triangle", "arrow-scale": 1, "line-color": "#999", "target-arrow-color": "#999", width: 1.5 } },
         { selector: 'edge[type = "cross"]', style: { "line-color": "#002f86", "target-arrow-color": "#002f86", width: 2, "line-style": "dashed", "line-dash-pattern": [8, 4] } },
         { selector: "edge[?suggested]",    style: { "line-color": "#ccc", "target-arrow-color": "#ccc", width: 1, "line-style": "dashed", "line-dash-pattern": [4, 4] } },
         { selector: "edge.dim",            style: { opacity: 0.08 } },
         { selector: "edge.focused",        style: { "line-color": "#002f86", "target-arrow-color": "#002f86" } },
       ],
-      layout: { name: "breadthfirst", directed: true, avoidOverlap: true, padding: 32, spacingFactor: 1.75, nodeDimensionsIncludeLabels: true },
-      userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false, autoungrabify: false,
+      layout: { name: "preset", positions: (id) => pos[id] || { x: 0, y: 0 }, padding: 32 },
+      userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false,
     });
 
     const inspBody = document.getElementById("graph-inspector-body");
 
     cyInstance.on("mouseover", "node", function (evt) {
-      const node = evt.target;
+      const node     = evt.target;
       const changeId = node.data("changeId") || node.id();
       if (inspBody) inspBody.innerHTML = inspectorHTML(changeId);
-      /* Highlight all nodes belonging to the same change + their connections */
       cyInstance.elements().addClass("dim");
       cyInstance.nodes().filter((n) => (n.data("changeId") || n.id()) === changeId).removeClass("dim").addClass("focused");
       const conn = node.connectedEdges();
@@ -679,10 +712,26 @@ const SUGGEST = {{.SuggestJSON}};
       if (inspBody) inspBody.innerHTML = '<p class="empty" style="margin-top:0">Hover a node to inspect.</p>';
     });
 
-    cyInstance.on("tap", "node", function (evt) {
-      const changeId = evt.target.data("changeId") || evt.target.id();
-      if (byName.has(changeId)) location.hash = "#/c/" + encodeURIComponent(changeId);
+    /* Double-click a change node: toggle expansion to stage nodes */
+    cyInstance.on("dblclick", "node", function (evt) {
+      const node     = evt.target;
+      const changeId = node.data("changeId") || node.id();
+      const type     = node.data("type");
+      if (type === "change" && node.data("canExpand")) {
+        if (expandedChanges.has(changeId)) expandedChanges.delete(changeId);
+        else expandedChanges.add(changeId);
+        initCy(containerId);
+      }
     });
+
+    /* Single tap on a stage node: navigate to its detail drilldown */
+    cyInstance.on("tap", "node", function (evt) {
+      const type     = evt.target.data("type");
+      const changeId = evt.target.data("changeId") || evt.target.id();
+      if (type === "stage" && byName.has(changeId)) location.hash = "#/c/" + encodeURIComponent(changeId);
+    });
+
+    cyInstance.fit();
   }
 
   /* ---- phase progress chart ---- */
@@ -755,10 +804,11 @@ const SUGGEST = {{.SuggestJSON}};
       } else {
         col.forEach((c) => {
           const p = progressOf(c);
+          const stgCount = (c.phases || []).length;
           h += '<button class="bcard" data-change="' + esc(c.name) + '">' +
             "<h3>" + esc(c.name) + "</h3>" +
             '<div class="meter"><span style="width:' + p.pct + '%"></span></div>' +
-            '<p class="sub">' + progressLabel(c) + " &middot; " + (c.phases || []).length + " phases</p></button>";
+            '<p class="sub">' + progressLabel(c) + " &middot; " + stgCount + (stgCount === 1 ? " stage" : " stages") + "</p></button>";
         });
       }
       h += "</div></section>";
@@ -781,13 +831,27 @@ const SUGGEST = {{.SuggestJSON}};
     destroyChart(); destroyCy();
     const novel = novelCandidateGroups();
 
-    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.65rem">Dependency Graph</h1>';
+    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.5rem">Dependency Graph</h1>';
     if (!changes.length) {
       h += '<div class="graph-empty">No changes found.</div>';
       view.innerHTML = h; afterRender(); return;
     }
+
+    h += '<div class="graph-toolbar">';
+    h += '<button class="btn" id="btn-expand-all">Expand all</button>';
+    h += '<button class="btn" id="btn-collapse-all">Collapse all</button>';
+    h += '<span class="graph-hint-text">double-click a change to expand its stages</span>';
+    h += '</div>';
+
     h += '<div class="graph-shell">';
-    h += '<div class="graph-workbench"><div id="cy-container"></div></div>';
+    h += '<div class="graph-workbench">' +
+      '<div id="cy-container"></div>' +
+      '<div class="graph-legend">' +
+      '<span class="legend-item"><span class="legend-line sequential"></span> sequential</span>' +
+      '<span class="legend-item"><span class="legend-line cross"></span> cross-change dep</span>' +
+      '<span class="legend-item"><span class="legend-line suggested"></span> suggested</span>' +
+      '</div>' +
+      '</div>';
     h += '<aside class="graph-inspector">' +
       '<div class="graph-inspector-head"><span>Inspector</span></div>' +
       '<div class="graph-inspector-body" id="graph-inspector-body">' +
@@ -809,18 +873,41 @@ const SUGGEST = {{.SuggestJSON}};
 
     view.innerHTML = h;
     initCy("cy-container");
+
+    const btnExpAll = document.getElementById("btn-expand-all");
+    const btnColAll = document.getElementById("btn-collapse-all");
+    if (btnExpAll) btnExpAll.addEventListener("click", () => {
+      changes.forEach((c) => { if ((c.phases || []).length) expandedChanges.add(c.name); });
+      initCy("cy-container");
+    });
+    if (btnColAll) btnColAll.addEventListener("click", () => {
+      expandedChanges.clear();
+      initCy("cy-container");
+    });
+
     afterRender();
   }
 
   /* ================================================================
      DRILLDOWN VIEW
      ================================================================ */
+  function taskRowHTML(it) {
+    const done = it.done;
+    const refs  = (it.externalRefs || []).map((r) => '<span class="task-ext" title="' + esc(r.target) + '">' + esc(r.externalId) + "</span>").join("");
+    const k     = it.kind && it.kind !== "task" ? '<span class="kind ' + esc(it.kind) + '">' + esc(it.kind) + "</span>" : "";
+    return '<div class="task-row' + (done ? " done" : "") + '">' +
+      '<div class="task-check' + (done ? " done" : "") + '">' + (done ? "&#10003;" : "&#9744;") + "</div>" +
+      '<div class="task-key">' + esc(it.key) + "</div>" +
+      '<div class="task-body">' + k + '<span class="task-title" title="' + esc(it.text) + '">' + esc(it.text) + "</span></div>" +
+      '<div class="task-meta">' + refs + "</div>" +
+      "</div>";
+  }
+
   function renderDetail(name) {
     destroyChart(); destroyCy();
     const c = byName.get(name);
     if (!c) { renderKanban(); return; }
     const prog = progressOf(c);
-    const remaining = (c.phases || []).flatMap((p) => (p.items || []).filter((it) => !it.done));
     const deps = dependsOn(name), blks = blocks(name);
 
     let h = '<a class="back" href="#/">&#9664; All changes</a>';
@@ -829,76 +916,56 @@ const SUGGEST = {{.SuggestJSON}};
     h += '<span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + "</span></div>";
     h += '<div class="doclayout"><div class="main">';
 
-    /* Task pipeline */
+    /* Task pipeline — accurate hint: deps gate tasks, not stage order */
     if ((c.phases || []).length) {
-      h += '<p class="eyebrow" style="margin-top:0">Execution plan &mdash; stages run sequentially, tasks within a stage run in parallel</p>';
+      h += '<p class="eyebrow" style="margin-top:0">Execution plan &mdash; tasks run when their dependencies are met</p>';
       h += pipelineHTML(c);
     }
 
-    /* Narrative */
+    /* Narrative — collapsed by default (progressive disclosure) */
     if (c.why || c.whatChanges) {
       h += '<div class="narrative">';
       if (c.why) {
-        h += '<div class="narrative-problem">' +
-          '<div class="narrative-label"><span class="narrative-label-text">Why</span></div>' +
-          '<div class="narrative-body">' + md(c.why) + '</div></div>';
+        h += '<details class="narrative-block"><summary class="narrative-summary">Why</summary>' +
+          '<div class="narrative-body">' + md(c.why) + '</div></details>';
       }
-      if (c.why && c.whatChanges) h += '<div style="height:.35rem"></div>';
       if (c.whatChanges) {
-        h += '<div class="narrative-solution">' +
-          '<div class="narrative-label"><span class="narrative-label-text">What changes</span></div>' +
-          '<div class="narrative-body">' + md(c.whatChanges) + '</div></div>';
+        h += '<details class="narrative-block"><summary class="narrative-summary">What changes</summary>' +
+          '<div class="narrative-body">' + md(c.whatChanges) + '</div></details>';
       }
       h += '</div>';
     }
 
-    /* Outstanding tasks */
-    h += '<div class="remaining" style="margin-top:.5rem">';
-    h += '<div class="remaining-head">Outstanding &mdash; ' +
-      (prog.hasTasks ? remaining.length + " of " + prog.total : "no tasks defined") + "</div>";
-    if (!prog.hasTasks) {
-      h += '<p class="alldone">No tasks defined</p>';
-    } else if (!remaining.length) {
-      h += '<p class="alldone">&#10003; All ' + prog.total + " tasks complete</p>";
-    } else {
-      h += '<div class="remaining-body"><ul class="tasks">';
-      remaining.forEach((it) => {
-        h += '<li><span class="glyph todo" aria-hidden="true">&#9744;</span>' +
-          '<span class="key">' + esc(it.key) + "</span>" +
-          kindTag(it) + extRefChips(it) +
-          '<span class="txt">' + esc(it.text) + "</span></li>";
-      });
-      h += "</ul></div>";
-    }
-    h += "</div>";
-
-    /* Full task list by phase */
-    h += '<p class="eyebrow" style="margin-top:1.25rem">All tasks by phase</p>';
-    (c.phases || []).forEach((p) => {
-      const items = p.items || [];
-      const d = items.filter((i) => i.done).length;
-      const phPct = items.length ? Math.round((d / items.length) * 100) : 0;
-      h += '<details class="phase-block"' + (d < items.length ? " open" : "") + '><summary class="phase-h">' +
-        '<h2>' + esc(p.number) + ". " + esc(p.name) + "</h2>" +
-        '<span class="ct tnum">' + d + "/" + items.length + " &middot; " + phPct + "%</span></summary>";
+    /* Tasks by stage — all closed by default; open-task stages get accent border */
+    h += '<p class="eyebrow" style="margin-top:1.25rem">Tasks by stage</p>';
+    (c.phases || []).forEach((p, _pi) => {
+      const items  = p.items || [];
+      const done   = items.filter((i) => i.done).length;
+      const phPct  = items.length ? Math.round((done / items.length) * 100) : 0;
+      const open   = done < items.length;
+      h += '<details class="phase-block' + (open ? " has-open" : "") + '"><summary class="phase-h">' +
+        '<h2>' + esc(p.number) + ". " + esc(p.name) +
+        (open ? '<span class="phase-open-badge">' + (items.length - done) + ' open</span>' : "") +
+        "</h2>" +
+        '<span class="ct tnum">' + done + "/" + items.length + " &middot; " + phPct + "%</span></summary>";
       h += '<div class="meter" style="margin:.2rem 0 .4rem"><span style="width:' + phPct + '%"></span></div>';
-      h += '<ul class="tasks">';
-      items.forEach((it) => {
-        h += '<li class="' + (it.done ? "done" : "") + '">' +
-          '<span class="glyph ' + (it.done ? "done" : "todo") + '" aria-hidden="true">' +
-          (it.done ? "&#10003;" : "&#9744;") + "</span>" +
-          '<span class="sr-only">' + (it.done ? "Done: " : "To do: ") + "</span>" +
-          '<span class="key">' + esc(it.key) + "</span>" +
-          kindTag(it) + extRefChips(it) +
-          '<span class="txt">' + esc(it.text) + "</span></li>";
-      });
-      h += "</ul></details>";
+      h += '<div class="task-list">';
+      items.forEach((it) => { h += taskRowHTML(it); });
+      h += "</div></details>";
     });
 
     h += "</div>"; /* end .main */
 
-    /* Rail */
+    /* Rail — Dependencies first, then Progress */
     h += '<aside class="rail">';
+
+    h += '<div class="panel"><div class="panel-title"><span class="panel-title-label">Dependencies</span></div><div class="panel-body">';
+    h += '<p class="eyebrow" style="margin-top:0">Depends on</p>';
+    h += deps.length ? '<div class="chips">' + deps.map(chipLink).join("") + "</div>" : '<p class="none">Nothing upstream.</p>';
+    h += '<p class="eyebrow">Blocks</p>';
+    h += blks.length ? '<div class="chips">' + blks.map(chipLink).join("") + "</div>" : '<p class="none">Nothing downstream.</p>';
+    h += "</div></div>";
+
     h += '<div class="panel"><div class="panel-title"><span class="panel-title-label">Progress</span></div><div class="panel-body">';
     h += '<div class="progress-big"><span class="num">' + prog.pct + '</span>' +
       '<span style="font-family:var(--font-mono);font-size:.875rem;color:var(--muted)">%</span>' +
@@ -910,12 +977,6 @@ const SUGGEST = {{.SuggestJSON}};
     }
     h += "</div></div>";
 
-    h += '<div class="panel"><div class="panel-title"><span class="panel-title-label">Dependencies</span></div><div class="panel-body">';
-    h += '<p class="eyebrow" style="margin-top:0">Depends on</p>';
-    h += deps.length ? '<div class="chips">' + deps.map(chipLink).join("") + "</div>" : '<p class="none">Nothing upstream.</p>';
-    h += '<p class="eyebrow">Blocks</p>';
-    h += blks.length ? '<div class="chips">' + blks.map(chipLink).join("") + "</div>" : '<p class="none">Nothing downstream.</p>';
-    h += "</div></div>";
     h += "</aside>";
     h += "</div></div>"; /* end doclayout + doc */
 
@@ -928,7 +989,7 @@ const SUGGEST = {{.SuggestJSON}};
   function renderEmpty() {
     destroyChart(); destroyCy();
     view.innerHTML = '<h1 tabindex="-1" id="view-title">No changes found</h1>' +
-      '<p class="empty" style="margin-top:.5rem">Create changes under <code>openspec/changes/&lt;name&gt;/</code>, then run <code>specutil serve</code>.</p>';
+      '<p class="empty" style="margin-top:.5rem">Create changes under <code>openspec/changes/&lt;name&gt;/</code>, then run <code>specutil web</code>.</p>';
     afterRender();
   }
 

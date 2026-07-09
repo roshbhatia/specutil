@@ -110,6 +110,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.scroll(-1)
 		case "down", "j":
 			m.scroll(1)
+		case "g":
+			if m.detailOpen {
+				m.detailScrol = 0
+			} else {
+				m.boardScroll = 0
+			}
+		case "G":
+			if m.detailOpen {
+				m.detailScrol = 9999
+			} else {
+				m.boardScroll = 9999
+			}
+		case " ":
+			pageSize := m.height / 3
+			if pageSize < 1 {
+				pageSize = 5
+			}
+			m.scroll(pageSize)
+		case "b":
+			pageSize := m.height / 3
+			if pageSize < 1 {
+				pageSize = 5
+			}
+			m.scroll(-pageSize)
 		}
 	case tea.MouseMsg:
 		if msg.Action == tea.MouseActionPress {
@@ -258,9 +282,9 @@ func (m Model) footer() string {
 	if m.view == viewGraph {
 		v = "graph"
 	}
-	keys := "tab: view  ·  ←/→: select  ·  ↑/↓: scroll  ·  enter: open  ·  q: quit"
+	keys := "tab: view  ·  ←/→: select  ·  j/k: scroll  ·  space/b: page  ·  g/G: top/bot  ·  enter: open  ·  q: quit"
 	if m.detailOpen {
-		keys = "↑/↓: scroll  ·  esc: close  ·  q: quit"
+		keys = "j/k: scroll  ·  space/b: page  ·  g/G: top/bot  ·  esc: close  ·  q: quit"
 	}
 	return styleHint.Render(fmt.Sprintf("[%s]  %s", v, keys))
 }
@@ -625,7 +649,7 @@ func (m Model) detailPipeline(c *ir.Change) string {
 	arrow := styleHint.Render(" → ")
 	row := strings.Join(stgs, arrow)
 	return styleHeader.Render("Execution plan") + "  " +
-		styleHint.Render("(stages sequential · tasks within a stage parallel)") + "\n" + row
+		styleHint.Render("(tasks run when their dependencies are met)") + "\n" + row
 }
 
 // detailOutstanding shows the first few incomplete tasks so the most urgent
