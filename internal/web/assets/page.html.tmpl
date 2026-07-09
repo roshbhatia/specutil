@@ -888,66 +888,21 @@ const SUGGEST = {{.SuggestJSON}};
     changes.forEach((c) => {
       const phases = c.phases || [];
       const st     = changeStatus(c);
-      if (expandedChanges.has(c.name) && phases.length) {
-        phases.forEach((p, pi) => {
-          const stageId = phId(c.name, pi);
-          const items   = p.items || [];
-          const done    = items.filter((i) => i.done).length;
-          const pct     = items.length ? Math.round(done / items.length * 100) : 0;
-          const phSt    = pct === 100 ? "done" : pi === 0 || done > 0 ? "in-progress" : "waiting";
-
-          if (expandedStages.has(stageId) && items.length > 0) {
-            /* Stage expanded: replace with individual task nodes. */
-            items.forEach((item, ii) => {
-              const taskId = stageId + "\x00" + ii;
-              const taskSt = item.done ? "done" : "todo";
-              elems.push({
-                group: "nodes",
-                data: { id: taskId, label: trunc(item.text, 18), status: taskSt, type: "task", changeId: c.name, stageId, phaseIndex: pi, taskIndex: ii, done: item.done, kind: item.kind || "task" },
-              });
-              if (ii === 0 && pi > 0) {
-                /* First task: connect from tail of previous stage. */
-                elems.push({ group: "edges", data: { id: "seq:" + taskId, source: stageEndId(c.name, pi - 1, phases), target: taskId, type: "sequential" } });
-              } else if (ii > 0) {
-                elems.push({ group: "edges", data: { id: "seq:" + taskId, source: stageId + "\x00" + (ii - 1), target: taskId, type: "sequential" } });
-              }
-            });
-          } else {
-            /* Stage not expanded: show stage node. */
-            elems.push({
-              group: "nodes",
-              data: { id: stageId, label: "Stage " + p.number + "\n" + trunc(p.name, 16), lifecycle: c.lifecycle || "proposed", status: phSt, changeId: c.name, type: "stage", pct, done, total: items.length, canExpand: items.length > 0 },
-            });
-            if (pi > 0) {
-              /* Connect from tail of previous stage (which may itself be expanded). */
-              elems.push({ group: "edges", data: { id: "seq:" + stageId, source: stageEndId(c.name, pi - 1, phases), target: stageId, type: "sequential" } });
-            }
-          }
-        });
-      } else {
-        const prog        = progressOf(c);
-        const stagesCount = phases.length;
-        const label       = trunc(c.name, 20) + "\n" + prog.pct + "%" + (stagesCount ? " · " + stagesCount + " stage" + (stagesCount === 1 ? "" : "s") : "");
-        elems.push({
-          group: "nodes",
-          data: { id: c.name, label, lifecycle: c.lifecycle || "proposed", status: st, changeId: c.name, type: "change", pct: prog.pct, canExpand: stagesCount > 0 },
-        });
-      }
+      const prog   = progressOf(c);
+      const label  = trunc(c.name, 20) + "\n" + prog.pct + "%" + (phases.length ? " · " + phases.length + " stage" + (phases.length === 1 ? "" : "s") : "");
+      elems.push({
+        group: "nodes",
+        data: { id: c.name, label, lifecycle: c.lifecycle || "proposed", status: st, type: "change", pct: prog.pct },
+      });
     });
     const confirmed = new Set(edges.map((e) => e.from + ":" + e.to));
     edges.forEach((e) => {
-      const fromC  = byName.get(e.from), toC = byName.get(e.to);
-      const fromPh = (fromC && fromC.phases) || [];
-      const toPh   = (toC  && toC.phases)   || [];
-      const eSt    = edgeStatus(e.from);
-      elems.push({ group: "edges", data: { id: "dep:" + e.from + ":" + e.to, source: changeEndId(e.from, fromPh, true), target: changeEndId(e.to, toPh, false), type: "cross", edgeStatus: eSt } });
+      const eSt = edgeStatus(e.from);
+      elems.push({ group: "edges", data: { id: "dep:" + e.from + ":" + e.to, source: e.from, target: e.to, type: "cross", edgeStatus: eSt } });
     });
     novelCandidateGroups().forEach((c) => {
       if (!confirmed.has(c.from + ":" + c.to)) {
-        const fromC  = byName.get(c.from), toC = byName.get(c.to);
-        const fromPh = (fromC && fromC.phases) || [];
-        const toPh   = (toC  && toC.phases)   || [];
-        elems.push({ group: "edges", data: { id: "sug:" + c.from + ":" + c.to, source: changeEndId(c.from, fromPh, true), target: changeEndId(c.to, toPh, false), suggested: true } });
+        elems.push({ group: "edges", data: { id: "sug:" + c.from + ":" + c.to, source: c.from, target: c.to, suggested: true } });
       }
     });
     return elems;
@@ -1107,29 +1062,10 @@ const SUGGEST = {{.SuggestJSON}};
       if (inspBody) inspBody.innerHTML = '<p class="empty" style="margin-top:0">Hover a node to inspect.</p>';
     });
 
-    /* Single tap: toggle expansion at each level; navigate on task tap */
+    /* Tap: navigate to change detail view */
     cyInstance.on("tap", "node", function (evt) {
-      const node     = evt.target;
-      const type     = node.data("type");
-      const changeId = node.data("changeId") || node.id();
-      const nodeId   = node.id();
-
-      if (type === "change" && node.data("canExpand")) {
-        if (expandedChanges.has(changeId)) {
-          expandedChanges.delete(changeId);
-          /* collapse any task-level expansions that belong to this change */
-          expandedStages.forEach((sid) => { if (sid.startsWith(changeId + "\x00")) expandedStages.delete(sid); });
-        } else {
-          expandedChanges.add(changeId);
-        }
-        initCy(containerId);
-      } else if (type === "stage" && node.data("canExpand")) {
-        if (expandedStages.has(nodeId)) expandedStages.delete(nodeId);
-        else expandedStages.add(nodeId);
-        initCy(containerId);
-      } else if (type === "task") {
-        if (byName.has(changeId)) location.hash = "#/c/" + encodeURIComponent(changeId);
-      }
+      const id = evt.target.id();
+      if (byName.has(id)) location.hash = "#/c/" + encodeURIComponent(id);
     });
 
     cyInstance.fit();
@@ -1299,10 +1235,7 @@ const SUGGEST = {{.SuggestJSON}};
     changes.forEach((c) => { const s = changeStatus(c); stCounts[s] = (stCounts[s] || 0) + 1; });
 
     h += '<div class="graph-toolbar">';
-    h += '<button class="btn btn-ghost" id="btn-expand-stages">Expand stages</button>';
-    h += '<button class="btn btn-ghost" id="btn-expand-tasks">Expand tasks</button>';
-    h += '<button class="btn btn-ghost" id="btn-collapse-all">Collapse all</button>';
-    h += '<span class="graph-hint-text">click a node to expand · drag to rearrange · shift-click or box-select for multi</span>';
+    h += '<span class="graph-hint-text">click a node to open detail · drag to rearrange</span>';
     h += '</div>';
 
     /* status legend */
@@ -1352,34 +1285,6 @@ const SUGGEST = {{.SuggestJSON}};
 
     view.innerHTML = h;
     initCy("cy-container");
-
-    const btnExpStages = document.getElementById("btn-expand-stages");
-    const btnExpTasks  = document.getElementById("btn-expand-tasks");
-    const btnColAll    = document.getElementById("btn-collapse-all");
-    if (btnExpStages) btnExpStages.addEventListener("click", () => {
-      changes.forEach((c) => { if ((c.phases || []).length) expandedChanges.add(c.name); });
-      initCy("cy-container");
-    });
-    if (btnExpTasks) btnExpTasks.addEventListener("click", () => {
-      /* Expand stages first, then expand all stages to tasks. */
-      changes.forEach((c) => { if ((c.phases || []).length) expandedChanges.add(c.name); });
-      changes.forEach((c) => {
-        (c.phases || []).forEach((p, pi) => {
-          if ((p.items || []).length) expandedStages.add(phId(c.name, pi));
-        });
-      });
-      initCy("cy-container");
-    });
-    if (btnColAll) btnColAll.addEventListener("click", () => {
-      expandedChanges.clear();
-      expandedStages.clear();
-      /* Destroy directly (no position save) then wipe savedPositions so the
-         next expansion starts with a clean layout, not stale positions. */
-      if (cyInstance) { cyInstance.destroy(); cyInstance = null; }
-      savedPositions = {};
-      initCy("cy-container"); /* cyInstance is null so destroyCy inside is a no-op */
-    });
-
     afterRender();
   }
 
@@ -1479,12 +1384,18 @@ const SUGGEST = {{.SuggestJSON}};
     /* Rail — Dependencies first, then Progress */
     h += '<aside class="rail">';
 
-    h += '<div class="panel"><div class="panel-title"><span class="panel-title-label">Dependencies</span></div><div class="panel-body">';
-    h += '<p class="eyebrow" style="margin-top:0">Depends on</p>';
-    h += deps.length ? '<div class="chips">' + deps.map(chipLink).join("") + "</div>" : '<p class="none">Nothing upstream.</p>';
-    h += '<p class="eyebrow">Blocks</p>';
-    h += blks.length ? '<div class="chips">' + blks.map(chipLink).join("") + "</div>" : '<p class="none">Nothing downstream.</p>';
-    h += "</div></div>";
+    if (deps.length || blks.length) {
+      h += '<div class="panel"><div class="panel-title"><span class="panel-title-label">Dependencies</span></div><div class="panel-body">';
+      if (deps.length) {
+        h += '<p class="eyebrow" style="margin-top:0">Depends on</p>';
+        h += '<div class="chips">' + deps.map(chipLink).join("") + "</div>";
+      }
+      if (blks.length) {
+        h += '<p class="eyebrow"' + (deps.length ? '' : ' style="margin-top:0"') + '>Blocks</p>';
+        h += '<div class="chips">' + blks.map(chipLink).join("") + "</div>";
+      }
+      h += "</div></div>";
+    }
 
     h += '<div class="panel"><div class="panel-title"><span class="panel-title-label">Progress</span></div><div class="panel-body">';
     h += '<div class="progress-big"><span class="num">' + prog.pct + '</span>' +
