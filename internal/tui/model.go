@@ -573,6 +573,8 @@ func (m Model) detailPanel(innerW int) string {
 		meta.WriteString(styleHeader.Render("What changes") + "\n" + c.Proposal.WhatChanges + "\n\n")
 	}
 
+	pipeline := m.detailPipeline(c)
+	outstanding := m.detailOutstanding(c)
 	checklist := m.detailChecklist(c)
 	rail := m.detailRail(c)
 
@@ -582,21 +584,91 @@ func (m Model) detailPanel(innerW int) string {
 	case innerW >= sideBySideMin && checklist != "":
 		railW := 22
 		listW := innerW - railW - 1
-		listCol := lipgloss.NewStyle().Width(listW).Render(checklist)
+		main := outstanding + "\n\n" + checklist
+		listCol := lipgloss.NewStyle().Width(listW).Render(main)
 		railCol := lipgloss.NewStyle().Width(railW).Render(rail)
 		body = lipgloss.JoinHorizontal(lipgloss.Top, listCol, " ", railCol)
 	case checklist != "":
-		body = rail + "\n\n" + checklist
+		body = rail + "\n\n" + outstanding + "\n\n" + checklist
 	default:
 		body = rail
 	}
 
 	parts := []string{strings.TrimRight(head.String(), "\n")}
+	if pipeline != "" {
+		parts = append(parts, pipeline)
+	}
 	if s := strings.TrimRight(meta.String(), "\n"); s != "" {
 		parts = append(parts, s)
 	}
 	parts = append(parts, body)
 	return strings.Join(parts, "\n\n")
+}
+
+// detailPipeline renders the stage sequence compactly:
+// "Stage 1: Setup → Stage 2: Implement → Stage 3: Verify"
+// so the sequential/parallel structure is obvious before the full checklist.
+func (m Model) detailPipeline(c *ir.Change) string {
+	if c.Tasks == nil || len(c.Tasks.Phases) == 0 {
+		return ""
+	}
+	var stgs []string
+	for _, p := range c.Tasks.Phases {
+		pd, pt := phaseProgress(p)
+		pct := 0
+		if pt > 0 {
+			pct = pd * 100 / pt
+		}
+		label := "Stage " + p.Number + ": " + p.Name
+		stgs = append(stgs, label+styleMuted.Render(fmt.Sprintf(" %d%%", pct)))
+	}
+	arrow := styleHint.Render(" → ")
+	row := strings.Join(stgs, arrow)
+	return styleHeader.Render("Execution plan") + "  " +
+		styleHint.Render("(stages sequential · tasks within a stage parallel)") + "\n" + row
+}
+
+// detailOutstanding shows the first few incomplete tasks so the most urgent
+// work is visible without scrolling through the full checklist.
+func (m Model) detailOutstanding(c *ir.Change) string {
+	if c.Tasks == nil {
+		return ""
+	}
+	var remaining []struct {
+		key  string
+		text string
+		kind ir.TaskKind
+	}
+	for pi, p := range c.Tasks.Phases {
+		for ii, it := range p.Items {
+			if !it.Done {
+				key := fmt.Sprintf("%d%c", pi, rune('a'+ii))
+				remaining = append(remaining, struct {
+					key  string
+					text string
+					kind ir.TaskKind
+				}{key, it.Text, it.Kind})
+			}
+		}
+	}
+	if len(remaining) == 0 {
+		return styleHeader.Render("Outstanding") + "\n" + styleDone.Render("✓ All tasks complete")
+	}
+	const maxShow = 5
+	var b strings.Builder
+	b.WriteString(styleHeader.Render(fmt.Sprintf("Outstanding (%d)", len(remaining))) + "\n")
+	shown := remaining
+	if len(shown) > maxShow {
+		shown = shown[:maxShow]
+	}
+	for _, r := range shown {
+		key := styleMuted.Render("[" + r.key + "]")
+		b.WriteString(fmt.Sprintf("  [ ] %s %s%s\n", key, kindMarker(r.kind), r.text))
+	}
+	if len(remaining) > maxShow {
+		b.WriteString(styleHint.Render(fmt.Sprintf("  … and %d more", len(remaining)-maxShow)) + "\n")
+	}
+	return strings.TrimRight(b.String(), "\n")
 }
 
 // detailChecklist is the tasks-by-phase list with per-phase progress and
@@ -609,7 +681,7 @@ func (m Model) detailChecklist(c *ir.Change) string {
 	b.WriteString(styleHeader.Render("Tasks") + "\n")
 	for _, p := range c.Tasks.Phases {
 		pd, pt := phaseProgress(p)
-		b.WriteString(fmt.Sprintf("%s. %s %s\n", p.Number, p.Name, styleMuted.Render(fmt.Sprintf("(%d/%d)", pd, pt))))
+		b.WriteString(fmt.Sprintf("Stage %s: %s %s\n", p.Number, p.Name, styleMuted.Render(fmt.Sprintf("(%d/%d)", pd, pt))))
 		for _, it := range p.Items {
 			glyph := "[ ]"
 			if it.Done {
@@ -630,10 +702,10 @@ func (m Model) detailChecklist(c *ir.Change) string {
 func (m Model) detailRail(c *ir.Change) string {
 	var b strings.Builder
 	if c.Tasks != nil && len(c.Tasks.Phases) > 0 {
-		b.WriteString(styleHeader.Render("Phases") + "\n")
+		b.WriteString(styleHeader.Render("Stages") + "\n")
 		for _, p := range c.Tasks.Phases {
 			pd, pt := phaseProgress(p)
-			b.WriteString(miniBar(pd, pt, colAccent) + " " + styleMuted.Render(p.Number) + "\n")
+			b.WriteString(miniBar(pd, pt, colAccent) + " " + styleMuted.Render("Stage "+p.Number+": "+p.Name) + "\n")
 		}
 		b.WriteString("\n")
 	}

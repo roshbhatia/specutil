@@ -1,10 +1,12 @@
 // Package cli wires the cobra command tree. The verb surface is deliberately
-// small and deterministic: render, plan, diff, lock, graph, tui, serve. There is
+// small and deterministic: render, plan, diff, lock, graph, tui, web. There is
 // no `sync` verb — orchestration of remote writes lives in the shipped skills,
 // never in the binary.
 package cli
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -59,7 +61,7 @@ func NewRootCmd() *cobra.Command {
 		newLockCmd(),
 		newGraphCmd(),
 		newTUICmd(),
-		newServeCmd(),
+		newWebCmd(),
 	)
 	return root
 }
@@ -67,13 +69,24 @@ func NewRootCmd() *cobra.Command {
 func newRenderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "render [change]",
-		Short: "Render a change's IR into another artifact (rfc|design|tickets)",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runRender,
+		Short: "Render a change into a shareable document (rfc|design|tickets)",
+		Long: "Projects an OpenSpec change into a human-readable document for sharing with\n" +
+			"stakeholders. Three output formats are supported:\n\n" +
+			"  rfc      — RFC-style proposal doc (Why, What Changes, Requirements)\n" +
+			"  design   — Technical design doc (Context, Goals, Decisions, Rollout)\n" +
+			"  tickets  — Flat task checklist suitable for copy-paste into a tracker\n\n" +
+			"Output goes to stdout by default; use -o to write a file. Combine with\n" +
+			"git hooks or CI to auto-generate docs on change commits, or run manually\n" +
+			"when preparing a design review or sprint planning session.\n\n" +
+			"Typical invocations:\n" +
+			"  specutil render --as rfc --change my-change\n" +
+			"  specutil render --as tickets -o tickets.md",
+		Args: cobra.MaximumNArgs(1),
+		RunE: runRender,
 	}
-	cmd.Flags().String("as", "", "target artifact: rfc|design|tickets")
+	cmd.Flags().String("as", "", "target format: rfc|design|tickets (required)")
 	cmd.Flags().String("change", "", "change name to render (or pass as positional arg)")
-	cmd.Flags().String("templates", "", "override template directory")
+	cmd.Flags().String("templates", "", "override built-in template directory")
 	cmd.Flags().StringP("out", "o", "", "write output to a file instead of stdout")
 	return cmd
 }
@@ -144,11 +157,21 @@ func emitWarnings(cmd *cobra.Command, warns []ir.Warning) {
 func newPlanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "plan [change]",
-		Short: "Emit a deterministic create/update/orphan plan for a sync target",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runPlan,
+		Short: "Output a create/update/orphan plan for syncing tasks to an external tracker",
+		Long: "Computes what create, update, and orphan operations are needed to reconcile\n" +
+			"a change's tasks with an external tracker (Linear, Notion, etc.). The output\n" +
+			"is a JSON plan consumed by the sync skills — you rarely invoke this directly.\n\n" +
+			"How it fits in the workflow:\n" +
+			"  1. Edit tasks in tasks.md\n" +
+			"  2. specutil plan --target linear --change my-change\n" +
+			"  3. A skill reads the plan and performs the actual Linear/Notion API calls\n" +
+			"  4. The skill calls `specutil lock set` to record the mapping\n\n" +
+			"Invoke manually when debugging sync issues or building custom integrations.\n" +
+			"The plan is deterministic — identical input always produces identical output.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: runPlan,
 	}
-	cmd.Flags().String("target", "", "sync target namespace (e.g. linear|notion)")
+	cmd.Flags().String("target", "", "sync target namespace: linear|notion (required)")
 	cmd.Flags().String("change", "", "change name to plan (or pass as positional arg)")
 	cmd.Flags().StringP("out", "o", "", "write output to a file instead of stdout")
 	return cmd
@@ -180,11 +203,19 @@ func runPlan(cmd *cobra.Command, args []string) error {
 func newDiffCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff [change]",
-		Short: "Compare the local IR against the per-change lockfile",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runDiff,
+		Short: "Show what has drifted between local tasks and the sync lockfile",
+		Long: "Compares the current tasks.md against the per-change lockfile to surface\n" +
+			"what has been added, changed, or removed since the last sync. Output is JSON.\n\n" +
+			"Use this to audit drift before re-running a sync, or to understand why a\n" +
+			"plan would issue create/update operations. Like `plan`, this is normally\n" +
+			"called by sync skills rather than directly — but it is useful for debugging\n" +
+			"when a task appears to sync-but-not-update.\n\n" +
+			"Example:\n" +
+			"  specutil diff --target linear --change my-change | jq '.changed'",
+		Args: cobra.MaximumNArgs(1),
+		RunE: runDiff,
 	}
-	cmd.Flags().String("target", "", "sync target namespace (e.g. linear|notion)")
+	cmd.Flags().String("target", "", "sync target namespace: linear|notion (required)")
 	cmd.Flags().String("change", "", "change name to diff (or pass as positional arg)")
 	cmd.Flags().StringP("out", "o", "", "write output to a file instead of stdout")
 	return cmd
@@ -216,7 +247,16 @@ func runDiff(cmd *cobra.Command, args []string) error {
 func newLockCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lock",
-		Short: "Read and write the CLI-managed identity map (identity hash -> external ID)",
+		Short: "Read and write the task-to-external-ID mapping used by sync skills",
+		Long: "Manages the per-change lockfile that records which local task maps to which\n" +
+			"external ticket (Linear issue ID, Notion page ID, etc.).\n\n" +
+			"  lock get <identity>                    — read a mapping; exits 3 if absent\n" +
+			"  lock set <identity> <external-id>      — write a mapping\n\n" +
+			"The lockfile is written by sync skills after they create or update an external\n" +
+			"record. You should rarely need to call this directly — use `specutil diff` to\n" +
+			"audit the mapping state, and `specutil plan` to preview what a sync would do.\n\n" +
+			"When a task is renamed or moved between stages, the identity hash changes and\n" +
+			"the old mapping becomes orphaned — `specutil plan` will flag it for deletion.",
 	}
 	cmd.PersistentFlags().String("target", "", "sync target namespace (e.g. linear|notion)")
 	cmd.PersistentFlags().String("change", "", "change owning the lockfile")
@@ -307,12 +347,27 @@ func runLockSet(cmd *cobra.Command, args []string) error {
 func newGraphCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "graph",
-		Short: "Project the cross-change dependency DAG (json|mermaid|dot)",
-		Args:  cobra.NoArgs,
-		RunE:  runGraph,
+		Short: "Output the cross-change dependency graph in various formats",
+		Long: "Projects the cross-change dependency DAG into a machine-readable format for\n" +
+			"integration with external tools. Primarily used by the skills and CI scripts;\n" +
+			"for interactive browsing use `specutil web` or `specutil tui` instead.\n\n" +
+			"Output formats:\n" +
+			"  json     — Full graph model (nodes + edges) as JSON [default]\n" +
+			"  mermaid  — Mermaid graph definition for embedding in docs or GitHub\n" +
+			"  dot      — Graphviz DOT format for rendering with graphviz tools\n" +
+			"  detail   — Per-change ticket detail feed (same as DETAIL in web view)\n\n" +
+			"The --suggest flag infers candidate edges from shared capabilities without\n" +
+			"writing anything — useful for discovering dependency relationships before\n" +
+			"recording them in openspec/specutil.yaml.\n\n" +
+			"Typical invocations:\n" +
+			"  specutil graph --as mermaid           # insert into a doc or README\n" +
+			"  specutil graph --suggest              # discover implied edges\n" +
+			"  specutil graph --as json | jq         # pipe to other tools",
+		Args: cobra.NoArgs,
+		RunE: runGraph,
 	}
 	cmd.Flags().String("as", "json", "output format: json|mermaid|dot|detail")
-	cmd.Flags().Bool("suggest", false, "report inferred candidate edges without mutating the manifest")
+	cmd.Flags().Bool("suggest", false, "infer candidate edges from shared capabilities (read-only)")
 	cmd.Flags().StringP("out", "o", "", "write output to a file instead of stdout")
 	return cmd
 }
@@ -378,9 +433,19 @@ func writeOut(cmd *cobra.Command, b []byte) error {
 func newTUICmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "tui",
-		Short: "Open the workstream kanban and dependency graph TUI",
-		Args:  cobra.NoArgs,
-		RunE:  runTUI,
+		Short: "Open an interactive terminal view of the change board and dependency graph",
+		Long: "Launches a keyboard-driven terminal UI with the same three views as\n" +
+			"`specutil web` but rendered in the terminal — no browser required.\n\n" +
+			"  Kanban  — lifecycle columns (proposed/active/archived) with progress cards.\n" +
+			"            Left/right arrows move the selection; Enter opens the detail panel.\n\n" +
+			"  Graph   — depth-ordered dependency columns; selection highlights neighbors.\n" +
+			"            Tab switches between Kanban and Graph.\n\n" +
+			"  Detail  — side panel showing the execution plan, Why/What Changes narrative,\n" +
+			"            outstanding tasks, and per-stage progress meters.\n\n" +
+			"Use `specutil web` when you want a shareable link or richer rendering.\n" +
+			"Use `specutil tui` for quick in-terminal review or when a browser isn't handy.",
+		Args: cobra.NoArgs,
+		RunE: runTUI,
 	}
 }
 
@@ -401,30 +466,33 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	return tui.Run(changes, g, diags)
 }
 
-func newServeCmd() *cobra.Command {
+func newWebCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "serve",
-		Short: "Generate a static web page rendering the workstreams and dependency DAG",
-		Long: "Generate a single static HTML file: a readable document per change\n" +
-			"(progress, remaining work, per-phase chart, tasks by phase) plus, when\n" +
-			"there are several changes, an overview with a cross-change dependency DAG.\n" +
-			"The data feeds are inlined; styling (Pico CSS) and the per-phase chart\n" +
-			"(Chart.js) load at view time from a pinned, SRI-protected CDN. The binary\n" +
-			"performs no network I/O — it only writes the file; open it in a browser.\n\n" +
-			"If the graph has no edges, seed cross-change dependencies first with\n" +
-			"`specutil graph --suggest` and record them in openspec/specutil.yaml.\n\n" +
-			"By default the page is written to a temp file and opened in your\n" +
-			"default browser. Pass -o to write a specific path, '-' for stdout, or\n" +
-			"--open=false to write without launching a browser.",
+		Use:   "web",
+		Short: "Open a browser view of the change board, dependency graph, and task details",
+		Long: "Renders all OpenSpec changes into a self-contained HTML file and opens it\n" +
+			"in the default browser. The page has three views:\n\n" +
+			"  Kanban  — lifecycle board (proposed / active / archived) with per-change\n" +
+			"            progress meters. Click a card to open the detail drilldown.\n\n" +
+			"  Graph   — interactive DAG showing each change's stages as nodes with\n" +
+			"            sequential edges within changes and dependency edges across them.\n" +
+			"            Hover to inspect a change; click to open its detail drilldown.\n\n" +
+			"  Detail  — per-change drilldown: execution plan (stages → tasks), Why /\n" +
+			"            What Changes narrative, outstanding tasks, and per-stage chart.\n\n" +
+			"A fresh file is written to the system temp directory on each invocation so\n" +
+			"you always see current data; old files accumulate in /tmp and can be cleared\n" +
+			"periodically. Pass -o to write a specific path or '-' for stdout.\n\n" +
+			"This is the primary day-to-day interface for spec review and progress\n" +
+			"tracking. The TUI (specutil tui) provides the same views in the terminal.",
 		Args: cobra.NoArgs,
-		RunE: runServe,
+		RunE: runWeb,
 	}
-	cmd.Flags().StringP("out", "o", "", "output HTML file path (default: a temp file; '-' for stdout)")
+	cmd.Flags().StringP("out", "o", "", "output HTML file path (default: timestamped temp file; '-' for stdout)")
 	cmd.Flags().Bool("open", true, "open the generated page in the default browser")
 	return cmd
 }
 
-func runServe(cmd *cobra.Command, args []string) error {
+func runWeb(cmd *cobra.Command, args []string) error {
 	repo, _ := cmd.Flags().GetString("repo")
 	changes, err := openspec.New(repo).LoadAll()
 	if err != nil {
@@ -477,7 +545,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	if outPath == "" {
-		outPath = filepath.Join(os.TempDir(), "specutil-serve.html")
+		var b [4]byte
+		rand.Read(b[:])
+		outPath = filepath.Join(os.TempDir(), "specutil-web-"+hex.EncodeToString(b[:])+".html")
 	}
 	if err := os.WriteFile(outPath, html, 0o644); err != nil {
 		return err

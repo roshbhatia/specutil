@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>specutil</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" integrity="sha384-vsrfeLOOY6KuIYKDlmVH5UiBmgIdB1oEf7p01YgWHuqmOHfZr374+odEv96n9tNC" crossorigin="anonymous" onerror="(window.__cdnFail=window.__cdnFail||[]).push('chart')"></script>
-<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js" crossorigin="anonymous" onerror="(window.__cdnFail=window.__cdnFail||[]).push('cytoscape')"></script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js" integrity="sha384-IWROdLKRsN1UuJywMlWl7/blXQ8GEooN2n7dzTxfEPd7ybYIKCUJ2Ol/1Gpf3YV4" crossorigin="anonymous" onerror="(window.__cdnFail=window.__cdnFail||[]).push('cytoscape')"></script>
 <style>
 /* ================================================================
    SPECUTIL — neo-industrial system.css theme
@@ -38,8 +38,8 @@
 
   --hard-shadow:    2px 2px 0 #111;
   --hard-shadow-sm: 1px 1px 0 #111;
-  --stripe:         linear-gradient(#111 50%, transparent 50%);
-  --stripe-size:    100% 2px;
+  --panel-head-bg:  #111111;
+  --panel-head-fg:  #fffefa;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -123,14 +123,14 @@ code {
 .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: .65rem; align-items: start; }
 .board .col { background: var(--surface-2); border: 1px solid var(--ink); box-shadow: var(--hard-shadow); }
 .board .col-head {
-  background: var(--stripe); background-size: var(--stripe-size);
-  background-color: var(--content);
+  background: var(--panel-head-bg);
   padding: 3px 7px; display: flex; justify-content: space-between; align-items: center;
   border-bottom: 1px solid var(--ink);
 }
+.board .col-head .badge { border-color: rgba(255,255,255,.25); }
 .board .col-head .ct {
   font-family: var(--font-mono); font-size: 11px; font-weight: 700;
-  background: var(--ink); color: var(--content); padding: 0 4px;
+  background: rgba(255,255,255,.15); color: var(--panel-head-fg); padding: 0 4px;
 }
 .board .col-body { padding: .4rem; }
 .board .bcard {
@@ -170,15 +170,12 @@ code {
   box-shadow: var(--hard-shadow); overflow: hidden;
 }
 .graph-inspector-head {
-  background: var(--stripe); background-size: var(--stripe-size);
-  background-color: var(--content);
-  border-bottom: 1px solid var(--ink); padding: 4px 7px;
+  background: var(--panel-head-bg); color: var(--panel-head-fg);
+  border-bottom: 1px solid var(--ink); padding: 4px 8px;
   font-family: var(--font-mono); font-size: 10px; font-weight: 700;
-  letter-spacing: .05em; text-transform: uppercase;
+  letter-spacing: .06em; text-transform: uppercase;
 }
-.graph-inspector-head span {
-  display: inline-block; background: var(--ink); color: var(--content); padding: 2px 5px;
-}
+.graph-inspector-head span { opacity: .65; font-weight: 400; }
 .graph-inspector-body { padding: .65rem .75rem; overflow-y: auto; max-height: 420px; }
 .graph-empty { padding: 1.5rem; color: var(--muted); line-height: 1.6; }
 @media (max-width: 52rem) { .graph-shell { grid-template-columns: 1fr; } }
@@ -188,12 +185,11 @@ code {
    ================================================================ */
 .suggest-panel { margin-top: .85rem; border: 1px solid var(--ink); box-shadow: var(--hard-shadow); overflow: hidden; }
 .suggest-head {
-  background: var(--stripe); background-size: var(--stripe-size);
-  background-color: var(--content); padding: 3px 8px;
+  background: var(--panel-head-bg); color: var(--panel-head-fg); padding: 3px 8px;
   border-bottom: 1px solid var(--ink); font-family: var(--font-mono);
   font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
 }
-.suggest-head span { display: inline-block; background: var(--ink); color: var(--content); padding: 2px 5px; }
+.suggest-head span { opacity: .65; font-weight: 400; }
 .suggest-body { background: var(--content); padding: .6rem .75rem; overflow-x: auto; }
 .suggest-table { border-collapse: collapse; font-size: 11px; width: 100%; min-width: 34rem; }
 .suggest-table th {
@@ -211,18 +207,12 @@ code {
 .doclayout .rail { position: sticky; top: .75rem; }
 .rail .panel { background: var(--content); border: 1px solid var(--ink); box-shadow: var(--hard-shadow); overflow: hidden; margin-bottom: .5rem; }
 .rail .panel-title {
-  background: var(--stripe); background-size: var(--stripe-size);
-  background-color: var(--content); padding: 2px 6px 2px 20px;
-  border-bottom: 1px solid var(--line); position: relative;
-}
-.rail .panel-title::before {
-  content: ""; position: absolute; left: 4px; top: 50%; transform: translateY(-50%);
-  width: 10px; height: 10px; border: 1px solid var(--ink); background: var(--content);
-  box-shadow: 1px 1px 0 var(--ink);
+  background: var(--panel-head-bg); color: var(--panel-head-fg);
+  padding: 3px 8px; border-bottom: 1px solid var(--ink);
 }
 .rail .panel-title-label {
-  background: var(--ink); color: var(--content); font-size: 10px; font-weight: 700;
-  letter-spacing: .05em; text-transform: uppercase; padding: 0 5px; display: inline-block;
+  color: var(--panel-head-fg); font-size: 10px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
 }
 .rail .panel-body { padding: .6rem .75rem; }
 @media (max-width: 52rem) { .doclayout { grid-template-columns: 1fr; } .doclayout .rail { position: static; } }
@@ -238,19 +228,13 @@ code {
 .narrative { margin: 0 0 1rem; }
 .narrative-problem, .narrative-solution { border: 1px solid var(--ink); box-shadow: var(--hard-shadow); overflow: hidden; }
 .narrative-label {
-  background: var(--stripe); background-size: var(--stripe-size);
-  background-color: var(--content); padding: 2px 6px 2px 22px;
-  border-bottom: 1px solid var(--line); position: relative;
+  background: var(--panel-head-bg); color: var(--panel-head-fg);
+  padding: 3px 8px; border-bottom: 1px solid var(--ink);
   display: flex; align-items: center; gap: .5rem;
 }
-.narrative-label::before {
-  content: ""; position: absolute; left: 5px; top: 50%; transform: translateY(-50%);
-  width: 10px; height: 10px; border: 1px solid var(--ink);
-  background: var(--content); box-shadow: 1px 1px 0 var(--ink);
-}
 .narrative-label-text {
-  background: var(--ink); color: var(--content); font-size: 10px; font-weight: 700;
-  letter-spacing: .08em; text-transform: uppercase; padding: 0 5px; display: inline-block;
+  color: var(--panel-head-fg); font-size: 10px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
 }
 .narrative-body { padding: .6rem .85rem; background: var(--content); font-size: 12px; line-height: 1.55; }
 .narrative-body p { margin: .3rem 0; }
@@ -534,7 +518,7 @@ const SUGGEST = {{.SuggestJSON}};
       const d = items.filter((i) => i.done).length;
       const pct = items.length ? Math.round((d / items.length) * 100) : 0;
       h += '<div class="pipe-stage">';
-      h += '<div class="pipe-phase-head">P' + esc(p.number) + ' ' + esc(p.name) + '</div>';
+      h += '<div class="pipe-phase-head">Stage ' + esc(p.number) + ': ' + esc(p.name) + '</div>';
       h += '<div class="pipe-tasks">';
       items.forEach((it) => {
         h += '<div class="pipe-task' + (it.done ? ' done' : '') + '" title="' + esc(it.text) + '">' +
@@ -575,28 +559,69 @@ const SUGGEST = {{.SuggestJSON}};
     }
     destroyCy();
 
-    /* Build element list: nodes from DETAIL (richer than GRAPH.nodes alone) */
+    const trunc = (s, n) => s && s.length > n ? s.slice(0, n - 1) + "…" : (s || "");
+    const phNodeId = (changeName, phaseIdx) => changeName + "\x00" + phaseIdx;
+
     const elems = [];
+
+    /* Within-change structure: one node per phase, sequential edges between phases.
+       Changes with no phases get a single summary node. */
     changes.forEach((c) => {
-      elems.push({
-        group: "nodes",
-        data: { id: c.name, label: c.name, lifecycle: c.lifecycle || "proposed" },
-      });
+      const phases = c.phases || [];
+      if (!phases.length) {
+        elems.push({
+          group: "nodes",
+          data: { id: c.name, label: c.name, lifecycle: c.lifecycle || "proposed", changeId: c.name, type: "change" },
+        });
+      } else {
+        phases.forEach((p, pi) => {
+          const id = phNodeId(c.name, pi);
+          const items = p.items || [];
+          const done = items.filter((i) => i.done).length;
+          const pct = items.length ? Math.round((done / items.length) * 100) : 0;
+          const label = pi === 0
+            ? trunc(c.name, 18) + "\n" + "Stage " + p.number + ": " + trunc(p.name, 14)
+            : "Stage " + p.number + ": " + trunc(p.name, 18);
+          elems.push({
+            group: "nodes",
+            data: { id, label, lifecycle: c.lifecycle || "proposed", changeId: c.name, type: "stage", pct, done, total: items.length, stageNum: p.number, stageName: p.name },
+            classes: pi === 0 ? "stage-entry" : "stage-mid",
+          });
+          if (pi > 0) {
+            elems.push({
+              group: "edges",
+              data: { id: "seq:" + id, source: phNodeId(c.name, pi - 1), target: id, type: "sequential" },
+            });
+          }
+        });
+      }
     });
-    /* Confirmed edges from GRAPH */
+
+    /* Cross-change dependency edges: connect last stage of prereq to first stage of dep. */
     edges.forEach((e) => {
+      const fromC = byName.get(e.from), toC = byName.get(e.to);
+      const fromPh = fromC && fromC.phases || [];
+      const toPh = toC && toC.phases || [];
+      const srcId = fromPh.length ? phNodeId(e.from, fromPh.length - 1) : e.from;
+      const tgtId = toPh.length ? phNodeId(e.to, 0) : e.to;
       elems.push({
         group: "edges",
-        data: { id: "e:" + e.from + ":" + e.to, source: e.from, target: e.to, suggested: false },
+        data: { id: "dep:" + e.from + ":" + e.to, source: srcId, target: tgtId, type: "cross" },
       });
     });
-    /* Suggested edges as dashed (deduplicated against confirmed) */
+
+    /* Suggested cross-change edges */
     const confirmed = new Set(edges.map((e) => e.from + ":" + e.to));
     novelCandidateGroups().forEach((c) => {
       if (!confirmed.has(c.from + ":" + c.to)) {
+        const fromC = byName.get(c.from), toC = byName.get(c.to);
+        const fromPh = fromC && fromC.phases || [];
+        const toPh = toC && toC.phases || [];
+        const srcId = fromPh.length ? phNodeId(c.from, fromPh.length - 1) : c.from;
+        const tgtId = toPh.length ? phNodeId(c.to, 0) : c.to;
         elems.push({
           group: "edges",
-          data: { id: "s:" + c.from + ":" + c.to, source: c.from, target: c.to, suggested: true },
+          data: { id: "sug:" + c.from + ":" + c.to, source: srcId, target: tgtId, suggested: true },
         });
       }
     });
@@ -608,97 +633,45 @@ const SUGGEST = {{.SuggestJSON}};
         {
           selector: "node",
           style: {
-            shape: "rectangle",
-            width: 160,
-            height: 40,
-            "background-color": "#fffefa",
-            "border-width": 1.5,
-            "border-color": "#111111",
+            shape: "rectangle", width: 148, height: 40,
+            "background-color": "#fffefa", "border-width": 1.5, "border-color": "#111",
             label: "data(label)",
-            "font-family": '"Monaco", "Menlo", monospace',
-            "font-size": 10,
-            "text-valign": "center",
-            "text-halign": "center",
-            color: "#111111",
-            "text-wrap": "ellipsis",
-            "text-max-width": 148,
+            "font-family": '"Monaco", "Menlo", monospace', "font-size": 9,
+            "text-valign": "center", "text-halign": "center", color: "#111",
+            "text-wrap": "wrap", "text-max-width": 136,
           },
         },
-        {
-          selector: 'node[lifecycle = "active"]',
-          style: { "background-color": "#fff1c8", "border-color": "#d0a53b" },
-        },
-        {
-          selector: 'node[lifecycle = "proposed"]',
-          style: { "background-color": "#dce6ff", "border-color": "#8ca7d9" },
-        },
-        {
-          selector: 'node[lifecycle = "archived"]',
-          style: { "background-color": "#dcf0df", "border-color": "#79aa80" },
-        },
-        {
-          selector: "node:selected, node.focused",
-          style: { "border-width": 2.5, "border-color": "#002f86" },
-        },
-        {
-          selector: "node.dim",
-          style: { opacity: 0.3 },
-        },
+        { selector: "node.stage-entry", style: { height: 50, "border-width": 2, "font-size": 9 } },
+        { selector: 'node[lifecycle = "active"]',   style: { "background-color": "#fff1c8", "border-color": "#d0a53b" } },
+        { selector: 'node[lifecycle = "proposed"]', style: { "background-color": "#dce6ff", "border-color": "#8ca7d9" } },
+        { selector: 'node[lifecycle = "archived"]', style: { "background-color": "#dcf0df", "border-color": "#79aa80" } },
+        { selector: "node.focused",                 style: { "border-width": 2.5, "border-color": "#002f86" } },
+        { selector: "node.dim",                     style: { opacity: 0.2 } },
         {
           selector: "edge",
-          style: {
-            "curve-style": "bezier",
-            "target-arrow-shape": "triangle",
-            "arrow-scale": 1,
-            "line-color": "#666",
-            "target-arrow-color": "#666",
-            width: 1.5,
-          },
+          style: { "curve-style": "bezier", "target-arrow-shape": "triangle", "arrow-scale": 1, "line-color": "#999", "target-arrow-color": "#999", width: 1 },
         },
-        {
-          selector: 'edge[?suggested]',
-          style: {
-            "line-style": "dashed",
-            "line-dash-pattern": [6, 4],
-            "line-color": "#aaa",
-            "target-arrow-color": "#aaa",
-            width: 1,
-          },
-        },
-        {
-          selector: "edge.dim",
-          style: { opacity: 0.1 },
-        },
-        {
-          selector: "edge.focused",
-          style: { "line-color": "#002f86", "target-arrow-color": "#002f86" },
-        },
+        { selector: 'edge[type = "cross"]', style: { "line-color": "#002f86", "target-arrow-color": "#002f86", width: 2, "line-style": "dashed", "line-dash-pattern": [8, 4] } },
+        { selector: "edge[?suggested]",    style: { "line-color": "#ccc", "target-arrow-color": "#ccc", width: 1, "line-style": "dashed", "line-dash-pattern": [4, 4] } },
+        { selector: "edge.dim",            style: { opacity: 0.08 } },
+        { selector: "edge.focused",        style: { "line-color": "#002f86", "target-arrow-color": "#002f86" } },
       ],
-      layout: {
-        name: "breadthfirst",
-        directed: true,
-        avoidOverlap: true,
-        padding: 32,
-        spacingFactor: 1.6,
-        nodeDimensionsIncludeLabels: true,
-      },
-      userZoomingEnabled: true,
-      userPanningEnabled: true,
-      boxSelectionEnabled: false,
-      autoungrabify: false,
+      layout: { name: "breadthfirst", directed: true, avoidOverlap: true, padding: 32, spacingFactor: 1.75, nodeDimensionsIncludeLabels: true },
+      userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false, autoungrabify: false,
     });
 
     const inspBody = document.getElementById("graph-inspector-body");
 
     cyInstance.on("mouseover", "node", function (evt) {
       const node = evt.target;
-      const id = node.id();
-      if (inspBody) inspBody.innerHTML = inspectorHTML(id);
+      const changeId = node.data("changeId") || node.id();
+      if (inspBody) inspBody.innerHTML = inspectorHTML(changeId);
+      /* Highlight all nodes belonging to the same change + their connections */
       cyInstance.elements().addClass("dim");
-      node.removeClass("dim");
-      const connected = node.connectedEdges();
-      connected.removeClass("dim").addClass("focused");
-      connected.connectedNodes().removeClass("dim");
+      cyInstance.nodes().filter((n) => (n.data("changeId") || n.id()) === changeId).removeClass("dim").addClass("focused");
+      const conn = node.connectedEdges();
+      conn.removeClass("dim").addClass("focused");
+      conn.connectedNodes().removeClass("dim");
     });
 
     cyInstance.on("mouseout", "node", function () {
@@ -707,8 +680,8 @@ const SUGGEST = {{.SuggestJSON}};
     });
 
     cyInstance.on("tap", "node", function (evt) {
-      const id = evt.target.id();
-      if (byName.has(id)) location.hash = "#/c/" + encodeURIComponent(id);
+      const changeId = evt.target.data("changeId") || evt.target.id();
+      if (byName.has(changeId)) location.hash = "#/c/" + encodeURIComponent(changeId);
     });
   }
 
@@ -718,7 +691,7 @@ const SUGGEST = {{.SuggestJSON}};
     if (typeof Chart === "undefined") return;
     const ctx = document.getElementById("phasechart");
     if (!ctx) return;
-    const labels = c.phases.map((p) => "P" + p.number);
+    const labels = c.phases.map((p) => "Stage " + p.number);
     const done   = c.phases.map((p) => p.items.filter((i) => i.done).length);
     const rem    = c.phases.map((p) => p.items.length - p.items.filter((i) => i.done).length);
     const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -763,7 +736,7 @@ const SUGGEST = {{.SuggestJSON}};
     });
     const pct = total ? Math.round((done / total) * 100) : 0;
 
-    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.65rem">Workstreams</h1>';
+    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.65rem">Changes</h1>';
     h += '<div class="tally">' +
       stat(tally.active,   "active")   +
       stat(tally.proposed, "proposed") +
@@ -810,7 +783,7 @@ const SUGGEST = {{.SuggestJSON}};
 
     let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.65rem">Dependency Graph</h1>';
     if (!changes.length) {
-      h += '<div class="graph-empty">No workstreams loaded.</div>';
+      h += '<div class="graph-empty">No changes found.</div>';
       view.innerHTML = h; afterRender(); return;
     }
     h += '<div class="graph-shell">';
@@ -818,7 +791,7 @@ const SUGGEST = {{.SuggestJSON}};
     h += '<aside class="graph-inspector">' +
       '<div class="graph-inspector-head"><span>Inspector</span></div>' +
       '<div class="graph-inspector-body" id="graph-inspector-body">' +
-      '<p class="empty" style="margin-top:0">Hover a node to inspect cross-change deps and within-change task pipeline.</p>' +
+      '<p class="empty" style="margin-top:0">Hover a node to inspect.</p>' +
       '</div></aside></div>';
 
     if (novel.length) {
@@ -850,7 +823,7 @@ const SUGGEST = {{.SuggestJSON}};
     const remaining = (c.phases || []).flatMap((p) => (p.items || []).filter((it) => !it.done));
     const deps = dependsOn(name), blks = blocks(name);
 
-    let h = '<a class="back" href="#/">&#9664; All workstreams</a>';
+    let h = '<a class="back" href="#/">&#9664; All changes</a>';
     h += '<div class="doc"><div style="display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;margin-bottom:.65rem">';
     h += '<h1 tabindex="-1" id="view-title">' + esc(c.name) + "</h1>";
     h += '<span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + "</span></div>";
@@ -858,7 +831,7 @@ const SUGGEST = {{.SuggestJSON}};
 
     /* Task pipeline */
     if ((c.phases || []).length) {
-      h += '<p class="eyebrow" style="margin-top:0">Task pipeline &mdash; phases run sequentially, tasks within a phase run in parallel</p>';
+      h += '<p class="eyebrow" style="margin-top:0">Execution plan &mdash; stages run sequentially, tasks within a stage run in parallel</p>';
       h += pipelineHTML(c);
     }
 
@@ -870,7 +843,7 @@ const SUGGEST = {{.SuggestJSON}};
           '<div class="narrative-label"><span class="narrative-label-text">Why</span></div>' +
           '<div class="narrative-body">' + md(c.why) + '</div></div>';
       }
-      if (c.why && c.whatChanges) h += '<div class="narrative-arrow">&#8595;</div>';
+      if (c.why && c.whatChanges) h += '<div style="height:.35rem"></div>';
       if (c.whatChanges) {
         h += '<div class="narrative-solution">' +
           '<div class="narrative-label"><span class="narrative-label-text">What changes</span></div>' +
@@ -937,7 +910,7 @@ const SUGGEST = {{.SuggestJSON}};
     }
     h += "</div></div>";
 
-    h += '<div class="panel"><div class="panel-title"><span class="panel-title-label">Cross-change deps</span></div><div class="panel-body">';
+    h += '<div class="panel"><div class="panel-title"><span class="panel-title-label">Dependencies</span></div><div class="panel-body">';
     h += '<p class="eyebrow" style="margin-top:0">Depends on</p>';
     h += deps.length ? '<div class="chips">' + deps.map(chipLink).join("") + "</div>" : '<p class="none">Nothing upstream.</p>';
     h += '<p class="eyebrow">Blocks</p>';
@@ -954,7 +927,7 @@ const SUGGEST = {{.SuggestJSON}};
   /* ---- empty state ---- */
   function renderEmpty() {
     destroyChart(); destroyCy();
-    view.innerHTML = '<h1 tabindex="-1" id="view-title">No workstreams found</h1>' +
+    view.innerHTML = '<h1 tabindex="-1" id="view-title">No changes found</h1>' +
       '<p class="empty" style="margin-top:.5rem">Create changes under <code>openspec/changes/&lt;name&gt;/</code>, then run <code>specutil serve</code>.</p>';
     afterRender();
   }

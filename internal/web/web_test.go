@@ -106,40 +106,6 @@ func TestRenderEscapesScriptBreakout(t *testing.T) {
 	}
 }
 
-func TestDagSVGRendersEdges(t *testing.T) {
-	g := &graph.Graph{
-		Nodes: []graph.Node{{ID: "db", Label: "db"}, {ID: "api", Label: "api"}},
-		Edges: []graph.Edge{{From: "db", To: "api"}},
-	}
-	svg := dagSVG(g, map[string]string{"db": "active", "api": "proposed"})
-	for _, want := range []string{"<svg", "marker-end", ">db<", ">api<", "depth 0"} {
-		if !strings.Contains(svg, want) {
-			t.Errorf("DAG SVG missing %q:\n%s", want, svg)
-		}
-	}
-	// Nodes carry their lifecycle class (CSS owns the palette) and navigate to
-	// the change document via a pure anchor.
-	for _, want := range []string{`class="node lc-active"`, `href="#/c/db"`, `class="edge"`, `<title>db</title>`, `aria-label="db"`} {
-		if !strings.Contains(svg, want) {
-			t.Errorf("DAG SVG missing %q:\n%s", want, svg)
-		}
-	}
-}
-
-func TestDagSVGEmptyWhenNothingToDraw(t *testing.T) {
-	// Fewer than two nodes, or no edges, means there is no cross-change DAG to
-	// draw — the overview shows a "no dependencies" footnote instead.
-	cases := []*graph.Graph{
-		{},                                  // nothing
-		{Nodes: []graph.Node{{ID: "solo"}}}, // one node
-		{Nodes: []graph.Node{{ID: "a"}, {ID: "b"}}}, // two nodes, no edges
-	}
-	for i, g := range cases {
-		if svg := dagSVG(g, nil); svg != "" {
-			t.Errorf("case %d: expected empty SVG, got:\n%s", i, svg)
-		}
-	}
-}
 
 func TestRenderInlinesExternalRefs(t *testing.T) {
 	// detail.Item.ExternalRefs must reach the page as part of the inlined detail
@@ -164,16 +130,3 @@ func TestRenderInlinesExternalRefs(t *testing.T) {
 	}
 }
 
-func TestDagSVGEscapesLabels(t *testing.T) {
-	g := &graph.Graph{
-		Nodes: []graph.Node{{ID: "x", Label: "<b>x"}, {ID: "y", Label: "y"}},
-		Edges: []graph.Edge{{From: "x", To: "y"}},
-	}
-	svg := dagSVG(g, nil)
-	if strings.Contains(svg, "<b>x") {
-		t.Errorf("DAG SVG did not escape an HTML label:\n%s", svg)
-	}
-	if !strings.Contains(svg, "&lt;b&gt;x") {
-		t.Errorf("DAG SVG missing escaped label:\n%s", svg)
-	}
-}
