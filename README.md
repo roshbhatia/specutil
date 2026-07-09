@@ -1,6 +1,10 @@
-# specutil
+<div align="center">
+  <img src="assets/logo.svg" alt="specutil mascot" width="96"/>
+  <h1>specutil</h1>
+  <p>Bridge your local spec workflow to the rest of your stack.</p>
+</div>
 
-A deterministic CLI that reads spec changes from multiple input formats and projects them into renderable documents, sync plans, and visualizations. It performs no network I/O — all remote writes are delegated to an AI agent via shipped skills.
+Write specs in OpenSpec, BMAD, or a plain `plan.md`. specutil renders them as shareable docs, syncs tasks to Linear, Notion, or GitHub Issues, and shows how your changes depend on each other — all from your repo, no manual copy-paste.
 
 ```
 specutil [render|plan|diff|lock|graph|tui|web] [--from <provider>] [flags]

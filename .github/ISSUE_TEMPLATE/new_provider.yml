@@ -1,0 +1,66 @@
+name: New provider proposal
+description: Propose a new input source or output target
+labels: ["feature", "provider", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        specutil is built around a pluggable provider interface. Input providers read specs from some source; output targets receive sync plans. Use this template to propose a new one.
+
+  - type: input
+    id: name
+    attributes:
+      label: Provider name
+      placeholder: "jira, shortcut, linear-in, confluence..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: direction
+    attributes:
+      label: Direction
+      options:
+        - Input (reads specs into specutil)
+        - Output / sync target (receives tasks from specutil)
+        - Both
+    validations:
+      required: true
+
+  - type: textarea
+    id: source
+    attributes:
+      label: What does this provider read from / write to?
+      description: Describe the system. Link to its API docs if available.
+    validations:
+      required: true
+
+  - type: textarea
+    id: format
+    attributes:
+      label: What format does the source use?
+      description: |
+        For input providers: what format are specs stored in? Does it map naturally to proposal / tasks / specs?
+        For output targets: what objects get created? Issues, pages, cards?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: network
+    attributes:
+      label: Does this require network access at parse time?
+      description: specutil's binary reads local files only — remote writes are handled by skills. An input provider that requires a live API call would need to live in a skill or a local cache script.
+      options:
+        - "No — reads local files"
+        - "Yes — requires a live API call"
+        - "Either — could work either way"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: Are you willing to contribute this?
+      options:
+        - label: Yes, I'd like to implement this
+        - label: I can help review / test
+        - label: Just suggesting — happy for someone else to build it

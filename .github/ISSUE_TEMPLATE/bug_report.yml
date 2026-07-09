@@ -1,0 +1,77 @@
+name: Bug report
+description: Something isn't working right
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Fill in as much as you can — it speeds up the fix significantly.
+
+  - type: input
+    id: command
+    attributes:
+      label: Command run
+      description: The exact command you ran (redact any secrets)
+      placeholder: "specutil render --from bmad --as rfc --change my-story"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Input provider (--from)
+      options:
+        - openspec (default)
+        - bmad
+        - plan
+        - stdin
+        - script adapter
+        - not applicable
+    validations:
+      required: true
+
+  - type: dropdown
+    id: verb
+    attributes:
+      label: Verb
+      options:
+        - render
+        - plan
+        - diff
+        - lock
+        - graph
+        - tui
+        - web
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+      description: Include the full output or error message
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: specutil version
+      placeholder: "specutil --version or nix run github:roshbhatia/specutil -- --version"
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: OS / architecture
+      placeholder: "macOS 15 arm64 / Ubuntu 22.04 x86_64"
+    validations:
+      required: false

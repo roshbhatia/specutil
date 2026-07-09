@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+  <!-- Ears -->
+  <circle cx="48" cy="38" r="13" fill="#6B4F3A"/>
+  <circle cx="112" cy="38" r="13" fill="#6B4F3A"/>
+  <circle cx="48" cy="38" r="8" fill="#C4845C"/>
+  <circle cx="112" cy="38" r="8" fill="#C4845C"/>
+
+  <!-- Body -->
+  <ellipse cx="80" cy="108" rx="36" ry="30" fill="#6B4F3A"/>
+
+  <!-- Head -->
+  <circle cx="80" cy="66" r="32" fill="#6B4F3A"/>
+
+  <!-- Snout -->
+  <ellipse cx="80" cy="80" rx="16" ry="11" fill="#C4845C"/>
+
+  <!-- Nose -->
+  <circle cx="80" cy="74" r="4" fill="#3D1F1F"/>
+
+  <!-- Eyes -->
+  <circle cx="65" cy="60" r="6" fill="#1A1A1A"/>
+  <circle cx="95" cy="60" r="6" fill="#1A1A1A"/>
+  <circle cx="67" cy="58" r="2" fill="white"/>
+  <circle cx="97" cy="58" r="2" fill="white"/>
+
+  <!-- Left arm -->
+  <path d="M 48 115 Q 32 118 30 130" stroke="#6B4F3A" stroke-width="10" fill="none" stroke-linecap="round"/>
+
+  <!-- Right arm -->
+  <path d="M 112 115 Q 128 118 130 130" stroke="#6B4F3A" stroke-width="10" fill="none" stroke-linecap="round"/>
+
+  <!-- Spec scroll -->
+  <rect x="44" y="125" width="72" height="28" rx="4" fill="#F5F0E0"/>
+  <rect x="44" y="125" width="72" height="28" rx="4" fill="none" stroke="#C8BA96" stroke-width="1.5"/>
+  <!-- Scroll lines (the specs) -->
+  <line x1="52" y1="133" x2="108" y2="133" stroke="#A89878" stroke-width="1.5"/>
+  <line x1="52" y1="139" x2="96"  y2="139" stroke="#A89878" stroke-width="1.5"/>
+  <line x1="52" y1="145" x2="102" y2="145" stroke="#A89878" stroke-width="1.5"/>
+</svg>

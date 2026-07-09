@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest something new or an improvement to an existing capability
+labels: ["feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the workflow you're trying to accomplish. The more concrete the better — a real scenario beats an abstract capability description every time.
+
+  - type: textarea
+    id: workflow
+    attributes:
+      label: What workflow are you trying to accomplish?
+      description: Walk us through the before/after. What do you do today? What would you do with this feature?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Which layer does this touch?
+      description: Pick the closest match — helps us route it to the right area
+      multiple: true
+      options:
+        - Input provider (--from)
+        - Output rendering (--as rfc/design/tickets)
+        - Sync target (--target linear/notion/github-issues)
+        - Plan / diff / lock machinery
+        - Terminal UI (tui)
+        - Web dashboard (web)
+        - Graph / dependency tracking
+        - CLI / flags / UX
+        - Skills / agent integration
+    validations:
+      required: true
+
+  - type: textarea
+    id: prior_art
+    attributes:
+      label: Prior art or related tools
+      description: Anything you've seen elsewhere that does something similar?
+    validations:
+      required: false
