@@ -439,93 +439,23 @@ func plural(n int) string {
 	return "s"
 }
 
-// depthHeader labels a graph column by dependency depth, naming depth 0 as the
-// roots (no prerequisites) and the rest by depth, with the node count. The
-// literal "depth N" stays in the string so the layout reads unambiguously.
-func depthHeader(depth, n int) string {
-	role := ""
-	if depth == 0 {
-		role = " · roots"
-	}
-	return styleHeader.Render(fmt.Sprintf("depth %d%s (%d)", depth, role, n))
-}
 
-// graphView renders the dependency DAG as depth-ordered columns. On selection
-// it emphasizes the selected node's neighbors and dims the rest (focus+context),
-// keeping the layered layout rather than drawing routed edges.
+// graphView renders the dependency DAG as a Sugiyama-laid-out ASCII graph.
+// Nodes are boxes connected by ASCII lines; the selected change is marked with
+// a '*' corner. Diagnostics (cycles, dangling refs) appear below the graph.
 func (m Model) graphView() string {
-	if m.graph == nil || len(m.graph.Nodes) == 0 {
-		return styleHint.Render("No dependency graph. Add edges in openspec/specutil.yaml " +
-			"(or run `specutil graph --suggest`).")
-	}
-	cols := layers(m.graph)
-	if m.narrow(len(cols)) {
-		return m.graphListView(cols)
-	}
-	colW := m.colWidth(len(cols))
-	var rendered []string
-	for depth, nodes := range cols {
-		header := depthHeader(depth, len(nodes))
-		cells := []string{header, ""}
-		for _, n := range nodes {
-			c := m.byName[n.ID]
-			cells = append(cells, m.card(c, m.cardStyle(c)))
-		}
-		col := lipgloss.JoinVertical(lipgloss.Left, cells...)
-		rendered = append(rendered, m.colStyle(colW).Render(col))
-	}
-	out := lipgloss.JoinHorizontal(lipgloss.Top, rendered...)
-
-	if edges := m.edgeList(); edges != "" {
-		out += "\n\n" + styleHint.Render("edges:\n") + edges
-	}
+	dag := m.dagASCII()
+	out := dag
 	for _, d := range m.diags {
 		out += "\n" + styleWarn.Render(fmt.Sprintf("%s: %s", d.Kind, d.Msg))
+	}
+	if sel := m.selectedChange(); sel != nil {
+		out += "\n\n" + styleChip.Render("selected: "+sel.Name) +
+			"  " + styleHint.Render("enter: open  ·  ←/→: cycle")
 	}
 	return out
 }
 
-// graphListView is the narrow-terminal fallback for the graph: nodes listed by
-// depth, with the edge list following.
-func (m Model) graphListView(cols [][]graph.Node) string {
-	var b strings.Builder
-	for depth, nodes := range cols {
-		b.WriteString(depthHeader(depth, len(nodes)) + "\n")
-		for _, n := range nodes {
-			c := m.byName[n.ID]
-			b.WriteString(m.card(c, m.cardStyle(c)) + "\n")
-		}
-		b.WriteString("\n")
-	}
-	if edges := m.edgeList(); edges != "" {
-		b.WriteString(styleHint.Render("edges:\n") + edges)
-	}
-	return strings.TrimRight(b.String(), "\n")
-}
-
-// edgeList prints the prerequisite -> dependent relations the columns imply but
-// can't draw, so the dependency direction stays legible. When a node is
-// selected its incident edges are emphasized and the rest dimmed.
-func (m Model) edgeList() string {
-	if m.graph == nil {
-		return ""
-	}
-	sel := m.selectedChange()
-	lines := make([]string, 0, len(m.graph.Edges))
-	for _, e := range m.graph.Edges {
-		line := fmt.Sprintf("  %s → %s", e.From, e.To)
-		if sel != nil {
-			if e.From == sel.Name || e.To == sel.Name {
-				line = styleChip.Render(line)
-			} else {
-				line = styleHint.Render(line)
-			}
-		}
-		lines = append(lines, line)
-	}
-	sort.Strings(lines)
-	return strings.Join(lines, "\n")
-}
 
 // dependsOn returns the prerequisites of name: edges whose target is name.
 func (m Model) dependsOn(name string) []string {
