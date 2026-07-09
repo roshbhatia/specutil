@@ -5,26 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>specutil</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" integrity="sha384-vsrfeLOOY6KuIYKDlmVH5UiBmgIdB1oEf7p01YgWHuqmOHfZr374+odEv96n9tNC" crossorigin="anonymous" onerror="(window.__cdnFail=window.__cdnFail||[]).push('chart')"></script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js" crossorigin="anonymous" onerror="(window.__cdnFail=window.__cdnFail||[]).push('cytoscape')"></script>
 <style>
 /* ================================================================
-   SPECUTIL — neo-industrial light theme
-   Windows 98/system.css controls, hard chrome, grid-first layout.
+   SPECUTIL — neo-industrial system.css theme
    ================================================================ */
 
 :root {
   color-scheme: light;
-  --bg:        #d6d2c8;
+  --bg:        #d4d0c6;
   --content:   #fffefa;
-  --surface-2: #f6f5ee;
-  --surface-3: #ece9df;
+  --surface-2: #f4f3ec;
+  --surface-3: #eae7dd;
   --ink:       #111111;
   --muted:     #565656;
   --line:      #9d988e;
   --line-dark: #1f1f1f;
-  --hi:        #ffffff;
-  --shadow-color: #111111;
 
-  /* Selection / accent */
   --accent:    #002f86;
   --accent-on: #ffffff;
 
@@ -32,1072 +29,378 @@
   --lc-active-bg:     #fff1c8; --lc-active-ink:   #8a5900; --lc-active-line:   #d0a53b;
   --lc-archived-bg:   #dcf0df; --lc-archived-ink: #116232; --lc-archived-line: #79aa80;
 
-  --done:   #116232;
-  --danger: #9a1e1e;
+  --done:    #116232;
+  --warn-bg: #fff1c8; --warn-line: #d0a53b; --warn-ink: #8a5900;
+  --err-bg:  #ffe0d7; --err-line:  #c77564; --err-ink:  #9a1e1e;
 
-  /* DAG */
-  --node-bg:     var(--content);
-  --node-stroke: var(--ink);
-  --edge:        #666666;
-
-  /* Banners */
-  --warn-bg:    #fff1c8; --warn-line:   #d0a53b; --warn-ink:   #8a5900;
-  --danger-bg:  #ffe0d7; --danger-line: #c77564; --danger-ink: #9a1e1e;
-
-  /* Type */
   --font-ui:   -apple-system, BlinkMacSystemFont, "Geneva", "Helvetica Neue", Arial, sans-serif;
   --font-mono: "Monaco", "Menlo", ui-monospace, "SFMono-Regular", Consolas, monospace;
 
-  /* System.css signature: flat 2px hard shadow, no blur */
-  --hard-shadow: 2px 2px 0 var(--shadow-color);
-  --hard-shadow-sm: 1px 1px 0 var(--shadow-color);
-
-  /* Stripe title bar — alternating 1px black / 1px white */
-  --stripe: linear-gradient(var(--ink) 50%, transparent 50%);
-  --stripe-size: 100% 2px;
+  --hard-shadow:    2px 2px 0 #111;
+  --hard-shadow-sm: 1px 1px 0 #111;
+  --stripe:         linear-gradient(#111 50%, transparent 50%);
+  --stripe-size:    100% 2px;
 }
 
-/* ---- Reset ---- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; }
 body {
-  font-family: var(--font-ui);
-  font-size: 13px;
-  line-height: 1.5;
+  font-family: var(--font-ui); font-size: 13px; line-height: 1.5;
   color: var(--ink);
   background:
     linear-gradient(90deg, rgba(0,0,0,.05) 1px, transparent 1px),
-    linear-gradient(rgba(0,0,0,.04) 1px, transparent 1px),
-    var(--bg);
+    linear-gradient(rgba(0,0,0,.04) 1px, transparent 1px), var(--bg);
   background-size: 16px 16px;
   -webkit-font-smoothing: antialiased;
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 *:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-
-/* ---- Layout ---- */
-.wrap { max-width: 90rem; margin: 0 auto; padding: 0 .875rem 4rem; }
-
-/* ---- Typography ---- */
-h1 {
-  font-family: var(--font-ui);
-  font-weight: 700;
-  font-size: 1.2rem;
-  letter-spacing: -.01em;
-  line-height: 1.2;
-  color: var(--ink);
-  margin: 0 0 .25rem;
-}
-h2 {
-  font-family: var(--font-ui);
-  font-weight: 700;
-  font-size: 1rem;
-  line-height: 1.2;
-  color: var(--ink);
-  margin: 1.25rem 0 .4rem;
-}
-h3 {
-  font-family: var(--font-ui);
-  font-weight: 700;
-  font-size: .875rem;
-  margin: 0;
-}
+h1 { font-weight: 700; font-size: 1.1rem; letter-spacing: -.01em; }
+h2 { font-weight: 700; font-size: .9375rem; margin: 1.1rem 0 .35rem; }
+h3 { font-weight: 700; font-size: .875rem; margin: 0; }
 h1:focus, h2:focus { outline: none; }
-.tnum { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
 code {
-  font-family: var(--font-mono);
-  font-size: .8em;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  padding: .05em .3em;
-  color: var(--ink);
+  font-family: var(--font-mono); font-size: .8em;
+  background: var(--surface-2); border: 1px solid var(--line);
+  padding: .05em .3em; color: var(--ink);
 }
+.wrap { max-width: 90rem; margin: 0 auto; padding: 0 .875rem 4rem; }
+.tnum { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
 
 /* ================================================================
-   SYSTEM.CSS CORE PRIMITIVES
-   ================================================================ */
-
-/* Window panel — the main visual unit.
-   Title bar uses the stripe pattern; content sits below it. */
-.win {
-  background: var(--content);
-  border: 1px solid var(--line-dark);
-  box-shadow: var(--hard-shadow);
-  border-radius: 0;
-  overflow: hidden;
-}
-.win-title {
-  background: var(--stripe);
-  background-size: var(--stripe-size);
-  background-color: var(--content);
-  padding: 3px 6px 3px 24px;    /* 24px left = space for close button area */
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  min-height: 20px;
-  position: relative;
-  user-select: none;
-}
-/* Decorative close-button dot (purely cosmetic) */
-.win-title::before {
-  content: "";
-  position: absolute;
-  left: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 12px;
-  height: 12px;
-  border: 1px solid var(--ink);
-  background: var(--content);
-  box-shadow: var(--hard-shadow-sm);
-}
-.win-title-label {
-  background: var(--ink);
-  color: var(--content);
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .02em;
-  padding: 1px 6px;
-  white-space: nowrap;
-}
-.win-title .badge {
-  margin-left: auto;
-}
-.win-body {
-  padding: .85rem 1rem;
-  background: var(--content);
-}
-
-/* ---- Flat button (system.css style) ---- */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: .35rem;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 600;
-  min-height: 32px;
-  padding: 5px 12px;
-  background: var(--content);
-  color: var(--ink);
-  border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow);
-  cursor: pointer;
-  user-select: none;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: none;
-}
-.btn:hover { background: var(--surface-2); text-decoration: none; }
-.btn:active, .btn.on {
-  background: var(--ink);
-  color: var(--content);
-  box-shadow: none;
-  transform: translate(2px, 2px);
-}
-
-/* ================================================================
-   APP BAR — classic Mac menu bar style
+   APP BAR
    ================================================================ */
 .appbar {
   background: var(--content);
   border-bottom: 2px solid var(--ink);
-  padding: .5rem 0;
-  margin-bottom: 1.25rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: .5rem;
+  padding: .35rem 0;
+  margin-bottom: .85rem;
+  display: flex; align-items: center; gap: 0;
 }
 .appbar .brand {
-  font-family: var(--font-ui);
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: -.01em;
-  color: var(--ink);
-  text-decoration: none;
-  padding: 2px 8px;
-  border-right: 1px solid var(--line);
+  font-weight: 700; font-size: 13px; color: var(--ink);
+  text-decoration: none; padding: 3px 10px 3px 0;
+  border-right: 1px solid var(--line); margin-right: .5rem;
 }
-.appbar .brand:hover { background: var(--ink); color: var(--content); text-decoration: none; }
-.appbar .right { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; padding-right: 2px; }
-.appbar select {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  min-height: 32px;
-  padding: 5px 8px;
-  border: 1px solid var(--ink);
-  background: var(--content);
-  color: var(--ink);
-  box-shadow: var(--hard-shadow-sm);
-  cursor: pointer;
-}
-
-/* ---- Nav tabs — look like menu items ---- */
-.tabs { display: flex; gap: 0; border-left: 1px solid var(--ink); }
+.appbar .brand:hover { text-decoration: none; }
+.tabs { display: flex; }
 .tabs a {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 600;
-  min-height: 32px;
-  padding: 7px 12px;
-  text-decoration: none;
-  color: var(--ink);
-  background: var(--content);
-  border-right: 1px solid var(--ink);
+  font-size: 12px; font-weight: 600;
+  padding: 5px 14px; text-decoration: none;
+  color: var(--ink); background: var(--content);
 }
 .tabs a:hover { background: var(--surface-2); text-decoration: none; }
 .tabs a.on { background: var(--ink); color: var(--content); }
 
 /* ================================================================
-   SECTION LABELS
-   ================================================================ */
-.eyebrow {
-  font-family: var(--font-ui);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin: 1.25rem 0 .5rem;
-  padding-bottom: .25rem;
-  border-bottom: 1px solid var(--line);
-}
-
-/* ================================================================
-   LIFECYCLE BADGES
+   BADGES / METERS / STATS
    ================================================================ */
 .badge {
-  display: inline-block;
-  font-family: var(--font-ui);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  padding: 1px 6px;
-  border: 1px solid transparent;
-  vertical-align: middle;
-  white-space: nowrap;
+  display: inline-block; font-size: 9px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  padding: 1px 6px; border: 1px solid transparent; white-space: nowrap;
 }
 .badge.proposed { background: var(--lc-proposed-bg); color: var(--lc-proposed-ink); border-color: var(--lc-proposed-line); }
 .badge.active   { background: var(--lc-active-bg);   color: var(--lc-active-ink);   border-color: var(--lc-active-line); }
 .badge.archived { background: var(--lc-archived-bg); color: var(--lc-archived-ink); border-color: var(--lc-archived-line); }
 
-/* ================================================================
-   PROGRESS METER
-   ================================================================ */
-.meter {
-  height: 12px;
-  background: var(--content);
-  border: 1px solid var(--ink);
-  overflow: hidden;
-  box-shadow: inset 1px 1px 0 var(--line);
-}
-.meter > span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  transition: width .2s ease;
-}
-.metric {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--muted);
-  margin: 0;
-}
+.meter { height: 6px; background: var(--surface-3); border: 1px solid var(--ink); overflow: hidden; }
+.meter > span { display: block; height: 100%; background: var(--accent); }
+.metric { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
 
-/* ================================================================
-   STAT TILES
-   ================================================================ */
-.tally { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1rem; }
+.tally { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .85rem; }
 .stat {
-  background: var(--content);
-  border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow);
-  padding: .65rem .9rem;
-  min-width: 6.5rem;
+  background: var(--content); border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow); padding: .5rem .85rem; min-width: 5rem;
 }
-.stat b {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 1.625rem;
-  font-weight: 700;
-  line-height: 1.1;
-  color: var(--ink);
-}
-.stat span {
-  display: block;
-  font-family: var(--font-ui);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-top: .2rem;
-}
-.stat.rollup { border-left: 3px solid var(--ink); }
-.stat.rollup b { font-size: 1.25rem; }
+.stat b { display: block; font-family: var(--font-mono); font-size: 1.4rem; font-weight: 700; line-height: 1.1; }
+.stat span { display: block; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: .15rem; }
 
 /* ================================================================
-   OPERATIONS REGISTER
+   KANBAN BOARD
    ================================================================ */
-.ops-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 19rem;
-  gap: .85rem;
-  align-items: start;
-  margin-top: 1rem;
-}
-.register-panel,
-.ops-feed,
-.graph-workbench,
-.graph-tools,
-.graph-inspector {
-  background: var(--content);
-  border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow);
-}
-.register-panel { overflow: hidden; }
-.register-head,
-.ops-feed h2,
-.graph-tools h2,
-.graph-inspector h2 {
-  background: var(--stripe);
-  background-size: var(--stripe-size);
+.board { display: grid; grid-template-columns: repeat(3, 1fr); gap: .65rem; align-items: start; }
+.board .col { background: var(--surface-2); border: 1px solid var(--ink); box-shadow: var(--hard-shadow); }
+.board .col-head {
+  background: var(--stripe); background-size: var(--stripe-size);
   background-color: var(--content);
-  border-bottom: 1px solid var(--ink);
-  margin: 0;
-  padding: 5px 7px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-}
-.register-head span,
-.ops-feed h2 span,
-.graph-tools h2 span,
-.graph-inspector h2 span {
-  display: inline-block;
-  background: var(--ink);
-  color: var(--content);
-  padding: 2px 6px;
-}
-.table-scroll { overflow-x: auto; }
-.register {
-  width: 100%;
-  min-width: 52rem;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-.register th {
-  text-align: left;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  color: var(--muted);
-  padding: .45rem .55rem;
-  border-bottom: 2px solid var(--ink);
-}
-.register td {
-  padding: .55rem;
-  border-bottom: 1px solid var(--line);
-  vertical-align: top;
-}
-.register tr:last-child td { border-bottom: 0; }
-.change-link {
-  display: inline-block;
-  color: var(--ink);
-  font-weight: 700;
-  text-decoration: none;
-  word-break: break-word;
-}
-.change-link:hover { color: var(--accent); text-decoration: underline; }
-.progress-cell { min-width: 9rem; }
-.progress-label {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: .2rem;
-}
-.rel-count {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  white-space: nowrap;
-}
-.next-work {
-  max-width: 19rem;
-  color: var(--muted);
-  line-height: 1.35;
-}
-.ops-feed { overflow: hidden; }
-.ops-feed-body { padding: .65rem .75rem; display: grid; gap: .55rem; }
-.ops-event {
-  border: 1px solid var(--ink);
-  background: var(--surface-2);
-  padding: .55rem .65rem;
-}
-.ops-event b { display: block; margin-bottom: .2rem; }
-.ops-event p { margin: 0; color: var(--muted); font-size: 12px; }
-
-.overview-graph {
-  margin-top: .85rem;
-  border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow);
-  background: var(--content);
-  overflow: hidden;
-}
-.overview-graph .dagwrap {
-  box-shadow: none;
-  border: 0;
-  margin: 0;
-}
-.overview-graph-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: .75rem;
-  padding: .45rem .6rem;
-  border-bottom: 1px solid var(--ink);
-  background: var(--surface-2);
-}
-.overview-graph-head b {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-}
-
-@media (max-width: 58rem) {
-  .ops-layout { grid-template-columns: 1fr; }
-}
-
-/* ================================================================
-   CARD GRID (overview)
-   ================================================================ */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
-  gap: .85rem;
-  margin-top: 1.25rem;
-}
-.card {
-  display: block;
-  background: var(--content);
-  border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow);
-  padding: 0;
-  text-decoration: none;
-  color: inherit;
-  transition: none;
-}
-.card:hover {
-  box-shadow: 3px 3px 0 var(--ink);
-  transform: translate(-1px, -1px);
-  text-decoration: none;
-}
-.card .card-head {
-  padding: .65rem .85rem .5rem;
-}
-.card .row { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
-.card h3 { font-size: .875rem; word-break: break-word; }
-.card .why {
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.45;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin: .45rem 0 0;
-}
-.card .sub {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--muted);
-  margin: .3rem 0 0;
-}
-/* The meter sits flush at the bottom of the card, full-width */
-.card .meter { border-left: none; border-right: none; border-bottom: none; border-top: 1px solid var(--line); height: 6px; }
-.card.lc-active   { border-top: 3px solid var(--lc-active-line); }
-.card.lc-proposed { border-top: 3px solid var(--lc-proposed-line); }
-.card.lc-archived { border-top: 3px solid var(--lc-archived-line); }
-
-/* ================================================================
-   BOARD VIEW
-   ================================================================ */
-.board {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: .85rem;
-  margin-top: 1.25rem;
-  align-items: start;
-}
-.board .col {
-  background: var(--surface-2);
-  border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow);
-}
-.board .col > header {
-  background: var(--stripe);
-  background-size: var(--stripe-size);
-  background-color: var(--content);
-  padding: 3px 6px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: 3px 7px; display: flex; justify-content: space-between; align-items: center;
   border-bottom: 1px solid var(--ink);
 }
-.board .col > header .badge { margin: 0; }
-.board .col > header .ct {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 700;
-  background: var(--ink);
-  color: var(--content);
-  padding: 0 4px;
+.board .col-head .ct {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  background: var(--ink); color: var(--content); padding: 0 4px;
 }
-.board .col-body { padding: .5rem; }
+.board .col-body { padding: .4rem; }
 .board .bcard {
-  display: block;
-  background: var(--content);
-  border: 1px solid var(--ink);
+  appearance: none; -webkit-appearance: none;
+  display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
+  background: var(--content); border: 1px solid var(--ink);
   box-shadow: var(--hard-shadow-sm);
-  padding: .55rem .7rem;
-  margin-bottom: .45rem;
-  text-decoration: none;
-  color: inherit;
-  transition: none;
+  padding: .5rem .6rem; margin-bottom: .35rem; transition: none;
 }
 .board .bcard:last-child { margin-bottom: 0; }
-.board .bcard:hover { box-shadow: 2px 2px 0 var(--ink); transform: translate(-1px, -1px); text-decoration: none; }
-.board .bcard h3 { font-size: .8125rem; }
-.board .bcard .sub { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin: .25rem 0 0; }
-.board .empty-col { font-size: 11px; color: var(--muted); padding: .5rem; }
-@media (max-width: 48rem) { .board { grid-template-columns: 1fr; } }
-
-/* Board cards as focusable buttons in the overview */
-.board button.bcard {
-  appearance: none;
-  -webkit-appearance: none;
-  background: var(--content);
-  font: inherit;
-  border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow-sm);
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-}
-.board button.bcard:hover { box-shadow: 2px 2px 0 var(--ink); transform: translate(-1px, -1px); }
-.bcard.selected {
-  background: var(--lc-active-bg) !important;
-  border-color: var(--accent) !important;
-  box-shadow: 2px 2px 0 var(--accent) !important;
-}
-#overview-content { margin-top: .85rem; }
+.board .bcard:hover { box-shadow: var(--hard-shadow); transform: translate(-1px, -1px); }
+.board .bcard h3 { font-size: .8125rem; line-height: 1.3; }
+.board .bcard .sub { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: .25rem; }
+.board .bcard .meter { margin: .3rem 0 0; height: 3px; }
+.board .empty-col { font-size: 11px; color: var(--muted); padding: .4rem; }
+@media (max-width: 42rem) { .board { grid-template-columns: 1fr; } }
 
 /* ================================================================
-   GRAPH VIEW
+   GRAPH VIEW — Cytoscape container + inspector
    ================================================================ */
 .graph-shell {
-  display: grid;
-  grid-template-columns: 14rem minmax(0, 1fr) 19rem;
-  gap: .85rem;
-  align-items: stretch;
-  margin-top: .85rem;
+  display: grid; grid-template-columns: minmax(0, 1fr) 17rem;
+  gap: .65rem; align-items: stretch;
 }
-.graph-tools,
-.graph-inspector { overflow: hidden; }
-.graph-tools-body,
-.graph-inspector-body { padding: .65rem .75rem; }
-.control-group {
-  border: 1px solid var(--ink);
-  background: var(--surface-2);
-  padding: .55rem .65rem;
-  margin-bottom: .55rem;
-}
-.control-group:last-child { margin-bottom: 0; }
-.control-group b {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  margin-bottom: .35rem;
-}
-.checkline {
-  display: flex;
-  align-items: center;
-  gap: .45rem;
-  margin: .25rem 0;
-  color: var(--muted);
-}
-.checkline input { width: 14px; height: 14px; accent-color: var(--accent); }
-.graph-workbench {
-  min-width: 0;
-  overflow: hidden;
-}
-.dagwrap {
-  overflow-x: auto;
-  border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow);
-  padding: .75rem;
-  background:
+.graph-workbench { min-width: 0; }
+#cy-container {
+  width: 100%; min-height: 420px;
+  border: 1px solid var(--ink); box-shadow: var(--hard-shadow);
+  background-color: var(--surface-2);
+  background-image:
     linear-gradient(90deg, rgba(0,0,0,.06) 1px, transparent 1px),
-    linear-gradient(rgba(0,0,0,.06) 1px, transparent 1px),
-    var(--surface-2);
+    linear-gradient(rgba(0,0,0,.06) 1px, transparent 1px);
   background-size: 24px 24px;
-  margin-top: .85rem;
 }
-.graph-workbench .dagwrap {
-  box-shadow: none;
-  border: 0;
-  margin: 0;
-  min-height: 34rem;
+.graph-inspector {
+  background: var(--content); border: 1px solid var(--ink);
+  box-shadow: var(--hard-shadow); overflow: hidden;
 }
-.dagwrap svg text { font-family: var(--font-ui); font-size: 11px; }
-.dagwrap .nbox { fill: var(--node-bg); stroke: var(--node-stroke); stroke-width: 1; }
-.dagwrap .nlabel { fill: var(--ink); }
-.dagwrap .depth-label {
-  fill: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
+.graph-inspector-head {
+  background: var(--stripe); background-size: var(--stripe-size);
+  background-color: var(--content);
+  border-bottom: 1px solid var(--ink); padding: 4px 7px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase;
 }
-.dagwrap .lc-proposed .nbox { fill: var(--lc-proposed-bg); stroke: var(--lc-proposed-line); }
-.dagwrap .lc-active   .nbox { fill: var(--lc-active-bg);   stroke: var(--lc-active-line); }
-.dagwrap .lc-archived .nbox { fill: var(--lc-archived-bg); stroke: var(--lc-archived-line); }
-.dagwrap .node { cursor: pointer; }
-.dagwrap .node:focus { outline: none; }
-.dagwrap .node:focus .nbox { stroke: var(--accent); stroke-width: 2; }
-.dagwrap .edge { stroke: var(--edge); }
-.dagwrap .arrow path { fill: var(--edge); }
-.dagwrap:hover .node:not(:hover) { opacity: .55; }
-.dagwrap.emph .node:not(.lit) { opacity: .3; }
-.dagwrap.emph .edge:not(.lit) { opacity: .15; }
-.dagwrap .node.lit .nbox { stroke: var(--accent); stroke-width: 2; }
-.graph-empty {
-  padding: 1rem;
-  color: var(--muted);
-  line-height: 1.55;
+.graph-inspector-head span {
+  display: inline-block; background: var(--ink); color: var(--content); padding: 2px 5px;
 }
-.graph-inspector .metric {
-  margin-top: .35rem;
-}
-@media (max-width: 64rem) {
-  .graph-shell { grid-template-columns: 1fr; }
-  .graph-workbench .dagwrap {
-    min-height: auto;
-    overflow-x: auto;
-  }
-  .dagwrap svg { min-width: 42rem; }
-}
+.graph-inspector-body { padding: .65rem .75rem; overflow-y: auto; max-height: 420px; }
+.graph-empty { padding: 1.5rem; color: var(--muted); line-height: 1.6; }
+@media (max-width: 52rem) { .graph-shell { grid-template-columns: 1fr; } }
 
 /* ================================================================
-   DETAIL DOCUMENT — two-column layout
+   SUGGESTED EDGES
    ================================================================ */
-.doc { margin-top: .5rem; }
-.doclayout { display: grid; grid-template-columns: 1fr 16rem; gap: 1.5rem; align-items: start; }
-.doclayout .rail { position: sticky; top: .75rem; }
-.rail .panel {
-  background: var(--content);
-  border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow);
-  overflow: hidden;
-  margin-bottom: .65rem;
+.suggest-panel { margin-top: .85rem; border: 1px solid var(--ink); box-shadow: var(--hard-shadow); overflow: hidden; }
+.suggest-head {
+  background: var(--stripe); background-size: var(--stripe-size);
+  background-color: var(--content); padding: 3px 8px;
+  border-bottom: 1px solid var(--ink); font-family: var(--font-mono);
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
 }
+.suggest-head span { display: inline-block; background: var(--ink); color: var(--content); padding: 2px 5px; }
+.suggest-body { background: var(--content); padding: .6rem .75rem; overflow-x: auto; }
+.suggest-table { border-collapse: collapse; font-size: 11px; width: 100%; min-width: 34rem; }
+.suggest-table th {
+  font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); text-align: left; padding: .3rem .5rem; border-bottom: 2px solid var(--ink);
+}
+.suggest-table td { padding: .35rem .5rem; border-bottom: 1px solid var(--surface-2); }
+.suggest-table tr:last-child td { border-bottom: 0; }
+
+/* ================================================================
+   DETAIL — DRILLDOWN
+   ================================================================ */
+.doc { margin-top: .25rem; }
+.doclayout { display: grid; grid-template-columns: 1fr 15rem; gap: 1.25rem; align-items: start; }
+.doclayout .rail { position: sticky; top: .75rem; }
+.rail .panel { background: var(--content); border: 1px solid var(--ink); box-shadow: var(--hard-shadow); overflow: hidden; margin-bottom: .5rem; }
 .rail .panel-title {
-  background: var(--stripe);
-  background-size: var(--stripe-size);
-  background-color: var(--content);
-  padding: 2px 6px 2px 20px;
-  border-bottom: 1px solid var(--line);
-  position: relative;
+  background: var(--stripe); background-size: var(--stripe-size);
+  background-color: var(--content); padding: 2px 6px 2px 20px;
+  border-bottom: 1px solid var(--line); position: relative;
 }
 .rail .panel-title::before {
-  content: "";
-  position: absolute;
-  left: 4px; top: 50%; transform: translateY(-50%);
-  width: 10px; height: 10px;
-  border: 1px solid var(--ink);
-  background: var(--content);
+  content: ""; position: absolute; left: 4px; top: 50%; transform: translateY(-50%);
+  width: 10px; height: 10px; border: 1px solid var(--ink); background: var(--content);
   box-shadow: 1px 1px 0 var(--ink);
 }
 .rail .panel-title-label {
-  background: var(--ink);
-  color: var(--content);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  padding: 0 5px;
-  display: inline-block;
+  background: var(--ink); color: var(--content); font-size: 10px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; padding: 0 5px; display: inline-block;
 }
-.rail .panel-body { padding: .65rem .75rem; }
-.rail .eyebrow { margin-top: .5rem; }
-.rail .eyebrow:first-child { margin-top: 0; }
+.rail .panel-body { padding: .6rem .75rem; }
 @media (max-width: 52rem) { .doclayout { grid-template-columns: 1fr; } .doclayout .rail { position: static; } }
 
-/* Progress big number */
-.progress-big {
-  text-align: center;
-  padding: .5rem 0 .25rem;
-}
-.progress-big .num {
-  font-family: var(--font-mono);
-  font-size: 2.25rem;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--ink);
-}
-.progress-big .denom {
-  font-family: var(--font-mono);
-  font-size: 1rem;
-  color: var(--muted);
-}
-.progress-big .label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-top: .2rem;
-}
-
-/* Chartwrap */
-.chartwrap { margin: .5rem 0; }
+.progress-big { text-align: center; padding: .45rem 0 .2rem; }
+.progress-big .num { font-family: var(--font-mono); font-size: 1.85rem; font-weight: 700; line-height: 1; }
+.progress-big .label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: .15rem; }
+.chartwrap { margin: .45rem 0; }
 
 /* ================================================================
-   REMAINING TASKS — highlighted block
+   NARRATIVE
    ================================================================ */
-.remaining {
-  border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow);
-  overflow: hidden;
+.narrative { margin: 0 0 1rem; }
+.narrative-problem, .narrative-solution { border: 1px solid var(--ink); box-shadow: var(--hard-shadow); overflow: hidden; }
+.narrative-label {
+  background: var(--stripe); background-size: var(--stripe-size);
+  background-color: var(--content); padding: 2px 6px 2px 22px;
+  border-bottom: 1px solid var(--line); position: relative;
+  display: flex; align-items: center; gap: .5rem;
 }
+.narrative-label::before {
+  content: ""; position: absolute; left: 5px; top: 50%; transform: translateY(-50%);
+  width: 10px; height: 10px; border: 1px solid var(--ink);
+  background: var(--content); box-shadow: 1px 1px 0 var(--ink);
+}
+.narrative-label-text {
+  background: var(--ink); color: var(--content); font-size: 10px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; padding: 0 5px; display: inline-block;
+}
+.narrative-body { padding: .6rem .85rem; background: var(--content); font-size: 12px; line-height: 1.55; }
+.narrative-body p { margin: .3rem 0; }
+.narrative-body ul.md { margin: .25rem 0 .5rem; padding-left: 1.2rem; }
+.narrative-body ul.md li { margin: .2rem 0; }
+.narrative-arrow { text-align: center; font-size: 1rem; color: var(--muted); padding: .2rem 0; }
+
+/* ================================================================
+   TASK PIPELINE
+   ================================================================ */
+.pipeline {
+  display: flex; align-items: flex-start; gap: 0;
+  margin: .5rem 0 .85rem; overflow-x: auto;
+  padding-bottom: .25rem;
+}
+.pipe-stage { display: flex; flex-direction: column; flex: 1; min-width: 6.5rem; }
+.pipe-arrow {
+  display: flex; align-items: center; padding: 0 .3rem;
+  color: var(--muted); font-size: 10px; flex-shrink: 0; margin-top: 1.3rem;
+}
+.pipe-phase-head {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase;
+  color: var(--muted); padding: 0 0 .2rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pipe-tasks { display: flex; flex-direction: column; gap: 2px; }
+.pipe-task {
+  border: 1px solid var(--line); background: var(--content);
+  padding: 2px 5px; font-family: var(--font-mono); font-size: 9px; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pipe-task.done { background: var(--surface-2); color: var(--muted); text-decoration: line-through; }
+.pipe-key { font-weight: 700; margin-right: .25rem; }
+.pipe-bar { height: 3px; background: var(--line); margin-top: .3rem; overflow: hidden; }
+.pipe-bar > span { display: block; height: 100%; background: var(--accent); }
+
+/* ================================================================
+   REMAINING / TASK LISTS
+   ================================================================ */
+.remaining { border: 1px solid var(--ink); box-shadow: var(--hard-shadow); overflow: hidden; }
 .remaining-head {
-  background: var(--ink);
-  color: var(--content);
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  padding: 3px 8px;
+  background: var(--ink); color: var(--content); font-size: 11px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px;
 }
 .remaining-body { background: var(--content); }
 .alldone {
-  font-family: var(--font-ui);
-  font-weight: 700;
-  color: var(--done);
-  font-size: .9rem;
-  padding: .6rem .75rem;
-  display: flex;
-  align-items: center;
-  gap: .35rem;
+  font-weight: 700; color: var(--done); font-size: .875rem;
+  padding: .5rem .75rem; display: flex; align-items: center; gap: .35rem;
 }
 
-/* ================================================================
-   TASK LISTS
-   ================================================================ */
 ul.tasks { list-style: none; padding: 0; margin: .2rem 0 0; }
 ul.tasks li {
-  display: flex;
-  gap: .4rem;
-  align-items: baseline;
-  padding: .4rem .5rem;
-  border-bottom: 1px solid var(--surface-2);
-  font-size: 12px;
-  line-height: 1.4;
+  display: flex; gap: .4rem; align-items: baseline;
+  padding: .4rem .5rem; border-bottom: 1px solid var(--surface-2);
+  font-size: 12px; line-height: 1.4;
 }
 ul.tasks li:last-child { border-bottom: 0; }
 ul.tasks li.done .txt { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
-
 .key {
-  flex: 0 0 auto;
-  min-width: 2.4rem;
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  background: var(--surface-2);
-  color: var(--muted);
-  border: 1px solid var(--line);
-  padding: .1rem .3rem;
+  flex: 0 0 auto; min-width: 2.4rem; text-align: center;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  background: var(--surface-2); color: var(--muted);
+  border: 1px solid var(--line); padding: .1rem .3rem;
 }
 .glyph { flex: 0 0 auto; width: 1rem; text-align: center; font-size: 12px; line-height: 1.3; }
 .glyph.done { color: var(--done); }
 .glyph.todo { color: var(--line); }
 .txt { flex: 1; }
-
-/* Task kind tags */
 .kind {
-  flex: 0 0 auto;
-  font-family: var(--font-ui);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  padding: 1px 4px;
-  border: 1px solid transparent;
+  flex: 0 0 auto; font-size: 9px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  padding: 1px 4px; border: 1px solid transparent;
 }
 .kind.verify  { background: var(--lc-proposed-bg); color: var(--lc-proposed-ink); border-color: var(--lc-proposed-line); }
 .kind.apply   { background: var(--lc-active-bg);   color: var(--lc-active-ink);   border-color: var(--lc-active-line); }
 .kind.confirm { background: var(--lc-archived-bg); color: var(--lc-archived-ink); border-color: var(--lc-archived-line); }
-
-/* External ticket reference chips (e.g. "linear:ENG-123") */
 .ext-ref {
-  flex: 0 0 auto;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  padding: 1px 5px;
-  background: var(--surface-3);
-  border: 1px solid var(--line);
-  color: var(--muted);
-  white-space: nowrap;
+  flex: 0 0 auto; font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  letter-spacing: .04em; padding: 1px 5px;
+  background: var(--surface-3); border: 1px solid var(--line); color: var(--muted);
 }
-
-/* Phase header */
-.phase-block {
-  margin-top: 1rem;
-}
-.phase-block > summary {
-  cursor: pointer;
-  list-style: none;
-}
+.phase-block { margin-top: .85rem; }
+.phase-block > summary { cursor: pointer; list-style: none; }
 .phase-block > summary::-webkit-details-marker { display: none; }
 .phase-h {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 1rem;
-  margin-top: 0;
-  padding: .35rem 0;
-  border-bottom: 2px solid var(--ink);
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 1rem; padding: .3rem 0; border-bottom: 2px solid var(--ink);
 }
-.phase-h::before {
-  content: "+";
-  font-family: var(--font-mono);
-  font-weight: 700;
-  margin-right: .25rem;
-}
-.phase-block[open] .phase-h::before { content: "-"; }
-.phase-h h2 { margin: 0; font-size: .9375rem; }
-.phase-h .ct {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  white-space: nowrap;
-}
+.phase-h::before { content: "+"; font-family: var(--font-mono); font-weight: 700; margin-right: .25rem; }
+.phase-block[open] .phase-h::before { content: "−"; }
+.phase-h h2 { margin: 0; font-size: .875rem; }
+.phase-h .ct { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--muted); }
 
 /* ================================================================
-   WHY → HOW NARRATIVE BLOCK
-   The "problem statement → solution" visual connection.
+   EYEBROW / CHIPS / MISC
    ================================================================ */
-.narrative {
-  margin: 0 0 1.25rem;
-}
-.narrative-problem, .narrative-solution {
-  border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow);
-  overflow: hidden;
-}
-.narrative-label {
-  background: var(--stripe);
-  background-size: var(--stripe-size);
-  background-color: var(--content);
-  padding: 2px 6px 2px 22px;
+.eyebrow {
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); margin: .85rem 0 .35rem; padding-bottom: .2rem;
   border-bottom: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  position: relative;
 }
-.narrative-label::before {
-  content: "";
-  position: absolute;
-  left: 5px; top: 50%; transform: translateY(-50%);
-  width: 10px; height: 10px;
-  border: 1px solid var(--ink);
-  background: var(--content);
-  box-shadow: 1px 1px 0 var(--ink);
-}
-.narrative-label-text {
-  background: var(--ink);
-  color: var(--content);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  padding: 0 5px;
-  display: inline-block;
-}
-.narrative-body {
-  padding: .65rem .85rem;
-  background: var(--content);
-  font-size: 12px;
-  line-height: 1.55;
-}
-.narrative-body p { margin: .35rem 0; }
-.narrative-body ul.md { margin: .25rem 0 .5rem; padding-left: 1.2rem; }
-.narrative-body ul.md li { margin: .2rem 0; }
-/* Arrow connector between problem and solution */
-.narrative-arrow {
-  text-align: center;
-  font-size: 1.1rem;
-  color: var(--muted);
-  padding: .2rem 0;
-  line-height: 1;
-  position: relative;
-}
-.narrative-arrow::before, .narrative-arrow::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  height: 1px;
-  width: calc(50% - 1.5rem);
-  background: var(--line);
-}
-.narrative-arrow::before { left: 0; }
-.narrative-arrow::after  { right: 0; }
-
-/* ================================================================
-   RELATIONSHIP CHIPS
-   ================================================================ */
+.eyebrow:first-child { margin-top: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .35rem; }
 .chip {
-  display: inline-block;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 7px;
-  border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow-sm);
-  text-decoration: none;
-  color: var(--ink);
-  background: var(--content);
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 1px 7px; border: 1px solid var(--ink); box-shadow: var(--hard-shadow-sm);
+  text-decoration: none; color: var(--ink); background: var(--content);
 }
 .chip:hover { background: var(--ink); color: var(--content); text-decoration: none; }
-.rail .none { font-size: 11px; color: var(--muted); margin: .3rem 0 0; }
+.none { font-size: 11px; color: var(--muted); margin: .25rem 0 0; }
 
-/* ================================================================
-   BACK LINK + MISC
-   ================================================================ */
+.btn {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: 12px; font-weight: 600;
+  min-height: 26px; padding: 3px 10px;
+  background: var(--content); color: var(--ink);
+  border: 1px solid var(--ink); box-shadow: var(--hard-shadow);
+  cursor: pointer; text-decoration: none; white-space: nowrap; transition: none;
+}
+.btn:hover { background: var(--surface-2); text-decoration: none; }
+.btn:active { background: var(--ink); color: var(--content); box-shadow: none; transform: translate(2px,2px); }
+
 .back {
-  display: inline-flex;
-  align-items: center;
-  gap: .3rem;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: .85rem;
-  color: var(--ink);
-  text-decoration: none;
-  border: 1px solid var(--ink);
-  padding: 2px 10px;
-  background: var(--content);
-  box-shadow: var(--hard-shadow-sm);
-  transition: none;
+  display: inline-flex; align-items: center; gap: .3rem;
+  font-size: 12px; font-weight: 600; margin-bottom: .65rem;
+  color: var(--ink); text-decoration: none;
+  border: 1px solid var(--ink); padding: 2px 10px;
+  background: var(--content); box-shadow: var(--hard-shadow-sm);
 }
 .back:hover { background: var(--ink); color: var(--content); text-decoration: none; }
-.back:active { transform: translate(1px, 1px); box-shadow: none; }
-
 .doc p { line-height: 1.6; margin: .4rem 0; font-size: 12px; }
 .doc ul.md { margin: .25rem 0 .6rem; padding-left: 1.2rem; }
 .doc ul.md li { margin: .2rem 0; line-height: 1.5; font-size: 12px; }
 
-/* ================================================================
-   SUGGESTED EDGES PANEL
-   ================================================================ */
-.suggest-panel {
-  margin-top: 1rem;
-  border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow);
-  overflow: hidden;
-}
-.suggest-head {
-  background: var(--stripe);
-  background-size: var(--stripe-size);
-  background-color: var(--content);
-  padding: 3px 8px 3px 8px;
-  border-bottom: 1px solid var(--ink);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .04em;
-}
-.suggest-body { background: var(--content); padding: .6rem .75rem; overflow-x: auto; }
-.suggest-table {
-  border-collapse: collapse;
-  font-size: 11px;
-  width: 100%;
-  min-width: 36rem;
-}
-.suggest-table th {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  text-align: left;
-  padding: .3rem .5rem;
-  border-bottom: 2px solid var(--ink);
-}
-.suggest-table td {
-  padding: .35rem .5rem;
-  border-bottom: 1px solid var(--surface-2);
-  vertical-align: middle;
-}
-.suggest-table tr:last-child td { border-bottom: 0; }
-
-/* ================================================================
-   BANNERS
-   ================================================================ */
 #offline-note {
-  background: var(--warn-bg);
-  border: 1px solid var(--warn-line);
-  box-shadow: var(--hard-shadow-sm);
-  color: var(--warn-ink);
-  padding: .5rem .75rem;
-  font-size: 11px;
-  margin-bottom: .85rem;
+  background: var(--warn-bg); border: 1px solid var(--warn-line);
+  color: var(--warn-ink); padding: .45rem .75rem; font-size: 11px; margin-bottom: .65rem;
 }
 #diag-banner {
-  background: var(--danger-bg);
-  border: 1px solid var(--danger-line);
-  box-shadow: var(--hard-shadow-sm);
-  color: var(--danger-ink);
-  padding: .5rem .75rem;
-  font-size: 11px;
-  margin-bottom: .85rem;
+  background: var(--err-bg); border: 1px solid var(--err-line);
+  color: var(--err-ink); padding: .45rem .75rem; font-size: 11px; margin-bottom: .65rem;
 }
 #diag-banner b { font-weight: 700; }
-#diag-banner ul { margin: .3rem 0 0; padding-left: 1.1rem; }
+#diag-banner ul { margin: .25rem 0 0; padding-left: 1.1rem; }
+.empty { color: var(--muted); max-width: 36rem; line-height: 1.6; font-size: 12px; }
 
-.empty {
-  color: var(--muted);
-  max-width: 36rem;
-  line-height: 1.6;
-  font-size: 12px;
-  margin-top: .75rem;
-}
-
-/* ================================================================
-   A11Y
-   ================================================================ */
 .sr-only {
-  position: absolute; width: 1px; height: 1px;
-  padding: 0; margin: -1px; overflow: hidden;
-  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; transform: none !important; }
@@ -1106,18 +409,16 @@ ul.tasks li.done .txt { color: var(--muted); text-decoration: line-through; text
 </head>
 <body>
 <div class="wrap">
-  <header class="appbar" id="appbar">
+  <header class="appbar">
     <a class="brand" href="#/">&#9672; specutil</a>
-    <div class="right" id="appbar-right"></div>
+    <nav class="tabs" id="nav-tabs"></nav>
   </header>
   <div id="diag-banner" hidden></div>
-  <div id="offline-note" hidden>CDN assets failed to load. Task content is still readable below.</div>
+  <div id="offline-note" hidden>CDN assets failed to load. Task content may be limited.</div>
   <div id="live" class="sr-only" aria-live="polite"></div>
   <main id="view"></main>
   <noscript><p style="margin-top:2rem;color:var(--muted);font-size:12px">This visualizer requires JavaScript.</p></noscript>
 </div>
-
-<template id="dag">{{.DagSVG}}</template>
 
 <script>
 const GRAPH = {{.GraphJSON}};
@@ -1133,80 +434,63 @@ const SUGGEST = {{.SuggestJSON}};
   const edges      = (GRAPH  && GRAPH.edges)   || [];
   const diags      = DIAG || [];
   const candidates = SUGGEST || [];
-  const byName  = new Map(changes.map((c) => [c.name, c]));
-  const single  = changes.length === 1;
+  const byName     = new Map(changes.map((c) => [c.name, c]));
 
   const view = document.getElementById("view");
   const live = document.getElementById("live");
-  let sel = null;
-  let inlineSelected = null;
+  let currentRoute = "/";
+  let cyInstance = null;
 
-  /* ---- escaping + minimal markdown ---- */
+  /* ---- minimal markdown ---- */
   const esc = (s) => String(s == null ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const inline = (s) => s
-    .replace(/`([^`]+)`/g, (_, c) => "<code>" + c + "</code>")
-    .replace(/\*\*([^*]+)\*\*/g, (_, c) => "<strong>" + c + "</strong>");
+    .replace(/`([^`]+)`/g,      (_, c) => "<code>" + c + "</code>")
+    .replace(/\*\*([^*]+)\*\*/g,(_, c) => "<strong>" + c + "</strong>")
+    .replace(/\*([^*]+)\*/g,    (_, c) => "<em>" + c + "</em>");
   function md(src) {
     const lines = String(src || "").split(/\r?\n/);
     let html = "", inList = false, para = [];
-    const flushPara = () => { if (para.length) { html += "<p>" + inline(esc(para.join(" "))) + "</p>"; para = []; } };
-    const closeList = () => { if (inList) { html += "</ul>"; inList = false; } };
+    const flush = () => { if (para.length) { html += "<p>" + inline(esc(para.join(" "))) + "</p>"; para = []; } };
+    const close = () => { if (inList) { html += "</ul>"; inList = false; } };
     for (const raw of lines) {
-      const line = raw.replace(/\s+$/, "");
-      const item = line.match(/^\s*[-*]\s+(.*)$/);
-      if (item) {
-        flushPara();
-        if (!inList) { html += '<ul class="md">'; inList = true; }
-        html += "<li>" + inline(esc(item[1])) + "</li>";
-        continue;
-      }
-      if (line.trim() === "") { flushPara(); closeList(); continue; }
-      closeList(); para.push(line.trim());
+      const ln = raw.replace(/\s+$/, "");
+      const hm = ln.match(/^#{1,6}\s+(.+)/);
+      if (hm) { flush(); close(); html += '<p><strong>' + inline(esc(hm[1])) + '</strong></p>'; continue; }
+      const li = ln.match(/^\s*[-*]\s+(.*)$/);
+      if (li) { flush(); if (!inList) { html += '<ul class="md">'; inList = true; } html += "<li>" + inline(esc(li[1])) + "</li>"; continue; }
+      if (!ln.trim()) { flush(); close(); continue; }
+      close(); para.push(ln.trim());
     }
-    flushPara(); closeList();
+    flush(); close();
     return html;
   }
 
   /* ---- helpers ---- */
   function progressOf(c) {
-    const items = [];
-    (c.phases || []).forEach((p) => (p.items || []).forEach((it) => items.push(it)));
-    const itemTotal = items.length;
-    const itemDone = items.filter((i) => i.done).length;
-    const rawTotal = Number(c.total || 0);
-    const rawDone = Number(c.done || 0);
-    const total = itemTotal || rawTotal;
-    const done = itemTotal ? itemDone : rawDone;
+    const items = (c.phases || []).flatMap((p) => p.items || []);
+    const total = items.length || Number(c.total || 0);
+    const done  = items.length ? items.filter((i) => i.done).length : Number(c.done || 0);
     return { done, total, pct: total ? Math.round((done / total) * 100) : 0, hasTasks: total > 0 };
   }
-  const pctOf      = (c) => progressOf(c).pct;
   const progressLabel = (c) => {
     const p = progressOf(c);
-    return p.hasTasks ? p.done + " / " + p.total + " tasks · " + p.pct + "%" : "No tasks defined";
+    return p.hasTasks ? p.done + "/" + p.total + " tasks · " + p.pct + "%" : "No tasks";
   };
-  const dependsOn  = (name) => edges.filter((e) => e.to   === name).map((e) => e.from).sort();
-  const blocks     = (name) => edges.filter((e) => e.from === name).map((e) => e.to).sort();
-  const chipLink   = (n) => byName.has(n)
+  const dependsOn = (n) => edges.filter((e) => e.to   === n).map((e) => e.from).sort();
+  const blocks    = (n) => edges.filter((e) => e.from === n).map((e) => e.to).sort();
+  const chipLink  = (n) => byName.has(n)
     ? '<a class="chip" href="#/c/' + encodeURIComponent(n) + '">' + esc(n) + "</a>"
-    : '<span class="chip" title="No detail feed entry for this graph node">' + esc(n) + "</span>";
+    : '<span class="chip">' + esc(n) + "</span>";
+
   const LIFECYCLES = ["proposed", "active", "archived"];
   const feedIssues = (() => {
-    const issues = [];
-    const graphIDs = new Set(graphNodes.map((n) => n.id));
-    const detailIDs = new Set(changes.map((c) => c.name));
-    graphIDs.forEach((id) => { if (!detailIDs.has(id)) issues.push({ kind: "feed", msg: "Graph node has no detail entry: " + id }); });
-    detailIDs.forEach((id) => { if (graphIDs.size && !graphIDs.has(id)) issues.push({ kind: "feed", msg: "Detail entry is absent from graph feed: " + id }); });
-    changes.forEach((c) => {
-      const items = [];
-      (c.phases || []).forEach((p) => (p.items || []).forEach((it) => items.push(it)));
-      if (!items.length) return;
-      const done = items.filter((i) => i.done).length;
-      if (done !== Number(c.done || 0) || items.length !== Number(c.total || 0)) {
-        issues.push({ kind: "feed", msg: "Progress rollup disagrees with task items: " + c.name });
-      }
-    });
-    return issues;
+    const gids = new Set(graphNodes.map((n) => n.id));
+    const dids = new Set(changes.map((c) => c.name));
+    const out = [];
+    gids.forEach((id) => { if (!dids.has(id)) out.push({ kind: "feed", msg: "Graph node has no detail entry: " + id }); });
+    dids.forEach((id) => { if (gids.size && !gids.has(id)) out.push({ kind: "feed", msg: "Detail entry absent from graph: " + id }); });
+    return out;
   })();
 
   const edgeKey = (e) => e.from + "\x00" + e.to;
@@ -1215,48 +499,221 @@ const SUGGEST = {{.SuggestJSON}};
     const groups = new Map();
     candidates.forEach((c) => {
       if (confirmed.has(edgeKey(c))) return;
-      const k = edgeKey(c);
-      const g = groups.get(k) || { from: c.from, to: c.to, capabilities: [] };
+      const g = groups.get(edgeKey(c)) || { from: c.from, to: c.to, capabilities: [] };
       g.capabilities.push(c.capability);
-      groups.set(k, g);
+      groups.set(edgeKey(c), g);
     });
-    return Array.from(groups.values()).map((g) => {
-      g.capabilities = Array.from(new Set(g.capabilities)).sort();
-      return g;
-    }).sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
+    return Array.from(groups.values()).map((g) => ({ ...g, capabilities: [...new Set(g.capabilities)].sort() }))
+      .sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
   }
-  function yamlScalar(s) { return JSON.stringify(String(s == null ? "" : s)); }
   function manifestSnippet(c) {
-    return "changes:\n  " + yamlScalar(c.to) + ":\n    depends_on:\n      - " + yamlScalar(c.from);
+    return "changes:\n  " + JSON.stringify(c.to) + ":\n    depends_on:\n      - " + JSON.stringify(c.from);
   }
   function firstRemaining(c) {
-    for (const p of (c.phases || [])) {
-      for (const it of (p.items || [])) {
-        if (!it.done) return it.text;
-      }
-    }
-    return progressOf(c).hasTasks ? "All tasks complete" : "No tasks defined";
+    for (const p of (c.phases || [])) for (const it of (p.items || [])) if (!it.done) return it.text;
+    return progressOf(c).hasTasks ? "All complete" : "No tasks";
   }
-  function relationshipCount(name) {
-    return dependsOn(name).length + " in / " + blocks(name).length + " out";
+  function kindTag(it) {
+    const k = it.kind; if (!k || k === "task") return "";
+    return '<span class="kind ' + esc(k) + '">' + esc(k) + "</span>";
   }
-
+  function extRefChips(it) {
+    return (it.externalRefs || []).map((r) => '<span class="ext-ref" title="' + esc(r.target) + '">' + esc(r.externalId) + "</span>").join("");
+  }
   function destroyChart() { if (window.__chart) { window.__chart.destroy(); window.__chart = null; } }
+  function destroyCy() { if (cyInstance) { cyInstance.destroy(); cyInstance = null; } }
 
-  function afterRender() {
-    const t = document.getElementById("view-title");
-    if (t) { t.focus(); if (live) live.textContent = t.textContent + " view"; }
-    syncTabs();
+  /* ---- task pipeline HTML (within-change) ---- */
+  function pipelineHTML(c) {
+    const phases = c.phases || [];
+    if (!phases.length) return "";
+    let h = '<div class="pipeline">';
+    phases.forEach((p, pi) => {
+      if (pi > 0) h += '<div class="pipe-arrow">&#8594;</div>';
+      const items = p.items || [];
+      const d = items.filter((i) => i.done).length;
+      const pct = items.length ? Math.round((d / items.length) * 100) : 0;
+      h += '<div class="pipe-stage">';
+      h += '<div class="pipe-phase-head">P' + esc(p.number) + ' ' + esc(p.name) + '</div>';
+      h += '<div class="pipe-tasks">';
+      items.forEach((it) => {
+        h += '<div class="pipe-task' + (it.done ? ' done' : '') + '" title="' + esc(it.text) + '">' +
+          '<span class="pipe-key">' + esc(it.key) + '</span>' +
+          esc(it.text.length > 26 ? it.text.slice(0, 25) + '…' : it.text) + '</div>';
+      });
+      h += '</div><div class="pipe-bar"><span style="width:' + pct + '%"></span></div></div>';
+    });
+    h += '</div>';
+    return h;
   }
 
-  /* ---- phase chart ---- */
+  /* ---- inspector HTML (shared between graph hover + detail sidebar) ---- */
+  function inspectorHTML(id) {
+    const c = byName.get(id);
+    if (!c) return '<p class="empty" style="margin-top:0">No detail entry for <code>' + esc(id) + '</code>.</p>';
+    const p = progressOf(c);
+    const deps = dependsOn(id), blks = blocks(id);
+    return '<div style="display:flex;align-items:baseline;gap:.4rem;flex-wrap:wrap;margin-bottom:.5rem">' +
+      '<strong>' + esc(c.name) + '</strong>' +
+      '<span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + '</span></div>' +
+      '<div class="meter" style="margin:.3rem 0 .2rem"><span style="width:' + p.pct + '%"></span></div>' +
+      '<p class="metric">' + progressLabel(c) + '</p>' +
+      (c.phases && c.phases.length ? '<p class="eyebrow" style="margin-top:.65rem">Task pipeline</p>' + pipelineHTML(c) : '') +
+      '<p class="eyebrow">Depends on</p>' +
+      (deps.length ? '<div class="chips">' + deps.map(chipLink).join("") + '</div>' : '<p class="none">Nothing upstream.</p>') +
+      '<p class="eyebrow">Blocks</p>' +
+      (blks.length ? '<div class="chips">' + blks.map(chipLink).join("") + '</div>' : '<p class="none">Nothing downstream.</p>') +
+      '<p style="margin-top:.65rem"><a class="btn" href="#/c/' + encodeURIComponent(c.name) + '">Open detail</a></p>';
+  }
+
+  /* ---- Cytoscape graph initialiser ---- */
+  function initCy(containerId) {
+    if (typeof cytoscape === "undefined") {
+      document.getElementById(containerId).innerHTML =
+        '<div class="graph-empty">Cytoscape failed to load. Check network connection.</div>';
+      return;
+    }
+    destroyCy();
+
+    /* Build element list: nodes from DETAIL (richer than GRAPH.nodes alone) */
+    const elems = [];
+    changes.forEach((c) => {
+      elems.push({
+        group: "nodes",
+        data: { id: c.name, label: c.name, lifecycle: c.lifecycle || "proposed" },
+      });
+    });
+    /* Confirmed edges from GRAPH */
+    edges.forEach((e) => {
+      elems.push({
+        group: "edges",
+        data: { id: "e:" + e.from + ":" + e.to, source: e.from, target: e.to, suggested: false },
+      });
+    });
+    /* Suggested edges as dashed (deduplicated against confirmed) */
+    const confirmed = new Set(edges.map((e) => e.from + ":" + e.to));
+    novelCandidateGroups().forEach((c) => {
+      if (!confirmed.has(c.from + ":" + c.to)) {
+        elems.push({
+          group: "edges",
+          data: { id: "s:" + c.from + ":" + c.to, source: c.from, target: c.to, suggested: true },
+        });
+      }
+    });
+
+    cyInstance = cytoscape({
+      container: document.getElementById(containerId),
+      elements: elems,
+      style: [
+        {
+          selector: "node",
+          style: {
+            shape: "rectangle",
+            width: 160,
+            height: 40,
+            "background-color": "#fffefa",
+            "border-width": 1.5,
+            "border-color": "#111111",
+            label: "data(label)",
+            "font-family": '"Monaco", "Menlo", monospace',
+            "font-size": 10,
+            "text-valign": "center",
+            "text-halign": "center",
+            color: "#111111",
+            "text-wrap": "ellipsis",
+            "text-max-width": 148,
+          },
+        },
+        {
+          selector: 'node[lifecycle = "active"]',
+          style: { "background-color": "#fff1c8", "border-color": "#d0a53b" },
+        },
+        {
+          selector: 'node[lifecycle = "proposed"]',
+          style: { "background-color": "#dce6ff", "border-color": "#8ca7d9" },
+        },
+        {
+          selector: 'node[lifecycle = "archived"]',
+          style: { "background-color": "#dcf0df", "border-color": "#79aa80" },
+        },
+        {
+          selector: "node:selected, node.focused",
+          style: { "border-width": 2.5, "border-color": "#002f86" },
+        },
+        {
+          selector: "node.dim",
+          style: { opacity: 0.3 },
+        },
+        {
+          selector: "edge",
+          style: {
+            "curve-style": "bezier",
+            "target-arrow-shape": "triangle",
+            "arrow-scale": 1,
+            "line-color": "#666",
+            "target-arrow-color": "#666",
+            width: 1.5,
+          },
+        },
+        {
+          selector: 'edge[?suggested]',
+          style: {
+            "line-style": "dashed",
+            "line-dash-pattern": [6, 4],
+            "line-color": "#aaa",
+            "target-arrow-color": "#aaa",
+            width: 1,
+          },
+        },
+        {
+          selector: "edge.dim",
+          style: { opacity: 0.1 },
+        },
+        {
+          selector: "edge.focused",
+          style: { "line-color": "#002f86", "target-arrow-color": "#002f86" },
+        },
+      ],
+      layout: {
+        name: "breadthfirst",
+        directed: true,
+        avoidOverlap: true,
+        padding: 32,
+        spacingFactor: 1.6,
+        nodeDimensionsIncludeLabels: true,
+      },
+      userZoomingEnabled: true,
+      userPanningEnabled: true,
+      boxSelectionEnabled: false,
+      autoungrabify: false,
+    });
+
+    const inspBody = document.getElementById("graph-inspector-body");
+
+    cyInstance.on("mouseover", "node", function (evt) {
+      const node = evt.target;
+      const id = node.id();
+      if (inspBody) inspBody.innerHTML = inspectorHTML(id);
+      cyInstance.elements().addClass("dim");
+      node.removeClass("dim");
+      const connected = node.connectedEdges();
+      connected.removeClass("dim").addClass("focused");
+      connected.connectedNodes().removeClass("dim");
+    });
+
+    cyInstance.on("mouseout", "node", function () {
+      cyInstance.elements().removeClass("dim focused");
+      if (inspBody) inspBody.innerHTML = '<p class="empty" style="margin-top:0">Hover a node to inspect.</p>';
+    });
+
+    cyInstance.on("tap", "node", function (evt) {
+      const id = evt.target.id();
+      if (byName.has(id)) location.hash = "#/c/" + encodeURIComponent(id);
+    });
+  }
+
+  /* ---- phase progress chart ---- */
   function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || "#888"; }
-  function phaseChartLabel(c) {
-    return "Progress by phase. " + (c.phases || []).map((p) => {
-      const d = p.items.filter((i) => i.done).length;
-      return "Phase " + p.number + ": " + d + " of " + p.items.length;
-    }).join(". ");
-  }
   function initPhaseChart(c) {
     if (typeof Chart === "undefined") return;
     const ctx = document.getElementById("phasechart");
@@ -1266,14 +723,13 @@ const SUGGEST = {{.SuggestJSON}};
     const rem    = c.phases.map((p) => p.items.length - p.items.filter((i) => i.done).length);
     const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const ink = cssVar("--ink"), muted = cssVar("--muted"), surface = cssVar("--surface-2");
-    window.__chartChange = c.name;
     window.__chart = new Chart(ctx, {
       type: "bar",
       data: {
         labels,
         datasets: [
-          { label: "Done",      data: done, backgroundColor: ink,     borderWidth: 0, borderRadius: 0 },
-          { label: "Remaining", data: rem,  backgroundColor: surface, borderWidth: 1, borderColor: muted, borderRadius: 0 },
+          { label: "Done", data: done, backgroundColor: ink, borderWidth: 0, borderRadius: 0 },
+          { label: "Rem",  data: rem,  backgroundColor: surface, borderWidth: 1, borderColor: muted, borderRadius: 0 },
         ],
       },
       options: {
@@ -1288,265 +744,16 @@ const SUGGEST = {{.SuggestJSON}};
     });
   }
 
-  /* ---- DAG mount ---- */
-  function hasDag() {
-    const t = document.getElementById("dag");
-    return t && t.content && t.content.childElementCount > 0;
-  }
-  function graphInspectorHTML(id) {
-    const c = byName.get(id);
-    const deps = dependsOn(id), blks = blocks(id);
-    if (!c) {
-      return '<p class="empty" style="margin-top:0">No detail feed entry for <code>' + esc(id) + '</code>.</p>';
-    }
-    const p = progressOf(c);
-    return '<p><b>' + esc(c.name) + '</b> <span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + '</span></p>' +
-      '<div class="meter" role="img" aria-label="' + p.pct + ' percent complete"><span style="width:' + p.pct + '%"></span></div>' +
-      '<p class="metric tnum">' + progressLabel(c) + '</p>' +
-      '<p class="eyebrow">Depends on</p>' +
-      (deps.length ? '<div class="chips">' + deps.map(chipLink).join("") + '</div>' : '<p class="none">Nothing upstream.</p>') +
-      '<p class="eyebrow">Blocks</p>' +
-      (blks.length ? '<div class="chips">' + blks.map(chipLink).join("") + '</div>' : '<p class="none">Nothing downstream.</p>') +
-      '<p style="margin-top:.75rem"><a class="btn" href="#/c/' + encodeURIComponent(c.name) + '">Open detail</a></p>';
-  }
-  function mountDag(slot) {
-    const t = document.getElementById("dag");
-    slot.appendChild(t.content.cloneNode(true));
-    const svg = slot.querySelector("svg");
-    if (!svg) return;
-    const nodes = Array.from(svg.querySelectorAll(".node"));
-    const lines = Array.from(svg.querySelectorAll(".edge"));
-    const inspector = document.getElementById("graph-inspector-body");
-    const clearGraphFocus = () => {
-      slot.classList.remove("emph");
-      nodes.forEach((m) => m.classList.remove("lit"));
-      lines.forEach((l) => l.classList.remove("lit"));
-      if (inspector) inspector.innerHTML = '<p class="empty" style="margin-top:0">Focus a node to inspect its progress and relationships.</p>';
-    };
-    const setGraphFocus = (id) => {
-      const nbrs = new Set([id]);
-      lines.forEach((l) => {
-        const f = l.getAttribute("data-from"), tt = l.getAttribute("data-to");
-        const on = f === id || tt === id;
-        l.classList.toggle("lit", on);
-        if (on) { nbrs.add(f); nbrs.add(tt); }
-      });
-      nodes.forEach((m) => m.classList.toggle("lit", nbrs.has(m.getAttribute("data-node"))));
-      slot.classList.add("emph");
-      if (inspector) inspector.innerHTML = graphInspectorHTML(id);
-    };
-    nodes.forEach((n) => {
-      const id = n.getAttribute("data-node");
-      n.addEventListener("mouseenter", () => setGraphFocus(id));
-      n.addEventListener("focusin", () => setGraphFocus(id));
-      n.addEventListener("mouseleave", clearGraphFocus);
-      n.addEventListener("focusout", clearGraphFocus);
-    });
-    if (nodes.length) setGraphFocus(nodes[0].getAttribute("data-node"));
+  /* ---- stat tile ---- */
+  function stat(n, label) {
+    return '<div class="stat"><b class="tnum">' + (n || 0) + "</b><span>" + label + "</span></div>";
   }
 
-  /* ---- window panel helper ---- */
-  function winPanel(title, badge, body) {
-    return '<div class="win">' +
-      '<div class="win-title"><span class="win-title-label">' + esc(title) + "</span>" +
-      (badge ? " " + badge : "") + "</div>" +
-      '<div class="win-body">' + body + "</div></div>";
-  }
-
-  /* ---- views ---- */
-  function renderEmpty() {
-    view.innerHTML = winPanel("specutil — no workstreams", "",
-      '<h1 tabindex="-1" id="view-title" style="font-size:1rem;margin-bottom:.5rem">No workstreams found</h1>' +
-      '<p class="empty">Create changes under <code>openspec/changes/&lt;name&gt;/</code>, ' +
-      "seed dependencies with <code>specutil graph --suggest</code>, then run <code>specutil serve</code>.</p>"
-    );
-    afterRender();
-  }
-
-  function stat(n, label, cls) {
-    return '<div class="stat' + (cls ? " " + cls : "") + '"><b class="tnum">' + (n || 0) +
-      "</b><span>" + label + "</span></div>";
-  }
-
-  /* ---- register HTML (reusable so overview-content can render it) ---- */
-  function renderRegisterHTML() {
-    const novelCands = novelCandidateGroups();
-    let h = '<div class="ops-layout"><section class="register-panel">' +
-      '<div class="register-head"><span>Workstream register</span></div>' +
-      '<div class="table-scroll"><table class="register">' +
-      '<thead><tr><th>Change</th><th>Lifecycle</th><th>Progress</th><th>Deps</th><th>Next work</th></tr></thead><tbody>';
-    changes.forEach((c) => {
-      const p = progressOf(c);
-      h += '<tr>' +
-        '<td><a class="change-link" href="#/c/' + encodeURIComponent(c.name) + '">' + esc(c.name) + '</a>' +
-        (c.why ? '<p class="sub next-work">' + esc(c.why) + '</p>' : '') + '</td>' +
-        '<td><span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + '</span></td>' +
-        '<td class="progress-cell"><div class="meter"><span style="width:' + p.pct + '%"></span></div>' +
-        '<span class="progress-label">' + progressLabel(c) + '</span></td>' +
-        '<td><span class="rel-count">' + relationshipCount(c.name) + '</span></td>' +
-        '<td><p class="next-work">' + esc(firstRemaining(c)) + '</p></td>' +
-        '</tr>';
-    });
-    h += '</tbody></table></div></section>';
-    h += '<aside class="ops-feed"><h2><span>Operator feed</span></h2><div class="ops-feed-body">';
-    const allIssues = diags.concat(feedIssues);
-    if (allIssues.length) {
-      allIssues.slice(0, 3).forEach((d) => {
-        h += '<div class="ops-event"><b>' + esc(d.kind) + '</b><p>' + esc(d.msg) + '</p></div>';
-      });
-    }
-    if (novelCands.length) {
-      novelCands.slice(0, 3).forEach((c) => {
-        h += '<div class="ops-event"><b>Suggested edge</b><p><code>' + esc(c.from) + '</code> -> <code>' + esc(c.to) + '</code></p></div>';
-      });
-    }
-    if (!allIssues.length && !novelCands.length) {
-      h += '<div class="ops-event"><b>Graph clean</b><p>No manifest diagnostics or novel suggested edges.</p></div>';
-    }
-    h += '</div></aside></div>';
-    if (edges.length === 0 && !novelCands.length) {
-      h += '<p style="margin-top:1.5rem;font-size:11px;color:var(--muted)">No cross-change dependencies defined ' +
-        "and no shared capabilities found to infer from. Add edges to <code>openspec/specutil.yaml</code>.</p>";
-    }
-    return h;
-  }
-
-  /* ---- detail body HTML (shared by full detail page and inline selection) ---- */
-  function renderDetailBody(name) {
-    const c = byName.get(name);
-    if (!c) return '';
-    const prog      = progressOf(c);
-    const pct       = prog.pct;
-    const remaining = [];
-    (c.phases || []).forEach((p) => (p.items || []).forEach((it) => { if (!it.done) remaining.push(it); }));
-    const deps = dependsOn(name), blks = blocks(name);
-    let h = '<div class="doc">';
-    h += '<div style="display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;margin-bottom:.85rem">';
-    h += '<h1 tabindex="-1" id="view-title">' + esc(c.name) + "</h1>";
-    h += '<span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + "</span>";
-    h += "</div>";
-    h += '<div class="doclayout"><div class="main">';
-    if (c.why || c.whatChanges) {
-      h += '<div class="narrative">';
-      if (c.why) {
-        h += '<div class="narrative-problem">' +
-          '<div class="narrative-label"><span class="narrative-label-text">Problem</span></div>' +
-          '<div class="narrative-body">' + md(c.why) + '</div>' +
-          '</div>';
-      }
-      if (c.why && c.whatChanges) {
-        h += '<div class="narrative-arrow" aria-hidden="true">&#8595; solves it by</div>';
-      }
-      if (c.whatChanges) {
-        h += '<div class="narrative-solution">' +
-          '<div class="narrative-label"><span class="narrative-label-text">Solution</span></div>' +
-          '<div class="narrative-body">' + md(c.whatChanges) + '</div>' +
-          '</div>';
-      }
-      h += '</div>';
-    }
-    h += '<div class="remaining">';
-    h += '<div class="remaining-head">Next work &mdash; ' + (prog.hasTasks ? remaining.length + " of " + prog.total + " outstanding" : "no tasks defined") + "</div>";
-    if (!prog.hasTasks) {
-      h += '<p class="alldone">No tasks defined</p>';
-    } else if (remaining.length === 0) {
-      h += '<p class="alldone">&#10003; All ' + prog.total + " tasks complete</p>";
-    } else {
-      h += '<div class="remaining-body"><ul class="tasks">';
-      remaining.forEach((it) => {
-        h += '<li>' +
-          '<span class="glyph todo" aria-hidden="true">&#9744;</span>' +
-          '<span class="key">' + esc(it.key) + "</span>" +
-          kindTag(it) +
-          extRefChips(it) +
-          '<span class="txt">' + esc(it.text) + "</span></li>";
-      });
-      h += "</ul></div>";
-    }
-    h += "</div>";
-    h += '<p class="eyebrow" style="margin-top:1.25rem">Tasks by phase</p>';
-    (c.phases || []).forEach((p) => {
-      const items = p.items || [];
-      const d     = items.filter((i) => i.done).length;
-      const phPct = items.length ? Math.round((d / items.length) * 100) : 0;
-      const open = d < items.length ? " open" : "";
-      h += '<details class="phase-block"' + open + '><summary class="phase-h">' +
-        '<h2>' + esc(p.number) + ". " + esc(p.name) + "</h2>" +
-        '<span class="ct tnum">' + d + "/" + items.length + " &middot; " + phPct + "%</span>" +
-        "</summary>";
-      h += '<div class="meter" style="margin:.2rem 0 .4rem"><span style="width:' + phPct + '%"></span></div>';
-      h += '<ul class="tasks">';
-      items.forEach((it) => {
-        h += '<li class="' + (it.done ? "done" : "") + '">' +
-          '<span class="glyph ' + (it.done ? "done" : "todo") + '" aria-hidden="true">' +
-          (it.done ? "&#10003;" : "&#9744;") + "</span>" +
-          '<span class="sr-only">' + (it.done ? "Done: " : "To do: ") + "</span>" +
-          '<span class="key">' + esc(it.key) + "</span>" +
-          kindTag(it) +
-          extRefChips(it) +
-          '<span class="txt">' + esc(it.text) + "</span></li>";
-      });
-      h += "</ul></details>";
-    });
-    h += "</div>";
-    h += '<aside class="rail">';
-    h += '<div class="panel">' +
-      '<div class="panel-title"><span class="panel-title-label">Progress</span></div>' +
-      '<div class="panel-body">' +
-      '<div class="progress-big">' +
-      '<span class="num">' + pct + '</span>' +
-      '<span style="font-family:var(--font-mono);font-size:.9rem;color:var(--muted)">%</span>' +
-      '<p class="label">' + progressLabel(c) + "</p>" +
-      "</div>" +
-      '<div class="meter" role="img" aria-label="' + pct + ' percent complete"><span style="width:' + pct + '%"></span></div>';
-    if ((c.phases || []).length) {
-      h += '<div class="chartwrap" style="height:' + (c.phases.length * 26 + 14) + 'px">' +
-        '<canvas id="phasechart" role="img" aria-label="' + esc(phaseChartLabel(c)) + '"></canvas></div>';
-      h += '<ul class="sr-only">' + c.phases.map((p) => {
-        const d = p.items.filter((i) => i.done).length;
-        return "<li>Phase " + esc(p.number) + " " + esc(p.name) + ": " + d + " of " + p.items.length + " done</li>";
-      }).join("") + "</ul>";
-    }
-    h += "</div></div>";
-    h += '<div class="panel">' +
-      '<div class="panel-title"><span class="panel-title-label">Relationships</span></div>' +
-      '<div class="panel-body">';
-    h += '<p class="eyebrow">Depends on</p>';
-    h += deps.length ? '<div class="chips">' + deps.map(chipLink).join("") + "</div>" : '<p class="none">Nothing &mdash; ready to start.</p>';
-    h += '<p class="eyebrow">Blocks</p>';
-    h += blks.length ? '<div class="chips">' + blks.map(chipLink).join("") + "</div>" : '<p class="none">Nothing downstream.</p>';
-    h += "</div></div>";
-    h += "</aside>";
-    h += "</div>";
-    h += "</div>";
-    return h;
-  }
-
-  /* ---- inline board selection ---- */
-  function selectInline(name) {
-    destroyChart();
-    inlineSelected = (inlineSelected === name) ? null : name;
-    updateOverviewContent();
-  }
-  window.__specutil_clearInline = () => { destroyChart(); inlineSelected = null; updateOverviewContent(); };
-
-  function updateOverviewContent() {
-    const area = document.getElementById("overview-content");
-    if (!area) return;
-    document.querySelectorAll(".bcard[data-change]").forEach((btn) => {
-      btn.classList.toggle("selected", btn.getAttribute("data-change") === inlineSelected);
-    });
-    if (inlineSelected && byName.has(inlineSelected)) {
-      area.innerHTML = '<button class="back" onclick="window.__specutil_clearInline()">&#9664; All workstreams</button>' +
-        renderDetailBody(inlineSelected);
-      const c = byName.get(inlineSelected);
-      if ((c.phases || []).length) initPhaseChart(c);
-    } else {
-      area.innerHTML = renderRegisterHTML();
-    }
-  }
-
-  function renderOverview() {
+  /* ================================================================
+     KANBAN VIEW
+     ================================================================ */
+  function renderKanban() {
+    destroyChart(); destroyCy();
     const tally = { active: 0, proposed: 0, archived: 0 };
     let done = 0, total = 0;
     changes.forEach((c) => {
@@ -1555,31 +762,21 @@ const SUGGEST = {{.SuggestJSON}};
       done += p.done; total += p.total;
     });
     const pct = total ? Math.round((done / total) * 100) : 0;
-    const novelCands = novelCandidateGroups();
 
-    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.75rem">Workstreams</h1>';
+    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.65rem">Workstreams</h1>';
     h += '<div class="tally">' +
       stat(tally.active,   "active")   +
       stat(tally.proposed, "proposed") +
       stat(tally.archived, "archived") +
-      '<div class="stat rollup"><b class="tnum">' + done + '<span style="font-size:.6em;font-weight:400;color:var(--muted)">/' + total + '</span></b><span>tasks &middot; ' + pct + '%</span></div>' +
-      (novelCands.length ? '<a class="stat" href="#/graph" style="text-decoration:none;border-style:dashed;cursor:pointer">' +
-        '<b class="tnum">' + novelCands.length + '</b><span>suggested edges</span></a>' : "") +
-      "</div>";
+      '<div class="stat"><b class="tnum">' + done +
+      '<span style="font-size:.6em;font-weight:400;color:var(--muted)">/' + total + '</span></b>' +
+      '<span>tasks · ' + pct + '%</span></div></div>';
 
-    if (hasDag()) {
-      h += '<section class="overview-graph">' +
-        '<div class="overview-graph-head"><b>Dependency graph</b><a class="btn" href="#/graph">Expand</a></div>' +
-        '<div class="dagwrap"></div></section>';
-    }
-
-    /* Board columns — clicking a card narrows the content area below */
-    h += '<div class="board" id="overview-board">';
+    h += '<div class="board">';
     LIFECYCLES.forEach((lc) => {
       const col = changes.filter((c) => c.lifecycle === lc);
-      h += '<section class="col">' +
-        '<header><span class="badge ' + lc + '">' + lc + '</span><span class="ct">' + col.length + "</span></header>" +
-        '<div class="col-body">';
+      h += '<section class="col"><div class="col-head"><span class="badge ' + lc + '">' + lc +
+        '</span><span class="ct">' + col.length + "</span></div><div class=\"col-body\">";
       if (!col.length) {
         h += '<p class="empty-col">None</p>';
       } else {
@@ -1587,115 +784,184 @@ const SUGGEST = {{.SuggestJSON}};
           const p = progressOf(c);
           h += '<button class="bcard" data-change="' + esc(c.name) + '">' +
             "<h3>" + esc(c.name) + "</h3>" +
-            '<div class="meter" style="margin:.3rem 0 .2rem"><span style="width:' + p.pct + '%"></span></div>' +
-            '<p class="sub tnum">' + progressLabel(c) + " &middot; " + ((c.phases || []).length) + " ph</p>" +
-            "</button>";
+            '<div class="meter"><span style="width:' + p.pct + '%"></span></div>' +
+            '<p class="sub">' + progressLabel(c) + " &middot; " + (c.phases || []).length + " phases</p></button>";
         });
       }
       h += "</div></section>";
     });
     h += "</div>";
 
-    /* Content area: register by default, detail panel when a card is selected */
-    h += '<div id="overview-content"></div>';
-
     view.innerHTML = h;
-
-    if (hasDag()) {
-      const slot = view.querySelector(".overview-graph .dagwrap");
-      if (slot) mountDag(slot);
-    }
-
     document.querySelectorAll(".bcard[data-change]").forEach((btn) => {
-      btn.addEventListener("click", () => selectInline(btn.getAttribute("data-change")));
+      btn.addEventListener("click", () => {
+        location.hash = "#/c/" + encodeURIComponent(btn.getAttribute("data-change"));
+      });
     });
-
-    updateOverviewContent();
-    if (sel) sel.value = "__overview__";
     afterRender();
   }
 
+  /* ================================================================
+     GRAPH VIEW
+     ================================================================ */
   function renderGraph() {
-    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.75rem">Dependency Graph</h1>';
-    h += '<div class="graph-shell">' +
-      '<aside class="graph-tools"><h2><span>Controls</span></h2><div class="graph-tools-body">' +
-      '<div class="control-group"><b>Graph mode</b><p class="metric">Depth DAG</p></div>' +
-      '<div class="control-group"><b>Show</b>' +
-      '<label class="checkline"><input type="checkbox" checked disabled> Confirmed edges</label>' +
-      '<label class="checkline"><input type="checkbox" checked disabled> Suggested edges</label>' +
-      '<label class="checkline"><input type="checkbox" checked disabled> Diagnostics</label></div>' +
-      '<div class="control-group"><b>Legend</b>' +
-      '<p><span class="badge active">active</span></p>' +
-      '<p><span class="badge proposed">proposed</span></p>' +
-      '<p><span class="badge archived">archived</span></p></div>' +
-      '</div></aside>' +
-      '<section class="graph-workbench">';
-    if (hasDag()) {
-      h += '<div class="dagwrap" aria-describedby="graph-help"></div>' +
-        '<p id="graph-help" class="metric" style="padding:.5rem .75rem;border-top:1px solid var(--line)">Arrows point from prerequisite to dependent. Focus or hover a node to inspect immediate relationships.</p>';
-    } else {
-      h += '<div class="graph-empty">No confirmed cross-change dependencies in <code>openspec/specutil.yaml</code>.</div>';
+    destroyChart(); destroyCy();
+    const novel = novelCandidateGroups();
+
+    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.65rem">Dependency Graph</h1>';
+    if (!changes.length) {
+      h += '<div class="graph-empty">No workstreams loaded.</div>';
+      view.innerHTML = h; afterRender(); return;
     }
-    h += '</section>' +
-      '<aside class="graph-inspector"><h2><span>Inspector</span></h2><div class="graph-inspector-body" id="graph-inspector-body">' +
-      '<p class="empty" style="margin-top:0">Focus a node to inspect its progress and relationships.</p>' +
+    h += '<div class="graph-shell">';
+    h += '<div class="graph-workbench"><div id="cy-container"></div></div>';
+    h += '<aside class="graph-inspector">' +
+      '<div class="graph-inspector-head"><span>Inspector</span></div>' +
+      '<div class="graph-inspector-body" id="graph-inspector-body">' +
+      '<p class="empty" style="margin-top:0">Hover a node to inspect cross-change deps and within-change task pipeline.</p>' +
       '</div></aside></div>';
 
-    /* ---- Suggested edges (always shown when present) ---- */
-    const novel = novelCandidateGroups();
     if (novel.length) {
-      h += '<div class="suggest-panel">';
-      h += '<div class="suggest-head">&#9670; Suggested edges (' + novel.length + ') &mdash; inferred from shared capabilities</div>';
-      h += '<div class="suggest-body"><table class="suggest-table">' +
-        '<thead><tr><th>From (prerequisite)</th><th>To (dependent)</th><th>Shared capabilities</th><th>Add to specutil.yaml</th></tr></thead><tbody>';
+      h += '<div class="suggest-panel"><div class="suggest-head"><span>Suggested edges</span> &mdash; inferred from shared capabilities (' + novel.length + ')</div>';
+      h += '<div class="suggest-body"><table class="suggest-table"><thead><tr>' +
+        '<th>From (prerequisite)</th><th>To (dependent)</th><th>Shared capabilities</th><th>Add to specutil.yaml</th>' +
+        '</tr></thead><tbody>';
       novel.forEach((c) => {
-        const snippet = esc(manifestSnippet(c));
-        h += '<tr>' +
-          '<td>' + chipLink(c.from) + "</td>" +
-          '<td>' + chipLink(c.to) + "</td>" +
-          '<td>' + c.capabilities.map((cap) => '<code>' + esc(cap) + '</code>').join(" ") + "</td>" +
-          '<td><code style="font-size:10px;white-space:pre">' + snippet + "</code></td>" +
-          "</tr>";
+        h += '<tr><td>' + chipLink(c.from) + '</td><td>' + chipLink(c.to) + '</td>' +
+          '<td>' + c.capabilities.map((cap) => '<code>' + esc(cap) + '</code>').join(" ") + '</td>' +
+          '<td><code style="font-size:10px;white-space:pre">' + esc(manifestSnippet(c)) + '</code></td></tr>';
       });
-      h += "</tbody></table></div></div>";
+      h += '</tbody></table></div></div>';
     }
 
     view.innerHTML = h;
-    if (hasDag()) { const slot = view.querySelector(".dagwrap"); if (slot) mountDag(slot); }
-    if (sel) sel.value = "__graph__";
+    initCy("cy-container");
     afterRender();
   }
 
-  function kindTag(it) {
-    const k = it.kind;
-    if (!k || k === "task") return "";
-    return '<span class="kind ' + esc(k) + '" title="' + esc(k) + ' step">' + esc(k) + "</span>";
-  }
-
-  function extRefChips(it) {
-    const refs = it.externalRefs;
-    if (!refs || !refs.length) return "";
-    return refs.map((r) => '<span class="ext-ref" title="' + esc(r.target) + '">' + esc(r.externalId) + "</span>").join("");
-  }
-
+  /* ================================================================
+     DRILLDOWN VIEW
+     ================================================================ */
   function renderDetail(name) {
+    destroyChart(); destroyCy();
     const c = byName.get(name);
-    if (!c) { renderOverview(); return; }
-    let h = "";
-    if (!single) h += '<a class="back" href="#/">&#9664; All workstreams</a>';
-    h += renderDetailBody(name);
+    if (!c) { renderKanban(); return; }
+    const prog = progressOf(c);
+    const remaining = (c.phases || []).flatMap((p) => (p.items || []).filter((it) => !it.done));
+    const deps = dependsOn(name), blks = blocks(name);
+
+    let h = '<a class="back" href="#/">&#9664; All workstreams</a>';
+    h += '<div class="doc"><div style="display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;margin-bottom:.65rem">';
+    h += '<h1 tabindex="-1" id="view-title">' + esc(c.name) + "</h1>";
+    h += '<span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + "</span></div>";
+    h += '<div class="doclayout"><div class="main">';
+
+    /* Task pipeline */
+    if ((c.phases || []).length) {
+      h += '<p class="eyebrow" style="margin-top:0">Task pipeline &mdash; phases run sequentially, tasks within a phase run in parallel</p>';
+      h += pipelineHTML(c);
+    }
+
+    /* Narrative */
+    if (c.why || c.whatChanges) {
+      h += '<div class="narrative">';
+      if (c.why) {
+        h += '<div class="narrative-problem">' +
+          '<div class="narrative-label"><span class="narrative-label-text">Why</span></div>' +
+          '<div class="narrative-body">' + md(c.why) + '</div></div>';
+      }
+      if (c.why && c.whatChanges) h += '<div class="narrative-arrow">&#8595;</div>';
+      if (c.whatChanges) {
+        h += '<div class="narrative-solution">' +
+          '<div class="narrative-label"><span class="narrative-label-text">What changes</span></div>' +
+          '<div class="narrative-body">' + md(c.whatChanges) + '</div></div>';
+      }
+      h += '</div>';
+    }
+
+    /* Outstanding tasks */
+    h += '<div class="remaining" style="margin-top:.5rem">';
+    h += '<div class="remaining-head">Outstanding &mdash; ' +
+      (prog.hasTasks ? remaining.length + " of " + prog.total : "no tasks defined") + "</div>";
+    if (!prog.hasTasks) {
+      h += '<p class="alldone">No tasks defined</p>';
+    } else if (!remaining.length) {
+      h += '<p class="alldone">&#10003; All ' + prog.total + " tasks complete</p>";
+    } else {
+      h += '<div class="remaining-body"><ul class="tasks">';
+      remaining.forEach((it) => {
+        h += '<li><span class="glyph todo" aria-hidden="true">&#9744;</span>' +
+          '<span class="key">' + esc(it.key) + "</span>" +
+          kindTag(it) + extRefChips(it) +
+          '<span class="txt">' + esc(it.text) + "</span></li>";
+      });
+      h += "</ul></div>";
+    }
+    h += "</div>";
+
+    /* Full task list by phase */
+    h += '<p class="eyebrow" style="margin-top:1.25rem">All tasks by phase</p>';
+    (c.phases || []).forEach((p) => {
+      const items = p.items || [];
+      const d = items.filter((i) => i.done).length;
+      const phPct = items.length ? Math.round((d / items.length) * 100) : 0;
+      h += '<details class="phase-block"' + (d < items.length ? " open" : "") + '><summary class="phase-h">' +
+        '<h2>' + esc(p.number) + ". " + esc(p.name) + "</h2>" +
+        '<span class="ct tnum">' + d + "/" + items.length + " &middot; " + phPct + "%</span></summary>";
+      h += '<div class="meter" style="margin:.2rem 0 .4rem"><span style="width:' + phPct + '%"></span></div>';
+      h += '<ul class="tasks">';
+      items.forEach((it) => {
+        h += '<li class="' + (it.done ? "done" : "") + '">' +
+          '<span class="glyph ' + (it.done ? "done" : "todo") + '" aria-hidden="true">' +
+          (it.done ? "&#10003;" : "&#9744;") + "</span>" +
+          '<span class="sr-only">' + (it.done ? "Done: " : "To do: ") + "</span>" +
+          '<span class="key">' + esc(it.key) + "</span>" +
+          kindTag(it) + extRefChips(it) +
+          '<span class="txt">' + esc(it.text) + "</span></li>";
+      });
+      h += "</ul></details>";
+    });
+
+    h += "</div>"; /* end .main */
+
+    /* Rail */
+    h += '<aside class="rail">';
+    h += '<div class="panel"><div class="panel-title"><span class="panel-title-label">Progress</span></div><div class="panel-body">';
+    h += '<div class="progress-big"><span class="num">' + prog.pct + '</span>' +
+      '<span style="font-family:var(--font-mono);font-size:.875rem;color:var(--muted)">%</span>' +
+      '<p class="label">' + progressLabel(c) + "</p></div>";
+    h += '<div class="meter" style="margin:.4rem 0"><span style="width:' + prog.pct + '%"></span></div>';
+    if ((c.phases || []).length) {
+      h += '<div class="chartwrap" style="height:' + (c.phases.length * 26 + 14) + 'px">' +
+        '<canvas id="phasechart"></canvas></div>';
+    }
+    h += "</div></div>";
+
+    h += '<div class="panel"><div class="panel-title"><span class="panel-title-label">Cross-change deps</span></div><div class="panel-body">';
+    h += '<p class="eyebrow" style="margin-top:0">Depends on</p>';
+    h += deps.length ? '<div class="chips">' + deps.map(chipLink).join("") + "</div>" : '<p class="none">Nothing upstream.</p>';
+    h += '<p class="eyebrow">Blocks</p>';
+    h += blks.length ? '<div class="chips">' + blks.map(chipLink).join("") + "</div>" : '<p class="none">Nothing downstream.</p>';
+    h += "</div></div>";
+    h += "</aside>";
+    h += "</div></div>"; /* end doclayout + doc */
+
     view.innerHTML = h;
-    if (sel) sel.value = name;
-    afterRender();
     if ((c.phases || []).length) initPhaseChart(c);
+    afterRender();
+  }
+
+  /* ---- empty state ---- */
+  function renderEmpty() {
+    destroyChart(); destroyCy();
+    view.innerHTML = '<h1 tabindex="-1" id="view-title">No workstreams found</h1>' +
+      '<p class="empty" style="margin-top:.5rem">Create changes under <code>openspec/changes/&lt;name&gt;/</code>, then run <code>specutil serve</code>.</p>';
+    afterRender();
   }
 
   /* ---- routing ---- */
-  let currentRoute = "/";
   function route() {
-    destroyChart();
-    inlineSelected = null;
-    if (changes.length === 0) { currentRoute = "/"; renderEmpty(); return; }
+    if (!changes.length) { currentRoute = "/"; renderEmpty(); return; }
     const h = location.hash.replace(/^#/, "");
     const m = h.match(/^\/c\/(.+)$/);
     if (m) {
@@ -1703,64 +969,42 @@ const SUGGEST = {{.SuggestJSON}};
       if (byName.has(name)) { currentRoute = "/c/" + name; renderDetail(name); return; }
     }
     if (h === "/graph") { currentRoute = "/graph"; renderGraph(); return; }
-    currentRoute = "/"; renderOverview();
+    currentRoute = "/"; renderKanban();
   }
 
-  /* ---- app bar ---- */
-  const right = document.getElementById("appbar-right");
-
+  /* ---- tabs + afterRender ---- */
+  function afterRender() {
+    const t = document.getElementById("view-title");
+    if (t) { t.focus(); if (live) live.textContent = t.textContent; }
+    syncTabs();
+  }
+  const navTabs = document.getElementById("nav-tabs");
   function syncTabs() {
-    document.querySelectorAll(".tabs a").forEach((a) => {
-      const r  = a.getAttribute("data-route");
-      const on = (r === "/" && currentRoute === "/") ||
+    navTabs.querySelectorAll("a").forEach((a) => {
+      const r = a.getAttribute("data-route");
+      const on = (r === "/" && (currentRoute === "/" || currentRoute.startsWith("/c/"))) ||
                  (r === "/graph" && currentRoute === "/graph");
       a.classList.toggle("on", !!on);
     });
   }
-
   if (changes.length) {
-    const tabs = document.createElement("nav");
-    tabs.className = "tabs";
-    [["/", "Overview"], ["/graph", "Graph"]].forEach(([r, label]) => {
+    [["/" , "Kanban"], ["/graph", "Graph"]].forEach(([r, label]) => {
       const a = document.createElement("a");
       a.href = "#" + r; a.textContent = label; a.setAttribute("data-route", r);
-      tabs.appendChild(a);
+      navTabs.appendChild(a);
     });
-    right.appendChild(tabs);
-  }
-
-  if (changes.length) {
-    sel = document.createElement("select");
-    sel.setAttribute("aria-label", "Jump to a workstream");
-    const o0 = document.createElement("option");
-    o0.value = "__overview__"; o0.textContent = "Overview";
-    sel.appendChild(o0);
-    const og = document.createElement("option");
-    og.value = "__graph__"; og.textContent = "Graph";
-    sel.appendChild(og);
-    changes.forEach((c) => {
-      const o = document.createElement("option"); o.value = c.name; o.textContent = c.name; sel.appendChild(o);
-    });
-    sel.addEventListener("change", () => {
-      const v = sel.value;
-      location.hash = v === "__overview__" ? "#/" :
-                      v === "__graph__"    ? "#/graph" :
-                                            "#/c/" + encodeURIComponent(v);
-    });
-    right.appendChild(sel);
   }
 
   /* ---- diagnostics banner ---- */
   const bannerIssues = diags.concat(feedIssues);
   if (bannerIssues.length) {
-    const b     = document.getElementById("diag-banner");
-    const kinds = Array.from(new Set(bannerIssues.map((d) => d.kind))).join(", ");
+    const b = document.getElementById("diag-banner");
+    const kinds = [...new Set(bannerIssues.map((d) => d.kind))].join(", ");
     b.innerHTML = "<b>Data problems (" + esc(kinds) + "):</b><ul>" +
       bannerIssues.map((d) => "<li>" + esc(d.msg) + "</li>").join("") + "</ul>";
     b.hidden = false;
   }
-
-  if (window.__cdnFail && window.__cdnFail.length) { document.getElementById("offline-note").hidden = false; }
+  if (window.__cdnFail && window.__cdnFail.length) document.getElementById("offline-note").hidden = false;
 
   window.addEventListener("hashchange", route);
   route();
