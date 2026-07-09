@@ -8,38 +8,41 @@
 <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js" integrity="sha384-IWROdLKRsN1UuJywMlWl7/blXQ8GEooN2n7dzTxfEPd7ybYIKCUJ2Ol/1Gpf3YV4" crossorigin="anonymous" onerror="(window.__cdnFail=window.__cdnFail||[]).push('cytoscape')"></script>
 <style>
 /* ================================================================
-   SPECUTIL — neo-industrial system.css theme
+   SPECUTIL — clean professional theme
    ================================================================ */
 
 :root {
   color-scheme: light;
-  --bg:        #d4d0c6;
-  --content:   #fffefa;
-  --surface-2: #f4f3ec;
-  --surface-3: #eae7dd;
-  --ink:       #111111;
-  --muted:     #565656;
-  --line:      #9d988e;
-  --line-dark: #1f1f1f;
+  --bg:        #f3f4f6;
+  --content:   #ffffff;
+  --surface-2: #f9fafb;
+  --surface-3: #f3f4f6;
+  --ink:       #111827;
+  --muted:     #6b7280;
+  --line:      #e5e7eb;
+  --line-dark: #d1d5db;
 
-  --accent:    #002f86;
+  --accent:    #4f46e5;
   --accent-on: #ffffff;
 
-  --lc-proposed-bg:   #dce6ff; --lc-proposed-ink: #002f86; --lc-proposed-line: #8ca7d9;
-  --lc-active-bg:     #fff1c8; --lc-active-ink:   #8a5900; --lc-active-line:   #d0a53b;
-  --lc-archived-bg:   #dcf0df; --lc-archived-ink: #116232; --lc-archived-line: #79aa80;
+  --lc-proposed-bg:   #ede9fe; --lc-proposed-ink: #4338ca; --lc-proposed-line: #c4b5fd;
+  --lc-active-bg:     #fef3c7; --lc-active-ink:   #92400e; --lc-active-line:   #fcd34d;
+  --lc-archived-bg:   #d1fae5; --lc-archived-ink: #065f46; --lc-archived-line: #6ee7b7;
 
-  --done:    #116232;
-  --warn-bg: #fff1c8; --warn-line: #d0a53b; --warn-ink: #8a5900;
-  --err-bg:  #ffe0d7; --err-line:  #c77564; --err-ink:  #9a1e1e;
+  --done:    #059669;
+  --warn-bg: #fef3c7; --warn-line: #fcd34d; --warn-ink: #92400e;
+  --err-bg:  #fee2e2; --err-line:  #fca5a5; --err-ink:  #991b1b;
 
-  --font-ui:   -apple-system, BlinkMacSystemFont, "Geneva", "Helvetica Neue", Arial, sans-serif;
+  --font-ui:   -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Arial, sans-serif;
   --font-mono: "Monaco", "Menlo", ui-monospace, "SFMono-Regular", Consolas, monospace;
 
-  --hard-shadow:    2px 2px 0 #111;
-  --hard-shadow-sm: 1px 1px 0 #111;
-  --panel-head-bg:  #111111;
-  --panel-head-fg:  #fffefa;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
+  --shadow:    0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+  /* keep legacy names so existing uses still compile */
+  --hard-shadow:    var(--shadow);
+  --hard-shadow-sm: var(--shadow-sm);
+  --panel-head-bg:  #1f2937;
+  --panel-head-fg:  #f9fafb;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -47,10 +50,7 @@ html { font-size: 16px; }
 body {
   font-family: var(--font-ui); font-size: 13px; line-height: 1.5;
   color: var(--ink);
-  background:
-    linear-gradient(90deg, rgba(0,0,0,.05) 1px, transparent 1px),
-    linear-gradient(rgba(0,0,0,.04) 1px, transparent 1px), var(--bg);
-  background-size: 16px 16px;
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
 a { color: var(--accent); text-decoration: none; }
@@ -65,33 +65,33 @@ code {
   background: var(--surface-2); border: 1px solid var(--line);
   padding: .05em .3em; color: var(--ink);
 }
-.wrap { max-width: 90rem; margin: 0 auto; padding: 0 .875rem 4rem; }
+.wrap { max-width: 76rem; margin: 0 auto; padding: 0 1.25rem 4rem; }
 .tnum { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
 
 /* ================================================================
    APP BAR
    ================================================================ */
 .appbar {
-  background: var(--content);
-  border-bottom: 2px solid var(--ink);
-  padding: .35rem 0;
-  margin-bottom: .85rem;
+  background: #111827;
+  border-bottom: 1px solid #374151;
+  padding: .4rem 0;
+  margin-bottom: 1.25rem;
   display: flex; align-items: center; gap: 0;
 }
 .appbar .brand {
-  font-weight: 700; font-size: 13px; color: var(--ink);
-  text-decoration: none; padding: 3px 10px 3px 0;
-  border-right: 1px solid var(--line); margin-right: .5rem;
+  font-weight: 700; font-size: 13px; color: #f9fafb;
+  text-decoration: none; padding: 3px 12px 3px 0;
+  border-right: 1px solid #374151; margin-right: .5rem;
 }
 .appbar .brand:hover { text-decoration: none; }
 .tabs { display: flex; }
 .tabs a {
-  font-size: 12px; font-weight: 600;
+  font-size: 12px; font-weight: 500;
   padding: 5px 14px; text-decoration: none;
-  color: var(--ink); background: var(--content);
+  color: #9ca3af; background: transparent;
 }
-.tabs a:hover { background: var(--surface-2); text-decoration: none; }
-.tabs a.on { background: var(--ink); color: var(--content); }
+.tabs a:hover { color: #f9fafb; text-decoration: none; }
+.tabs a.on { color: #f9fafb; border-bottom: 2px solid var(--accent); }
 
 /* ================================================================
    BADGES / METERS / STATS
@@ -105,14 +105,14 @@ code {
 .badge.active   { background: var(--lc-active-bg);   color: var(--lc-active-ink);   border-color: var(--lc-active-line); }
 .badge.archived { background: var(--lc-archived-bg); color: var(--lc-archived-ink); border-color: var(--lc-archived-line); }
 
-.meter { height: 6px; background: var(--surface-3); border: 1px solid var(--ink); overflow: hidden; }
-.meter > span { display: block; height: 100%; background: var(--accent); }
+.meter { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.meter > span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
 .metric { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
 
 .tally { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .85rem; }
 .stat {
-  background: var(--content); border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow); padding: .5rem .85rem; min-width: 5rem;
+  background: var(--content); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: var(--shadow-sm); padding: .5rem .85rem; min-width: 5rem;
 }
 .stat b { display: block; font-family: var(--font-mono); font-size: 1.4rem; font-weight: 700; line-height: 1.1; }
 .stat span { display: block; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: .15rem; }
@@ -120,32 +120,32 @@ code {
 /* ================================================================
    KANBAN BOARD
    ================================================================ */
-.board { display: grid; grid-template-columns: repeat(3, 1fr); gap: .65rem; align-items: start; }
-.board .col { background: var(--surface-2); border: 1px solid var(--ink); box-shadow: var(--hard-shadow); }
+.board { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; align-items: start; }
+.board .col { background: var(--content); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-sm); overflow: hidden; }
 .board .col-head {
-  background: var(--panel-head-bg);
-  padding: 3px 7px; display: flex; justify-content: space-between; align-items: center;
-  border-bottom: 1px solid var(--ink);
+  background: var(--surface-2);
+  padding: 6px 12px; display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--line);
 }
-.board .col-head .badge { border-color: rgba(255,255,255,.25); }
+.board .col-head .badge { }
 .board .col-head .ct {
-  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
-  background: rgba(255,255,255,.15); color: var(--panel-head-fg); padding: 0 4px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  color: var(--muted);
 }
-.board .col-body { padding: .4rem; }
+.board .col-body { padding: .5rem; }
 .board .bcard {
   appearance: none; -webkit-appearance: none;
   display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
-  background: var(--content); border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow-sm);
-  padding: .5rem .6rem; margin-bottom: .35rem; transition: none;
+  background: var(--content); border: 1px solid var(--line); border-radius: 6px;
+  box-shadow: var(--shadow-sm);
+  padding: .6rem .75rem; margin-bottom: .4rem; transition: box-shadow .15s, border-color .15s;
 }
 .board .bcard:last-child { margin-bottom: 0; }
-.board .bcard:hover { box-shadow: var(--hard-shadow); transform: translate(-1px, -1px); }
-.board .bcard h3 { font-size: .8125rem; line-height: 1.3; }
-.board .bcard .sub { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: .25rem; }
-.board .bcard .meter { margin: .3rem 0 0; height: 3px; }
-.board .empty-col { font-size: 11px; color: var(--muted); padding: .4rem; }
+.board .bcard:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+.board .bcard h3 { font-size: .8125rem; line-height: 1.3; font-weight: 600; }
+.board .bcard .sub { font-size: 11px; color: var(--muted); margin-top: .3rem; }
+.board .bcard .meter { margin: .4rem 0 0; height: 3px; }
+.board .empty-col { font-size: 11px; color: var(--muted); padding: .5rem .75rem; }
 @media (max-width: 42rem) { .board { grid-template-columns: 1fr; } }
 
 /* ================================================================
@@ -157,48 +157,60 @@ code {
 }
 .graph-workbench { min-width: 0; }
 #cy-container {
-  width: 100%; min-height: 420px;
-  border: 1px solid var(--ink); box-shadow: var(--hard-shadow);
-  background-color: var(--surface-2);
-  background-image:
-    linear-gradient(90deg, rgba(0,0,0,.06) 1px, transparent 1px),
-    linear-gradient(rgba(0,0,0,.06) 1px, transparent 1px);
-  background-size: 24px 24px;
+  width: 100%; height: calc(100vh - 220px); min-height: 340px; max-height: 68vh;
+  border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-sm);
+  background: var(--surface-2);
 }
 .graph-inspector {
-  background: var(--content); border: 1px solid var(--ink);
-  box-shadow: var(--hard-shadow); overflow: hidden;
+  background: var(--content); border: 1px solid var(--line);
+  border-radius: 8px; box-shadow: var(--shadow-sm); overflow: hidden;
 }
 .graph-inspector-head {
-  background: var(--panel-head-bg); color: var(--panel-head-fg);
-  border-bottom: 1px solid var(--ink); padding: 4px 8px;
-  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
-  letter-spacing: .06em; text-transform: uppercase;
+  background: var(--surface-2); color: var(--muted);
+  border-bottom: 1px solid var(--line); padding: 6px 10px;
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
 }
 .graph-inspector-head span { opacity: .65; font-weight: 400; }
-.graph-inspector-body { padding: .65rem .75rem; overflow-y: auto; max-height: 420px; }
+.graph-inspector-body { padding: .65rem .75rem; overflow-y: auto; max-height: calc(100vh - 260px); }
 .graph-empty { padding: 1.5rem; color: var(--muted); line-height: 1.6; }
 .graph-toolbar { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
 .graph-hint-text { font-size: 11px; color: var(--muted); }
+
+.graph-status-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .5rem;
+  margin: .4rem 0 .65rem;
+}
+.graph-status-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 500; color: var(--ink);
+  background: var(--content); border: 1px solid var(--line); border-radius: 20px;
+  padding: 2px 8px;
+}
+.gsc-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--chip-color, #9ca3af); flex-shrink: 0;
+}
+
 .graph-legend {
   display: flex; gap: .75rem; flex-wrap: wrap; margin-top: .4rem;
   font-size: 10px; color: var(--muted); align-items: center;
 }
 .legend-item { display: flex; align-items: center; gap: .3rem; }
 .legend-line { display: inline-block; width: 24px; height: 0; vertical-align: middle; }
-.legend-line.sequential { border-top: 2px solid #999; }
-.legend-line.cross      { border-top: 2px dashed #002f86; }
-.legend-line.suggested  { border-top: 2px dotted #bbb; }
+.legend-line.sequential { border-top: 2px solid #d1d5db; }
+.legend-line.blocking   { border-top: 2px dashed #f97316; }
+.legend-line.satisfied  { border-top: 2px solid #86efac; }
+.legend-line.suggested  { border-top: 2px dotted #d1d5db; }
 @media (max-width: 52rem) { .graph-shell { grid-template-columns: 1fr; } }
 
 /* ================================================================
    SUGGESTED EDGES
    ================================================================ */
-.suggest-panel { margin-top: .85rem; border: 1px solid var(--ink); box-shadow: var(--hard-shadow); overflow: hidden; }
+.suggest-panel { margin-top: .85rem; border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-sm); overflow: hidden; }
 .suggest-head {
-  background: var(--panel-head-bg); color: var(--panel-head-fg); padding: 3px 8px;
-  border-bottom: 1px solid var(--ink); font-family: var(--font-mono);
-  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  background: var(--surface-2); color: var(--muted); padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
 }
 .suggest-head span { opacity: .65; font-weight: 400; }
 .suggest-body { background: var(--content); padding: .6rem .75rem; overflow-x: auto; }
@@ -216,14 +228,14 @@ code {
 .doc { margin-top: .25rem; }
 .doclayout { display: grid; grid-template-columns: 1fr 15rem; gap: 1.25rem; align-items: start; }
 .doclayout .rail { position: sticky; top: .75rem; }
-.rail .panel { background: var(--content); border: 1px solid var(--ink); box-shadow: var(--hard-shadow); overflow: hidden; margin-bottom: .5rem; }
+.rail .panel { background: var(--content); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: .65rem; }
 .rail .panel-title {
-  background: var(--panel-head-bg); color: var(--panel-head-fg);
-  padding: 3px 8px; border-bottom: 1px solid var(--ink);
+  background: var(--surface-2); color: var(--muted);
+  padding: 6px 10px; border-bottom: 1px solid var(--line);
 }
 .rail .panel-title-label {
-  color: var(--panel-head-fg); font-size: 10px; font-weight: 700;
-  letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); font-size: 11px; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase;
 }
 .rail .panel-body { padding: .6rem .75rem; }
 @media (max-width: 52rem) { .doclayout { grid-template-columns: 1fr; } .doclayout .rail { position: static; } }
@@ -237,16 +249,16 @@ code {
    NARRATIVE — collapsed by default (progressive disclosure)
    ================================================================ */
 .narrative { margin: 0 0 1rem; display: flex; flex-direction: column; gap: .35rem; }
-details.narrative-block { border: 1px solid var(--ink); box-shadow: var(--hard-shadow); overflow: hidden; }
+details.narrative-block { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 summary.narrative-summary {
-  background: var(--panel-head-bg); color: var(--panel-head-fg);
-  padding: 3px 8px; cursor: pointer; list-style: none; user-select: none;
+  background: var(--surface-2); color: var(--ink);
+  padding: 5px 10px; cursor: pointer; list-style: none; user-select: none;
   display: flex; align-items: center; gap: .4rem; border-bottom: 0;
-  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  font-size: 11px; font-weight: 600;
 }
-details.narrative-block[open] summary.narrative-summary { border-bottom: 1px solid var(--ink); }
+details.narrative-block[open] summary.narrative-summary { border-bottom: 1px solid var(--line); }
 summary.narrative-summary::-webkit-details-marker { display: none; }
-summary.narrative-summary::before { content: "+"; font-family: var(--font-mono); font-weight: 700; }
+summary.narrative-summary::before { content: "+"; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
 details.narrative-block[open] summary.narrative-summary::before { content: "−"; }
 .narrative-body { padding: .6rem .85rem; background: var(--content); font-size: 12px; line-height: 1.55; }
 .narrative-body p { margin: .3rem 0; }
@@ -254,30 +266,61 @@ details.narrative-block[open] summary.narrative-summary::before { content: "−"
 .narrative-body ul.md li { margin: .2rem 0; }
 
 /* ================================================================
-   TASK PIPELINE
+   STAGE FLOW (replaces dense task-pill pipeline)
    ================================================================ */
+.stage-flow {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 3px;
+  margin: .4rem 0 1rem;
+}
+.sf-pair {
+  display: flex; align-items: center; gap: 3px;
+  /* arrow stays with its stage — never orphans on a new line */
+}
+.stage-flow-item {
+  display: flex; align-items: center; gap: 3px;
+  background: var(--content); border: 1px solid var(--line); border-radius: 6px;
+  padding: 3px 8px; font-size: 11px; font-weight: 500;
+  cursor: default; max-width: 200px;
+  transition: border-color .12s;
+}
+.stage-flow-item:hover { border-color: var(--accent); }
+.stage-flow-item .sf-num { font-family: var(--font-mono); font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.stage-flow-item .sf-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.stage-flow-item .sf-pct {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600; flex-shrink: 0;
+  margin-left: 2px; padding: 1px 4px; border-radius: 4px;
+  background: var(--lc-archived-bg); color: var(--lc-archived-ink);
+}
+.stage-flow-item .sf-pct.partial { background: var(--lc-proposed-bg); color: var(--lc-proposed-ink); }
+.stage-flow-item .sf-pct.empty   { background: var(--surface-3); color: var(--muted); }
+.stage-flow-arrow { color: var(--muted); font-size: 11px; flex-shrink: 0; user-select: none; }
+
+/* compact single-line strip for inspector panel */
+.stage-flow-compact {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 2px;
+  margin: .25rem 0;
+}
+.sfc-arrow { color: var(--line-dark); font-size: 10px; flex-shrink: 0; }
+.sfc-pill {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: var(--lc-archived-bg); border: 1px solid var(--lc-archived-line);
+  border-radius: 4px; padding: 1px 5px; cursor: default;
+}
+.sfc-pill.partial { background: var(--lc-proposed-bg); border-color: var(--lc-proposed-line); }
+.sfc-pill.empty   { background: var(--surface-3); border-color: var(--line); }
+.sfc-n { font-family: var(--font-mono); font-size: 9px; color: var(--muted); font-weight: 700; }
+.sfc-p { font-family: var(--font-mono); font-size: 9px; font-weight: 700; color: var(--ink); }
+
+/* kept for inspector only */
 .pipeline {
   display: flex; align-items: flex-start; gap: 0;
-  margin: .5rem 0 .85rem; overflow-x: auto;
-  padding-bottom: .25rem;
+  margin: .5rem 0 .85rem; overflow-x: auto; padding-bottom: .25rem;
 }
 .pipe-stage { display: flex; flex-direction: column; flex: 1; min-width: 6.5rem; }
-.pipe-arrow {
-  display: flex; align-items: center; padding: 0 .3rem;
-  color: var(--muted); font-size: 10px; flex-shrink: 0; margin-top: 1.3rem;
-}
-.pipe-phase-head {
-  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
-  letter-spacing: .07em; text-transform: uppercase;
-  color: var(--muted); padding: 0 0 .2rem;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+.pipe-arrow { display: flex; align-items: center; padding: 0 .3rem; color: var(--muted); font-size: 10px; flex-shrink: 0; margin-top: 1.3rem; }
+.pipe-phase-head { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 0 0 .2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pipe-tasks { display: flex; flex-direction: column; gap: 2px; }
-.pipe-task {
-  border: 1px solid var(--line); background: var(--content);
-  padding: 2px 5px; font-family: var(--font-mono); font-size: 9px; color: var(--ink);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+.pipe-task { border: 1px solid var(--line); background: var(--content); padding: 2px 5px; font-family: var(--font-mono); font-size: 9px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pipe-task.done { background: var(--surface-2); color: var(--muted); text-decoration: line-through; }
 .pipe-key { font-weight: 700; margin-right: .25rem; }
 .pipe-bar { height: 3px; background: var(--line); margin-top: .3rem; overflow: hidden; }
@@ -286,7 +329,7 @@ details.narrative-block[open] summary.narrative-summary::before { content: "−"
 /* ================================================================
    TASK ROWS — Linear/Jira style
    ================================================================ */
-.task-list { border: 1px solid var(--ink); box-shadow: var(--hard-shadow-sm); overflow: hidden; }
+.task-list { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .task-row {
   display: grid; grid-template-columns: 22px 36px 1fr auto;
   align-items: center; gap: 0;
@@ -337,18 +380,20 @@ ul.tasks li.done .txt { color: var(--muted); text-decoration: line-through; text
   letter-spacing: .04em; padding: 1px 5px;
   background: var(--surface-3); border: 1px solid var(--line); color: var(--muted);
 }
-.phase-block { margin-top: .85rem; }
+.phase-block { margin-top: .65rem; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .phase-block > summary { cursor: pointer; list-style: none; }
 .phase-block > summary::-webkit-details-marker { display: none; }
 .phase-h {
-  display: flex; justify-content: space-between; align-items: baseline;
-  gap: 1rem; padding: .3rem 0; border-bottom: 2px solid var(--ink);
+  display: flex; align-items: center;
+  gap: .5rem; padding: 6px 10px;
+  background: var(--surface-2); border-bottom: 1px solid transparent;
 }
-.phase-h::before { content: "+"; font-family: var(--font-mono); font-weight: 700; margin-right: .25rem; }
+.phase-block[open] > summary .phase-h { border-bottom-color: var(--line); }
+.phase-h::before { content: "+"; font-family: var(--font-mono); font-size: 12px; color: var(--muted); flex-shrink: 0; }
 .phase-block[open] .phase-h::before { content: "−"; }
-.phase-h h2 { margin: 0; font-size: .875rem; }
-.phase-h .ct { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--muted); }
-.phase-block.has-open > summary .phase-h { border-bottom-color: var(--accent); }
+.phase-h h2 { margin: 0; font-size: .875rem; flex: 1; }
+.phase-h .ct { font-family: var(--font-mono); font-size: 11px; color: var(--muted); flex-shrink: 0; margin-left: auto; }
+.phase-block.has-open > summary .phase-h { border-left: 3px solid var(--accent); padding-left: 7px; background: #eef2ff; }
 .phase-open-badge {
   font-family: var(--font-mono); font-size: 9px; font-weight: 700; padding: 1px 4px;
   background: var(--lc-proposed-bg); color: var(--lc-proposed-ink); border: 1px solid var(--lc-proposed-line);
@@ -367,31 +412,37 @@ ul.tasks li.done .txt { color: var(--muted); text-decoration: line-through; text
 .chips { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .35rem; }
 .chip {
   display: inline-block; font-size: 11px; font-weight: 600;
-  padding: 1px 7px; border: 1px solid var(--ink); box-shadow: var(--hard-shadow-sm);
-  text-decoration: none; color: var(--ink); background: var(--content);
+  padding: 2px 8px; border: 1px solid var(--line); border-radius: 4px;
+  text-decoration: none; color: var(--accent); background: var(--content);
+  transition: border-color .12s, background .12s;
 }
-.chip:hover { background: var(--ink); color: var(--content); text-decoration: none; }
+.chip:hover { background: var(--surface-2); border-color: var(--accent); text-decoration: none; }
 .none { font-size: 11px; color: var(--muted); margin: .25rem 0 0; }
 
 .btn {
   display: inline-flex; align-items: center; gap: .35rem;
   font-size: 12px; font-weight: 600;
-  min-height: 26px; padding: 3px 10px;
-  background: var(--content); color: var(--ink);
-  border: 1px solid var(--ink); box-shadow: var(--hard-shadow);
-  cursor: pointer; text-decoration: none; white-space: nowrap; transition: none;
+  min-height: 28px; padding: 4px 12px;
+  background: var(--accent); color: var(--accent-on);
+  border: 1px solid var(--accent); border-radius: 6px;
+  cursor: pointer; text-decoration: none; white-space: nowrap;
+  transition: opacity .12s;
 }
-.btn:hover { background: var(--surface-2); text-decoration: none; }
-.btn:active { background: var(--ink); color: var(--content); box-shadow: none; transform: translate(2px,2px); }
+.btn:hover { opacity: .88; text-decoration: none; }
+.btn:active { opacity: .76; }
+.btn.btn-ghost {
+  background: var(--content); color: var(--ink);
+  border-color: var(--line-dark);
+}
+.btn.btn-ghost:hover { background: var(--surface-2); opacity: 1; }
 
 .back {
   display: inline-flex; align-items: center; gap: .3rem;
-  font-size: 12px; font-weight: 600; margin-bottom: .65rem;
-  color: var(--ink); text-decoration: none;
-  border: 1px solid var(--ink); padding: 2px 10px;
-  background: var(--content); box-shadow: var(--hard-shadow-sm);
+  font-size: 12px; font-weight: 500; margin-bottom: .65rem;
+  color: var(--muted); text-decoration: none;
+  padding: 2px 0;
 }
-.back:hover { background: var(--ink); color: var(--content); text-decoration: none; }
+.back:hover { color: var(--ink); text-decoration: none; }
 .doc p { line-height: 1.6; margin: .4rem 0; font-size: 12px; }
 .doc ul.md { margin: .25rem 0 .6rem; padding-left: 1.2rem; }
 .doc ul.md li { margin: .2rem 0; line-height: 1.5; font-size: 12px; }
@@ -533,7 +584,51 @@ const SUGGEST = {{.SuggestJSON}};
   function destroyChart() { if (window.__chart) { window.__chart.destroy(); window.__chart = null; } }
   function destroyCy() { if (cyInstance) { cyInstance.destroy(); cyInstance = null; } }
 
-  /* ---- task pipeline HTML (within-change) ---- */
+  /* ---- stage flow — compact breadcrumb-style overview ---- */
+  function stageFlowHTML(c, opts) {
+    const phases = c.phases || [];
+    if (!phases.length) return "";
+    const compact = opts && opts.compact;
+    if (compact) {
+      /* inspector compact: single-line pill strip — number + % only, no stage name */
+      let h = '<div class="stage-flow-compact">';
+      phases.forEach((p, pi) => {
+        const items = p.items || [];
+        const d = items.filter((i) => i.done).length;
+        const pct = items.length ? Math.round((d / items.length) * 100) : 0;
+        const pctClass = pct === 100 ? "" : pct > 0 ? " partial" : " empty";
+        if (pi > 0) h += '<span class="sfc-arrow">&#8594;</span>';
+        h += '<span class="sfc-pill' + pctClass + '" title="Stage ' + esc(p.number) + ': ' + esc(p.name) + '">' +
+          '<span class="sfc-n">' + esc(p.number) + '</span>' +
+          '<span class="sfc-p">' + pct + '%</span>' +
+          '</span>';
+      });
+      h += '</div>';
+      return h;
+    }
+    let h = '<div class="stage-flow">';
+    phases.forEach((p, pi) => {
+      const items = p.items || [];
+      const d = items.filter((i) => i.done).length;
+      const pct = items.length ? Math.round((d / items.length) * 100) : 0;
+      const pctClass = pct === 100 ? "" : pct > 0 ? " partial" : " empty";
+      /* wrap arrow+item together so they never split across lines */
+      if (pi > 0) {
+        h += '<div class="sf-pair"><span class="stage-flow-arrow">&#8594;</span>';
+      } else {
+        h += '<div class="sf-pair">';
+      }
+      h += '<div class="stage-flow-item">' +
+        '<span class="sf-num">' + esc(p.number) + '</span>' +
+        '<span class="sf-name">' + esc(p.name) + '</span>' +
+        '<span class="sf-pct' + pctClass + '">' + pct + '%</span>' +
+        '</div></div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  /* ---- task pipeline HTML (inspector/graph hover only) ---- */
   function pipelineHTML(c) {
     const phases = c.phases || [];
     if (!phases.length) return "";
@@ -557,23 +652,98 @@ const SUGGEST = {{.SuggestJSON}};
     return h;
   }
 
-  /* ---- inspector HTML (shared between graph hover + detail sidebar) ---- */
+  /* ================================================================
+     WORK GRAPH — status computation
+     Answers: what can I work on now? what's blocked? what's done?
+     ================================================================ */
+
+  /* changeStatus returns one of: "done" | "blocked" | "in-progress" | "ready" | "waiting" */
+  function changeStatus(c) {
+    if (!c) return "waiting";
+    const lifecycle = c.lifecycle || "proposed";
+    if (lifecycle === "archived") return "done";
+    const deps = dependsOn(c.name);
+    const allDepsDone = deps.every((d) => { const dc = byName.get(d); return dc && dc.lifecycle === "archived"; });
+    if (lifecycle === "active") return allDepsDone ? "in-progress" : "blocked";
+    /* proposed */
+    return allDepsDone ? "ready" : "waiting";
+  }
+
+  /* edgeStatus: is this dependency satisfied or still blocking? */
+  function edgeStatus(fromId) {
+    const fc = byName.get(fromId);
+    if (fc && fc.lifecycle === "archived") return "satisfied";
+    return "blocking";
+  }
+
+  /* inspector HTML — work-graph aware */
   function inspectorHTML(id) {
     const c = byName.get(id);
     if (!c) return '<p class="empty" style="margin-top:0">No detail entry for <code>' + esc(id) + '</code>.</p>';
-    const p = progressOf(c);
-    const deps = dependsOn(id), blks = blocks(id);
-    return '<div style="display:flex;align-items:baseline;gap:.4rem;flex-wrap:wrap;margin-bottom:.5rem">' +
+    const p   = progressOf(c);
+    const dep = dependsOn(id), blks = blocks(id);
+    const st  = changeStatus(c);
+    const statusLabel = { done: "Done", blocked: "Blocked", "in-progress": "In progress", ready: "Ready to start", waiting: "Waiting" };
+    const statusClass = { done: "archived", blocked: "active", "in-progress": "active", ready: "proposed", waiting: "proposed" };
+
+    /* blocked-by: upstream deps that are not yet done */
+    const blockedBy = dep.filter((d) => { const dc = byName.get(d); return !dc || dc.lifecycle !== "archived"; });
+    /* unlocks: downstream changes that would become ready if this finishes */
+    const unlocks   = blks.filter((b) => {
+      const bc  = byName.get(b); if (!bc) return false;
+      const bDeps = dependsOn(b).filter((d) => d !== id);
+      return bDeps.every((d) => { const dc = byName.get(d); return dc && dc.lifecycle === "archived"; });
+    });
+
+    const nextTask = firstRemaining(c);
+
+    let h = '<div style="display:flex;align-items:baseline;gap:.4rem;flex-wrap:wrap;margin-bottom:.4rem">' +
       '<strong>' + esc(c.name) + '</strong>' +
-      '<span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + '</span></div>' +
-      '<div class="meter" style="margin:.3rem 0 .2rem"><span style="width:' + p.pct + '%"></span></div>' +
-      '<p class="metric">' + progressLabel(c) + '</p>' +
-      (c.phases && c.phases.length ? '<p class="eyebrow" style="margin-top:.65rem">Task pipeline</p>' + pipelineHTML(c) : '') +
-      '<p class="eyebrow">Depends on</p>' +
-      (deps.length ? '<div class="chips">' + deps.map(chipLink).join("") + '</div>' : '<p class="none">Nothing upstream.</p>') +
-      '<p class="eyebrow">Blocks</p>' +
-      (blks.length ? '<div class="chips">' + blks.map(chipLink).join("") + '</div>' : '<p class="none">Nothing downstream.</p>') +
-      '<p style="margin-top:.65rem"><a class="btn" href="#/c/' + encodeURIComponent(c.name) + '">Open detail</a></p>';
+      '<span class="badge ' + statusClass[st] + '">' + esc(statusLabel[st]) + '</span></div>';
+
+    /* progress */
+    if (p.hasTasks) {
+      h += '<div class="meter" style="margin:.2rem 0 .15rem"><span style="width:' + p.pct + '%"></span></div>';
+      h += '<p class="metric">' + progressLabel(c) + '</p>';
+    }
+
+    /* stage flow — compact for narrow inspector panel */
+    if ((c.phases || []).length) h += '<div style="margin:.55rem 0">' + stageFlowHTML(c, {compact: true}) + '</div>';
+
+    /* why snippet */
+    if (c.why) {
+      const snippet = c.why.length > 120 ? c.why.slice(0, 119) + "…" : c.why;
+      h += '<p style="font-size:11px;color:var(--muted);margin:.4rem 0 .55rem;line-height:1.45">' + esc(snippet) + '</p>';
+    }
+
+    /* next action */
+    if (st !== "done") {
+      h += '<p class="eyebrow" style="margin-top:.5rem">Next task</p>';
+      h += '<p style="font-size:11px;margin:.2rem 0 .5rem">' + esc(nextTask) + '</p>';
+    }
+
+    /* blocked by */
+    if (blockedBy.length) {
+      h += '<p class="eyebrow" style="color:#d97706">Blocked by</p>';
+      h += '<div class="chips" style="margin-bottom:.35rem">' + blockedBy.map(chipLink).join("") + '</div>';
+    }
+
+    /* unlocks */
+    if (unlocks.length) {
+      h += '<p class="eyebrow">Unlocks</p>';
+      h += '<div class="chips" style="margin-bottom:.35rem">' + unlocks.map(chipLink).join("") + '</div>';
+    } else if (blks.length) {
+      h += '<p class="eyebrow">Downstream</p>';
+      h += '<div class="chips" style="margin-bottom:.35rem">' + blks.map(chipLink).join("") + '</div>';
+    }
+
+    if (dep.length && !blockedBy.length) {
+      h += '<p class="eyebrow">Depends on</p>';
+      h += '<div class="chips" style="margin-bottom:.35rem">' + dep.map(chipLink).join("") + '</div>';
+    }
+
+    h += '<p style="margin-top:.75rem"><a class="btn" href="#/c/' + encodeURIComponent(c.name) + '">Open detail</a></p>';
+    return h;
   }
 
   /* ================================================================
@@ -588,25 +758,28 @@ const SUGGEST = {{.SuggestJSON}};
   function graphElems() {
     const elems = [];
     changes.forEach((c) => {
-      const phases = c.phases || [];
+      const phases  = c.phases || [];
+      const st      = changeStatus(c);
       if (expandedChanges.has(c.name) && phases.length) {
         phases.forEach((p, pi) => {
           const id    = phId(c.name, pi);
           const items = p.items || [];
           const done  = items.filter((i) => i.done).length;
           const pct   = items.length ? Math.round(done / items.length * 100) : 0;
+          const phSt  = pct === 100 ? "done" : pi === 0 || done > 0 ? "in-progress" : "waiting";
           elems.push({
             group: "nodes",
-            data: { id, label: "Stage " + p.number + "\n" + trunc(p.name, 16), lifecycle: c.lifecycle || "proposed", changeId: c.name, type: "stage", pct, done, total: items.length },
+            data: { id, label: "Stage " + p.number + "\n" + trunc(p.name, 16), lifecycle: c.lifecycle || "proposed", status: phSt, changeId: c.name, type: "stage", pct, done, total: items.length },
           });
           if (pi > 0) elems.push({ group: "edges", data: { id: "seq:" + id, source: phId(c.name, pi - 1), target: id, type: "sequential" } });
         });
       } else {
         const prog  = progressOf(c);
-        const label = trunc(c.name, 20) + "\n" + prog.pct + "% · " + phases.length + (phases.length === 1 ? " stage" : " stages");
+        const stagesCount = phases.length;
+        const label = trunc(c.name, 20) + "\n" + prog.pct + "%" + (stagesCount ? " · " + stagesCount + " stage" + (stagesCount === 1 ? "" : "s") : "");
         elems.push({
           group: "nodes",
-          data: { id: c.name, label, lifecycle: c.lifecycle || "proposed", changeId: c.name, type: "change", pct: prog.pct, canExpand: phases.length > 0 },
+          data: { id: c.name, label, lifecycle: c.lifecycle || "proposed", status: st, changeId: c.name, type: "change", pct: prog.pct, canExpand: stagesCount > 0 },
         });
       }
     });
@@ -617,7 +790,8 @@ const SUGGEST = {{.SuggestJSON}};
       const toPh   = toC  && toC.phases   || [];
       const fromExp = expandedChanges.has(e.from) && fromPh.length;
       const toExp   = expandedChanges.has(e.to)   && toPh.length;
-      elems.push({ group: "edges", data: { id: "dep:" + e.from + ":" + e.to, source: fromExp ? phId(e.from, fromPh.length - 1) : e.from, target: toExp ? phId(e.to, 0) : e.to, type: "cross" } });
+      const eSt = edgeStatus(e.from);
+      elems.push({ group: "edges", data: { id: "dep:" + e.from + ":" + e.to, source: fromExp ? phId(e.from, fromPh.length - 1) : e.from, target: toExp ? phId(e.to, 0) : e.to, type: "cross", edgeStatus: eSt } });
     });
     novelCandidateGroups().forEach((c) => {
       if (!confirmed.has(c.from + ":" + c.to)) {
@@ -677,21 +851,29 @@ const SUGGEST = {{.SuggestJSON}};
       container: document.getElementById(containerId),
       elements: elems,
       style: [
-        { selector: "node", style: { shape: "rectangle", width: 160, height: 44, "background-color": "#fffefa", "border-width": 1.5, "border-color": "#111", label: "data(label)", "font-family": '"Monaco","Menlo",monospace', "font-size": 9, "text-valign": "center", "text-halign": "center", color: "#111", "text-wrap": "wrap", "text-max-width": 148 } },
-        { selector: 'node[type = "change"]', style: { height: 52, "border-width": 2, "font-size": 10 } },
-        { selector: 'node[lifecycle = "active"]',   style: { "background-color": "#fff1c8", "border-color": "#d0a53b" } },
-        { selector: 'node[lifecycle = "proposed"]', style: { "background-color": "#dce6ff", "border-color": "#8ca7d9" } },
-        { selector: 'node[lifecycle = "archived"]', style: { "background-color": "#dcf0df", "border-color": "#79aa80" } },
-        { selector: "node.focused", style: { "border-width": 2.5, "border-color": "#002f86" } },
+        /* base node — clean white card */
+        { selector: "node", style: { shape: "round-rectangle", "corner-radius": 6, width: 168, height: 48, "background-color": "#ffffff", "border-width": 1.5, "border-color": "#e5e7eb", label: "data(label)", "font-family": '-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Arial,sans-serif', "font-size": 10, "text-valign": "center", "text-halign": "center", color: "#374151", "text-wrap": "wrap", "text-max-width": 154 } },
+        { selector: 'node[type = "change"]', style: { height: 56, "border-width": 2, "font-size": 11 } },
+        /* status-driven node styles — encodes readiness, not just lifecycle */
+        { selector: 'node[status = "done"]',        style: { "background-color": "#f9fafb", "border-color": "#e5e7eb", color: "#9ca3af" } },
+        { selector: 'node[status = "in-progress"]', style: { "background-color": "#eef2ff", "border-color": "#4f46e5", color: "#3730a3" } },
+        { selector: 'node[status = "blocked"]',     style: { "background-color": "#fff7ed", "border-color": "#f97316", color: "#9a3412" } },
+        { selector: 'node[status = "ready"]',       style: { "background-color": "#f0fdf4", "border-color": "#16a34a", color: "#14532d" } },
+        { selector: 'node[status = "waiting"]',     style: { "background-color": "#ffffff", "border-color": "#d1d5db", color: "#6b7280" } },
+        { selector: "node.focused", style: { "border-width": 3, "overlay-color": "#4f46e5", "overlay-opacity": 0.06, "overlay-padding": 4 } },
         { selector: "node.dim",     style: { opacity: 0.2 } },
-        { selector: "edge", style: { "curve-style": "bezier", "target-arrow-shape": "triangle", "arrow-scale": 1, "line-color": "#999", "target-arrow-color": "#999", width: 1.5 } },
-        { selector: 'edge[type = "cross"]', style: { "line-color": "#002f86", "target-arrow-color": "#002f86", width: 2, "line-style": "dashed", "line-dash-pattern": [8, 4] } },
-        { selector: "edge[?suggested]",    style: { "line-color": "#ccc", "target-arrow-color": "#ccc", width: 1, "line-style": "dashed", "line-dash-pattern": [4, 4] } },
-        { selector: "edge.dim",            style: { opacity: 0.08 } },
-        { selector: "edge.focused",        style: { "line-color": "#002f86", "target-arrow-color": "#002f86" } },
+        /* edges — semantic coloring by whether the dependency is blocking */
+        { selector: "edge", style: { "curve-style": "bezier", "target-arrow-shape": "triangle", "arrow-scale": .85, "line-color": "#d1d5db", "target-arrow-color": "#d1d5db", width: 1.5 } },
+        { selector: 'edge[type = "cross"][edgeStatus = "satisfied"]', style: { "line-color": "#86efac", "target-arrow-color": "#86efac", width: 1.5 } },
+        { selector: 'edge[type = "cross"][edgeStatus = "blocking"]',  style: { "line-color": "#f97316", "target-arrow-color": "#f97316", width: 2, "line-style": "dashed", "line-dash-pattern": [8, 4] } },
+        { selector: 'edge[type = "cross"]',          style: { "line-color": "#a5b4fc", "target-arrow-color": "#a5b4fc", width: 2 } },
+        { selector: "edge[?suggested]",              style: { "line-color": "#e5e7eb", "target-arrow-color": "#e5e7eb", width: 1, "line-style": "dashed", "line-dash-pattern": [4, 4] } },
+        { selector: "edge.dim",                      style: { opacity: 0.08 } },
+        { selector: "edge.focused",                  style: { "line-color": "#4f46e5", "target-arrow-color": "#4f46e5", width: 2.5 } },
       ],
-      layout: { name: "preset", positions: (id) => pos[id] || { x: 0, y: 0 }, padding: 32 },
+      layout: { name: "preset", positions: (node) => pos[node.id()] || { x: 0, y: 0 }, padding: 40 },
       userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false,
+      maxZoom: 2, minZoom: 0.08,
     });
 
     const inspBody = document.getElementById("graph-inspector-body");
@@ -837,10 +1019,30 @@ const SUGGEST = {{.SuggestJSON}};
       view.innerHTML = h; afterRender(); return;
     }
 
+    /* compute counts for status summary */
+    const stCounts = { "in-progress": 0, ready: 0, blocked: 0, waiting: 0, done: 0 };
+    changes.forEach((c) => { const s = changeStatus(c); stCounts[s] = (stCounts[s] || 0) + 1; });
+
     h += '<div class="graph-toolbar">';
-    h += '<button class="btn" id="btn-expand-all">Expand all</button>';
-    h += '<button class="btn" id="btn-collapse-all">Collapse all</button>';
+    h += '<button class="btn btn-ghost" id="btn-expand-all">Expand stages</button>';
+    h += '<button class="btn btn-ghost" id="btn-collapse-all">Collapse</button>';
     h += '<span class="graph-hint-text">double-click a change to expand its stages</span>';
+    h += '</div>';
+
+    /* status legend */
+    h += '<div class="graph-status-bar">';
+    const statusItems = [
+      { st: "in-progress", label: "In progress", color: "#4f46e5" },
+      { st: "ready",       label: "Ready",        color: "#16a34a" },
+      { st: "blocked",     label: "Blocked",      color: "#f97316" },
+      { st: "waiting",     label: "Waiting",      color: "#9ca3af" },
+      { st: "done",        label: "Done",         color: "#d1d5db" },
+    ];
+    statusItems.forEach(({ st, label, color }) => {
+      if (!stCounts[st]) return;
+      h += '<span class="graph-status-chip" style="--chip-color:' + color + '">' +
+        '<span class="gsc-dot"></span>' + stCounts[st] + ' ' + label + '</span>';
+    });
     h += '</div>';
 
     h += '<div class="graph-shell">';
@@ -848,7 +1050,8 @@ const SUGGEST = {{.SuggestJSON}};
       '<div id="cy-container"></div>' +
       '<div class="graph-legend">' +
       '<span class="legend-item"><span class="legend-line sequential"></span> sequential</span>' +
-      '<span class="legend-item"><span class="legend-line cross"></span> cross-change dep</span>' +
+      '<span class="legend-item"><span class="legend-line blocking"></span> blocking dep</span>' +
+      '<span class="legend-item"><span class="legend-line satisfied"></span> satisfied dep</span>' +
       '<span class="legend-item"><span class="legend-line suggested"></span> suggested</span>' +
       '</div>' +
       '</div>';
@@ -916,10 +1119,10 @@ const SUGGEST = {{.SuggestJSON}};
     h += '<span class="badge ' + esc(c.lifecycle) + '">' + esc(c.lifecycle) + "</span></div>";
     h += '<div class="doclayout"><div class="main">';
 
-    /* Task pipeline — accurate hint: deps gate tasks, not stage order */
+    /* Stage flow — compact overview of progress across stages */
     if ((c.phases || []).length) {
-      h += '<p class="eyebrow" style="margin-top:0">Execution plan &mdash; tasks run when their dependencies are met</p>';
-      h += pipelineHTML(c);
+      h += '<p class="eyebrow" style="margin-top:0">Stages &mdash; tasks run when their dependencies are met</p>';
+      h += stageFlowHTML(c);
     }
 
     /* Narrative — collapsed by default (progressive disclosure) */

@@ -134,14 +134,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				pageSize = 5
 			}
 			m.scroll(-pageSize)
+		case "ctrl+d":
+			half := m.height / 2
+			if half < 3 {
+				half = 3
+			}
+			m.scroll(half)
+		case "ctrl+u":
+			half := m.height / 2
+			if half < 3 {
+				half = 3
+			}
+			m.scroll(-half)
 		}
 	case tea.MouseMsg:
-		if msg.Action == tea.MouseActionPress {
-			for i, c := range m.flat {
-				if zone.Get("card:" + c.Name).InBounds(msg) {
-					m.selected = i
-					m.detailOpen = true // a click opens the ticket, like a kanban card
-					m.detailScrol = 0
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			m.scroll(-3)
+		case tea.MouseButtonWheelDown:
+			m.scroll(3)
+		default:
+			if msg.Action == tea.MouseActionPress {
+				for i, c := range m.flat {
+					if zone.Get("card:"+c.Name).InBounds(msg) {
+						m.selected = i
+						m.detailOpen = true
+						m.detailScrol = 0
+					}
 				}
 			}
 		}
@@ -282,9 +301,9 @@ func (m Model) footer() string {
 	if m.view == viewGraph {
 		v = "graph"
 	}
-	keys := "tab: view  ·  ←/→: select  ·  j/k: scroll  ·  space/b: page  ·  g/G: top/bot  ·  enter: open  ·  q: quit"
+	keys := "tab: view  ·  ←/→: select  ·  j/k: scroll  ·  ^d/^u: page  ·  g/G: top/bot  ·  enter: open  ·  q: quit"
 	if m.detailOpen {
-		keys = "j/k: scroll  ·  space/b: page  ·  g/G: top/bot  ·  esc: close  ·  q: quit"
+		keys = "j/k: scroll  ·  ^d/^u: page  ·  g/G: top/bot  ·  esc: close  ·  q: quit"
 	}
 	return styleHint.Render(fmt.Sprintf("[%s]  %s", v, keys))
 }
@@ -551,26 +570,20 @@ func (m Model) neighbors(name string) map[string]bool {
 	return nb
 }
 
-// composeDetail places the ticket panel beside the board when there is room,
-// stacking it below on narrow or unsized terminals. The board width subtracts
-// the panel's full frame (border + padding), not a guessed constant, so the
-// rounded border never overruns the terminal and breaks.
-func (m Model) composeDetail(board string) string {
-	if m.width > 0 && !m.narrow(2) {
-		panelW := m.width / 3
-		if panelW < minColWidth {
-			panelW = minColWidth
-		}
-		frame := stylePanel.GetHorizontalFrameSize()
-		boardW := m.width - panelW - frame
-		if boardW < 1 {
-			boardW = 1
-		}
-		board = lipgloss.NewStyle().Width(boardW).Render(board)
-		panel := stylePanel.Width(panelW).Render(m.detailPanel(panelW))
-		return lipgloss.JoinHorizontal(lipgloss.Top, board, panel)
+// composeDetail renders the detail panel full-screen, replacing the board.
+// Esc closes it and returns to the board. Full-width avoids the cramped
+// right-column layout and lets the task checklist breathe.
+func (m Model) composeDetail(_ string) string {
+	frame := stylePanel.GetHorizontalFrameSize()
+	w := m.width - frame
+	if w < 1 {
+		w = 1
 	}
-	return board + "\n\n" + stylePanel.Render(m.detailPanel(0))
+	innerW := w - stylePanel.GetHorizontalPadding()
+	if innerW < 1 {
+		innerW = 1
+	}
+	return stylePanel.Width(w).Render(m.detailPanel(innerW))
 }
 
 // detailPanel renders the selected workstream as a ticket. innerW is the panel's
