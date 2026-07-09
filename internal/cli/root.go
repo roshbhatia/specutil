@@ -38,10 +38,15 @@ func notImplemented(verb string) error {
 }
 
 // NewRootCmd builds the specutil root command and registers every verb.
-func NewRootCmd() *cobra.Command {
+func NewRootCmd(version ...string) *cobra.Command {
+	v := "dev"
+	if len(version) > 0 && version[0] != "" {
+		v = version[0]
+	}
 	root := &cobra.Command{
-		Use:   "specutil",
-		Short: "Project OpenSpec change artifacts into other artifacts and visualizations",
+		Use:     "specutil",
+		Short:   "Project OpenSpec change artifacts into other artifacts and visualizations",
+		Version: v,
 		Long: "specutil parses spec-framework change artifacts (OpenSpec in v1) into a " +
 			"normalized IR and projects them into RFCs, design docs, tickets, dependency " +
 			"graphs, and visualizations. Remote writes are delegated to an agent via the " +

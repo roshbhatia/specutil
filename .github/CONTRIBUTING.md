@@ -1,47 +1,84 @@
 # Contributing to specutil
 
-Thanks for wanting to contribute. This is a short guide — specutil keeps things lean.
+## Philosophy
+
+specutil is intentionally small. The binary is a pure, local projection tool —
+no network calls, no auth, no sync logic. Remote writes live in AI skills, not
+in the binary. Contributions that respect this boundary are welcome;
+contributions that blur it are not.
+
+I maintain this project in my spare time. I review PRs carefully, and I will
+close ones that don't fit the scope or that add complexity I'm not prepared to
+maintain.
+
+## Before you start
+
+**If you are an AI agent:** Read [`AGENTS.md`](../AGENTS.md) first. It has
+architecture context, testing patterns, and an explicit list of what not to do.
+This file is for humans; `AGENTS.md` is for machines.
+
+**If you are a human:** Open an issue before writing code for anything beyond a
+trivial bug fix. A quick conversation about scope saves everyone time.
+
+## What I'll accept
+
+- **Bug fixes** — always, especially with a regression test.
+- **New input providers** — implement `provider.Provider`, register it, ship
+  tests. Open a [New Provider](https://github.com/roshbhatia/specutil/issues/new?template=new_provider.yml)
+  issue first so we align on the interface before you build.
+- **New sync targets** — a `skills/sync-to-<name>/SKILL.md`, not a new verb.
+  The binary emits plan JSON; the skill drives the MCP tools. Open an issue first.
+- **Docs and examples** — yes, no issue needed.
+
+## What I won't accept
+
+- A `sync` verb or any network I/O in the binary. This is the one hard rule.
+- New verbs without a clear, scoped use case and prior discussion.
+- Refactors that touch many files without a concrete correctness or
+  maintainability reason.
+- Dependencies added without discussion.
 
 ## Getting started
 
 ```bash
 git clone https://github.com/roshbhatia/specutil
 cd specutil
-nix develop          # or: go 1.24+ if you prefer not to use Nix
-go test ./...
+nix develop          # preferred: Go toolchain + all tools in one command
+# or: go 1.24+ works if you don't use Nix
+go test -race ./...
 ```
-
-## What's worth contributing
-
-- **Bug fixes** — always welcome, especially with a regression test
-- **New input providers** — there's a clean interface to implement; open a [New Provider](https://github.com/roshbhatia/specutil/issues/new?template=new_provider.yml) issue first
-- **New sync targets** — same as providers; remote writes must live in a skill, not the binary
-- **Docs / examples** — yes please
 
 ## Conventions
 
-- **One concern per PR.** A bug fix doesn't need surrounding cleanup alongside it.
-- **Conventional commits:** `feat`, `fix`, `chore`, `docs`, `test` — title-only, no body required.
-- **Tests for providers:** every section-mapping path should have a unit test covering the tolerant-parse contract (absent sections emit warnings, never fail).
-- **No network I/O in the binary.** The binary reads local files. Remote writes live in `skills/` and are driven by an agent. A new sync target means a new `skills/<name>/SKILL.md`.
+- **Conventional commits, title-only.** `feat`, `fix`, `chore`, `docs`, `test`.
+  No body required.
+- **One concern per PR.** Bug fix ≠ cleanup; a formatting change alone is not a
+  PR.
+- **No comments unless the WHY is non-obvious.** Never restate what the code
+  already says.
+- **Tests for providers.** Every section-mapping path needs a unit test covering
+  the tolerant-parse contract: absent sections emit warnings, never errors.
+- **No network I/O in the binary.** If you need to touch an API, that belongs
+  in a skill.
 
 ## Adding an input provider
 
 1. Create `internal/provider/<name>/<name>.go` implementing `provider.Provider`
-2. Register it in `internal/registry/registry.go`
-3. Add detection logic to `detect()` if the provider can be auto-detected
+2. Register in `internal/registry/registry.go`
+3. Add auto-detection logic to `detect()` if applicable
 4. Ship tests in `internal/provider/<name>/<name>_test.go`
 
 ## Adding a sync target
 
-1. Add the target name to `render/mapping.go`
-2. Implement any plan-level fields in `syncplan/plan.go`
-3. Write a skill in `skills/sync-to-<name>/SKILL.md` following the pattern of `sync-to-linear`
+1. Add the target constant to `syncplan/plan.go`
+2. Write `skills/sync-to-<name>/SKILL.md` following the pattern of
+   `skills/sync-to-linear/SKILL.md`
+3. No binary changes needed for the actual write — that lives in the skill
 
 ## Running checks
 
 ```bash
-go test ./...          # unit tests
+go test -race ./...    # tests with race detector
 go vet ./...           # static analysis
-nix flake check        # validate the flake (run before commits touching flake.nix)
+nix flake check        # validate the flake (run before touching flake.nix)
 ```

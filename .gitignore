@@ -31,3 +31,6 @@ go.work.sum
 # .idea/
 # .vscode/
 /result
+
+# AGENTS.md is a tracked contributor context file for AI agents in this repo
+!AGENTS.md

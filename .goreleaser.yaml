@@ -1,0 +1,59 @@
+version: 2
+
+project_name: specutil
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: specutil
+    main: ./cmd/specutil
+    binary: specutil
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - id: specutil
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  github:
+    owner: roshbhatia
+    name: specutil
+  draft: false
+  prerelease: auto
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^chore(deps)"
+      - "^chore: regenerate"
+
+# Uncomment once roshbhatia/homebrew-tap exists:
+# brews:
+#   - name: specutil
+#     repository:
+#       owner: roshbhatia
+#       name: homebrew-tap
+#       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+#     homepage: "https://github.com/roshbhatia/specutil"
+#     description: "CLI for projecting spec-framework changes into docs, sync plans, and visualizations"
+#     license: "MIT"
+#     install: |
+#       bin.install "specutil"
+#     test: |
+#       system "#{bin}/specutil --help"

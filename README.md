@@ -38,6 +38,34 @@ nix run github:roshbhatia/specutil -- --help
 nix profile install github:roshbhatia/specutil
 ```
 
+### go install
+
+Requires Go 1.24+.
+
+```bash
+go install github.com/roshbhatia/specutil/cmd/specutil@latest
+```
+
+### Binary releases
+
+Pre-built binaries for macOS and Linux (amd64 + arm64) are available on the
+[Releases](https://github.com/roshbhatia/specutil/releases) page. Download
+the archive for your platform and put `specutil` on your `$PATH`.
+
+```bash
+# Example: macOS arm64
+curl -L https://github.com/roshbhatia/specutil/releases/latest/download/specutil_$(uname -s)_$(uname -m).tar.gz \
+  | tar xz && mv specutil /usr/local/bin/
+```
+
+### Homebrew
+
+A tap is in the works. Once available:
+
+```bash
+brew install roshbhatia/tap/specutil
+```
+
 ### From source
 
 ```bash
@@ -45,12 +73,6 @@ git clone https://github.com/roshbhatia/specutil
 cd specutil
 nix develop          # enter dev shell with Go toolchain
 go build -o specutil ./cmd/specutil
-```
-
-### Via hack/install.sh
-
-```bash
-./hack/install.sh    # builds and installs to $GOPATH/bin
 ```
 
 ## Quickstart
