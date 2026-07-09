@@ -1,6 +1,7 @@
 name: Wiki
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -9,6 +10,7 @@ on:
       - ".github/CONTRIBUTING.md"
       - "internal/cli/**"
       - "examples/**"
+      - ".github/workflows/wiki.yml"
 
 permissions:
   contents: write
