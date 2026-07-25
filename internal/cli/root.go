@@ -226,6 +226,11 @@ func newPlanCmd() *cobra.Command {
 		Long: "Computes what create, update, and orphan operations are needed to reconcile\n" +
 			"a change's tasks with an external tracker (Linear, Notion, etc.). The output\n" +
 			"is a JSON plan consumed by the sync skills — you rarely invoke this directly.\n\n" +
+			"Every operation is ready to write: a reader-facing title, the delivery stage\n" +
+			"it belongs to, its sort position, tracker labels, and a rendered Markdown body.\n" +
+			"The plan also carries an `overview` body for the container the target groups\n" +
+			"tickets under, holding the acceptance criteria once. Source numbering (task\n" +
+			"identifiers, phase numbers, spec delta keywords) never appears in that output.\n\n" +
 			"How it fits in the workflow:\n" +
 			"  1. Edit tasks in tasks.md\n" +
 			"  2. specutil plan --target linear --change my-change\n" +
@@ -237,7 +242,7 @@ func newPlanCmd() *cobra.Command {
 	}
 	cmd.Flags().String("target", "", "sync target namespace: linear|notion|github-issues (required)")
 	cmd.Flags().String("change", "", "change name to plan (or pass as positional arg)")
-	cmd.Flags().String("templates", "", "override built-in template directory (used for github-issues body rendering)")
+	cmd.Flags().String("templates", "", "override built-in template directory (ticket.md.tmpl, overview.md.tmpl)")
 	cmd.Flags().StringP("out", "o", "", "write output to a file instead of stdout")
 	return cmd
 }

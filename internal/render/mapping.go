@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/roshbhatia/specutil/internal/export"
 	"github.com/roshbhatia/specutil/internal/ir"
 )
 
@@ -27,10 +28,11 @@ type Mapping struct {
 	Fields []Field
 }
 
-// internalTargets are render targets used by other packages (e.g. plan) but not
-// exposed as user-facing --as values.
+// internalTargets are render targets used by other packages (e.g. syncplan) but
+// not exposed as user-facing --as values.
 var internalTargets = map[string]bool{
-	"github-issues": true,
+	TicketTarget:   true,
+	OverviewTarget: true,
 }
 
 // mappings is the registry of supported render targets. Adding a target is a
@@ -63,16 +65,26 @@ var mappings = map[string]Mapping{
 	},
 	"tickets": {
 		Target: "tickets",
-		// Tickets are projected by iterating the change's tasks directly in the
-		// template; the mapping carries only the lead-in summary.
+		// Tickets are projected by iterating the export projection directly in
+		// the template; the mapping carries only the lead-in summary.
 		Fields: []Field{
 			{"summary", proposalWhy},
 		},
 	},
-	// github-issues is an internal target used by plan --target github-issues to
-	// pre-render issue bodies. Not exposed as a user-facing --as value.
-	"github-issues": {
-		Target: "github-issues",
+	// ticket is the internal per-item body target that syncplan pre-renders for
+	// every tracker. It is not a user-facing --as value.
+	TicketTarget: {
+		Target: TicketTarget,
+		Fields: []Field{
+			{"summary", proposalWhy},
+		},
+	},
+	// overview is the internal change-level body that syncplan pre-renders for
+	// the container a tracker groups tickets under: a Linear project, a GitHub
+	// milestone, or a Notion page. It holds the acceptance criteria once, so
+	// individual tickets do not each repeat them.
+	OverviewTarget: {
+		Target: OverviewTarget,
 		Fields: []Field{
 			{"summary", proposalWhy},
 		},
@@ -183,38 +195,63 @@ func guideLevel(c *ir.Change) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// specsMarkdown renders the requirements and scenarios as the reference-level
-// explanation: deterministic, sorted by capability then document order.
+// specsMarkdown renders the requirements and their scenarios as the
+// reference-level explanation. It goes through the export projection, so the
+// output carries no spec delta keywords and no slugs: a reader outside the
+// repository sees requirement names and Given/When/Then acceptance criteria.
+// Output is deterministic, sorted by capability then document order.
 func specsMarkdown(c *ir.Change) string {
-	var b strings.Builder
 	specs := append([]*ir.Spec{}, c.Specs...)
 	sort.SliceStable(specs, func(i, j int) bool { return specs[i].Capability < specs[j].Capability })
-	for _, s := range specs {
-		for _, r := range s.Requirements {
-			b.WriteString("#### ")
-			b.WriteString(r.Name)
-			if r.Delta != "" {
-				b.WriteString(" (")
-				b.WriteString(string(r.Delta))
-				b.WriteString(")")
-			}
+	sorted := &ir.Change{Name: c.Name, Specs: specs}
+
+	var b strings.Builder
+	for _, group := range export.BuildChange(sorted).CriteriaByRequirement() {
+		b.WriteString("#### ")
+		b.WriteString(group.Requirement)
+		b.WriteString("\n\n")
+		if text := requirementText(specs, group.Requirement); text != "" {
+			b.WriteString(text)
 			b.WriteString("\n\n")
-			if r.Text != "" {
-				b.WriteString(r.Text)
-				b.WriteString("\n\n")
-			}
-			for _, sc := range r.Scenarios {
-				b.WriteString("- _Scenario:_ ")
-				b.WriteString(sc.Name)
-				b.WriteString("\n")
-				for _, step := range sc.Steps {
-					b.WriteString("  - ")
-					b.WriteString(step)
-					b.WriteString("\n")
-				}
-			}
-			b.WriteString("\n")
 		}
+		for _, cr := range group.Criteria {
+			b.WriteString("- **")
+			b.WriteString(cr.Name)
+			b.WriteString("**\n")
+			writeSteps(&b, "Given", cr.Given)
+			writeSteps(&b, "When", cr.When)
+			writeSteps(&b, "Then", cr.Then)
+			writeSteps(&b, "", cr.Steps)
+		}
+		b.WriteString("\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// writeSteps emits one indented bullet per step, prefixed by the Gherkin
+// keyword. An empty keyword emits the step verbatim.
+func writeSteps(b *strings.Builder, keyword string, steps []string) {
+	for _, s := range steps {
+		b.WriteString("  - ")
+		if keyword != "" {
+			b.WriteString(keyword)
+			b.WriteString(" ")
+		}
+		b.WriteString(s)
+		b.WriteString("\n")
+	}
+}
+
+// requirementText finds the prose body of the requirement whose humanized name
+// matches want, so the projection can pair a requirement heading with its
+// description.
+func requirementText(specs []*ir.Spec, want string) string {
+	for _, s := range specs {
+		for _, r := range s.Requirements {
+			if export.Humanize(r.Name) == want {
+				return r.Text
+			}
+		}
+	}
+	return ""
 }

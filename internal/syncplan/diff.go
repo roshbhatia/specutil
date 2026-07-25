@@ -17,7 +17,7 @@ type DriftItem struct {
 	Identity   string `json:"identity"`
 	ExternalID string `json:"externalId,omitempty"`
 	Title      string `json:"title,omitempty"`
-	Ref        string `json:"ref,omitempty"`
+	Milestone  string `json:"milestone,omitempty"`
 	Note       string `json:"note,omitempty"`
 }
 
@@ -52,7 +52,7 @@ func DiffChange(change *ir.Change, lock *Lock, target string) Diff {
 			candidateNew = append(candidateNew, it)
 		case ref.ContentHash != it.ContentHash:
 			d.Changed = append(d.Changed, DriftItem{
-				Identity: it.Identity, ExternalID: ref.ExternalID, Title: it.Title, Ref: it.Ref,
+				Identity: it.Identity, ExternalID: ref.ExternalID, Title: it.Title, Milestone: it.Milestone,
 				Note: "content changed",
 			})
 		}
@@ -86,12 +86,12 @@ func DiffChange(change *ir.Change, lock *Lock, target string) Diff {
 		if best >= 0 {
 			usedOrphan[best] = true
 			d.Changed = append(d.Changed, DriftItem{
-				Identity: it.Identity, ExternalID: orphans[best].ref.ExternalID, Title: it.Title, Ref: it.Ref,
+				Identity: it.Identity, ExternalID: orphans[best].ref.ExternalID, Title: it.Title, Milestone: it.Milestone,
 				Note: "re-matched from edited item",
 			})
 			continue
 		}
-		d.New = append(d.New, DriftItem{Identity: it.Identity, Title: it.Title, Ref: it.Ref})
+		d.New = append(d.New, DriftItem{Identity: it.Identity, Title: it.Title, Milestone: it.Milestone})
 	}
 
 	for i, o := range orphans {

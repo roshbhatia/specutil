@@ -2,10 +2,9 @@ package syncplan
 
 import (
 	"fmt"
-	"regexp"
 	"sort"
-	"strings"
 
+	"github.com/roshbhatia/specutil/internal/export"
 	"github.com/roshbhatia/specutil/internal/ir"
 	"github.com/roshbhatia/specutil/internal/render"
 )
@@ -15,29 +14,38 @@ import (
 type Item struct {
 	Identity    string
 	ContentHash string
-	Title       string
-	Ref         string // human-facing source locator, e.g. the task number
+	// Title is the reader-facing ticket title: no task number, no discipline
+	// keyword.
+	Title string
+	// Milestone is the reader-facing delivery stage name, with no leading
+	// number.
+	Milestone string
+	// Position is the 1-based order across the whole change. Trackers sort on
+	// it; readers never see it as text.
+	Position int
+	// Labels are the tracker labels derived from the stage, the task kind, and
+	// the author's bracket tags.
+	Labels []string
 }
 
 // TaskItems projects a change's tasks into plannable items. Identity is built
-// from the phase name and task text (renumber-stable); ContentHash fingerprints
-// the exact text for drift detection.
+// from the phase name and the raw task text (renumber-stable); ContentHash
+// fingerprints the exact raw text for drift detection. Everything else is the
+// export projection, so no source numbering reaches a tracker.
 func TaskItems(change *ir.Change) []Item {
 	if change == nil || change.Tasks == nil {
 		return nil
 	}
 	var items []Item
-	for _, p := range change.Tasks.Phases {
-		for _, t := range p.Items {
-			items = append(items, Item{
-				// Include Phase.Number so number-only headings ("## 1." and "## 2.") and
-				// same-titled phases with different numbers don't collapse to the same key.
-				Identity:    Identity(p.Number+" "+p.Name, t.Text),
-				ContentHash: ContentHash(t.Text),
-				Title:       t.Text,
-				Ref:         t.ID,
-			})
-		}
+	for _, t := range export.BuildChange(change).Tickets() {
+		items = append(items, Item{
+			Identity:    Identity(t.SourceGroup, t.SourceText),
+			ContentHash: ContentHash(t.SourceText),
+			Title:       t.Title,
+			Milestone:   t.Milestone,
+			Position:    t.Position,
+			Labels:      t.Labels,
+		})
 	}
 	return items
 }
@@ -51,38 +59,43 @@ const (
 	OpOrphan OpKind = "orphan"
 )
 
-// GitHubFields carries pre-rendered GitHub-specific metadata for the
-// github-issues plan target. Populated only when target == "github-issues".
-type GitHubFields struct {
-	Labels    []string `json:"labels"`
-	Milestone string   `json:"milestone"`
-	Body      string   `json:"body"`
-}
-
 // Operation is a single create/update/orphan instruction. ExternalID is set for
-// update and orphan (the existing remote object); Title/Ref describe the local
-// source for create and update.
+// update and orphan (the existing remote object). Every other field is the
+// ready-to-write projection of the local source: no task numbers, no phase
+// numbers, no spec keywords.
 type Operation struct {
-	Kind        OpKind        `json:"kind"`
-	Identity    string        `json:"identity"`
-	ExternalID  string        `json:"externalId,omitempty"`
-	ContentHash string        `json:"contentHash,omitempty"`
-	Title       string        `json:"title,omitempty"`
-	Ref         string        `json:"ref,omitempty"`
-	GitHub      *GitHubFields `json:"github,omitempty"`
+	Kind        OpKind   `json:"kind"`
+	Identity    string   `json:"identity"`
+	ExternalID  string   `json:"externalId,omitempty"`
+	ContentHash string   `json:"contentHash,omitempty"`
+	Title       string   `json:"title,omitempty"`
+	Milestone   string   `json:"milestone,omitempty"`
+	Position    int      `json:"position,omitempty"`
+	Labels      []string `json:"labels,omitempty"`
+	Body        string   `json:"body,omitempty"`
 }
 
 // BuildPlanOptions carries optional configuration for BuildPlan.
 type BuildPlanOptions struct {
-	// TemplateOverrideDir is passed to the render engine for github-issues body
+	// TemplateOverrideDir is passed to the render engine for ticket body
 	// rendering. Empty means use the embedded default.
 	TemplateOverrideDir string
 }
 
 // Plan is the deterministic, network-free projection of items against a lock.
+// Change is the repository-local slug and stays a correlation key; Title and
+// Summary are what an external reader should see on the containing project,
+// milestone, or page.
 type Plan struct {
-	Change     string      `json:"change"`
+	Change  string `json:"change"`
+	Title   string `json:"title"`
+	Summary string `json:"summary,omitempty"`
+	// Overview is the ready-to-write Markdown body for the container the target
+	// groups tickets under: a Linear project, a GitHub milestone, or a Notion
+	// page. It carries the acceptance criteria once.
+	Overview   string      `json:"overview,omitempty"`
 	Target     string      `json:"target"`
+	Milestones []string    `json:"milestones,omitempty"`
 	Operations []Operation `json:"operations"`
 	Warnings   []string    `json:"warnings,omitempty"`
 }
@@ -103,11 +116,14 @@ func BuildPlan(change *ir.Change, lock *Lock, target string) Plan {
 // It returns an error only when the github-issues body template fails to render;
 // partial success is not possible — either all bodies render or none do.
 func BuildPlanWithOptions(change *ir.Change, lock *Lock, target string, opts BuildPlanOptions) (Plan, error) {
+	exported := export.BuildChange(change)
+	ticketByIdentity := make(map[string]export.Ticket)
+	for _, t := range exported.Tickets() {
+		ticketByIdentity[Identity(t.SourceGroup, t.SourceText)] = t
+	}
+
 	items := TaskItems(change)
 	current := make(map[string]bool, len(items))
-
-	// Build a phase-lookup map for github-issues label derivation.
-	phaseByRef := buildPhaseByRef(change)
 
 	ops := make([]Operation, 0)
 	var planWarnings []string
@@ -117,28 +133,29 @@ func BuildPlanWithOptions(change *ir.Change, lock *Lock, target string, opts Bui
 		var op Operation
 		switch {
 		case !ok:
-			op = Operation{
-				Kind: OpCreate, Identity: it.Identity,
-				ContentHash: it.ContentHash, Title: it.Title, Ref: it.Ref,
-			}
+			op = Operation{Kind: OpCreate, Identity: it.Identity, ContentHash: it.ContentHash}
 		case ref.ContentHash != it.ContentHash:
 			op = Operation{
-				Kind: OpUpdate, Identity: it.Identity, ExternalID: ref.ExternalID,
-				ContentHash: it.ContentHash, Title: it.Title, Ref: it.Ref,
+				Kind: OpUpdate, Identity: it.Identity,
+				ExternalID: ref.ExternalID, ContentHash: it.ContentHash,
 			}
 		default:
 			continue
 		}
-		if target == "github-issues" {
-			gh, warn, err := buildGitHubFields(change, it, phaseByRef[it.Ref], opts.TemplateOverrideDir)
-			if err != nil {
-				return Plan{}, err
-			}
-			if warn != nil {
-				planWarnings = append(planWarnings, warn.Msg)
-			}
-			op.GitHub = gh
+		op.Title = it.Title
+		op.Milestone = it.Milestone
+		op.Position = it.Position
+		op.Labels = it.Labels
+
+		body, warn, err := render.RenderTicketBody(change, exported, ticketByIdentity[it.Identity], opts.TemplateOverrideDir)
+		if err != nil {
+			return Plan{}, fmt.Errorf("ticket body for %q: %w", it.Title, err)
 		}
+		if warn != nil {
+			planWarnings = append(planWarnings, warn.Msg)
+		}
+		op.Body = body
+
 		ops = append(ops, op)
 	}
 
@@ -146,68 +163,35 @@ func BuildPlanWithOptions(change *ir.Change, lock *Lock, target string, opts Bui
 		if !current[id] {
 			ref, _ := lock.Get(target, id)
 			ops = append(ops, Operation{
-				Kind: OpOrphan, Identity: id, ExternalID: ref.ExternalID,
+				Kind: OpOrphan, Identity: id, ExternalID: ref.ExternalID, Title: ref.Title,
 			})
 		}
 	}
 
 	sortOps(ops)
-	return Plan{Change: change.Name, Target: target, Operations: ops, Warnings: planWarnings}, nil
-}
-
-// buildPhaseByRef builds a map from task ref (e.g. "1.2") to phase name for
-// github-issues label derivation.
-func buildPhaseByRef(change *ir.Change) map[string]string {
-	m := map[string]string{}
-	if change.Tasks == nil {
-		return m
+	milestones := make([]string, 0, len(exported.Milestones))
+	for _, m := range exported.Milestones {
+		milestones = append(milestones, m.Name)
 	}
-	for _, p := range change.Tasks.Phases {
-		for _, it := range p.Items {
-			m[it.ID] = p.Name
-		}
-	}
-	return m
-}
 
-// buildGitHubFields populates the github-specific fields for an operation.
-// The warning return is non-nil when an override template was requested but not
-// found and the embedded default was used instead — callers may emit it.
-func buildGitHubFields(change *ir.Change, it Item, phaseName, overrideDir string) (*GitHubFields, *ir.Warning, error) {
-	body, warn, err := render.RenderIssueBody(change, render.IssueBodyData{
-		PhaseName: phaseName,
-		TaskRef:   it.Ref,
-		TaskTitle: it.Title,
-	}, overrideDir)
+	overview, warn, err := render.RenderOverview(change, exported, opts.TemplateOverrideDir)
 	if err != nil {
-		return nil, nil, fmt.Errorf("github-issues body for %q: %w", it.Ref, err)
+		return Plan{}, fmt.Errorf("overview body for %q: %w", change.Name, err)
+	}
+	if warn != nil {
+		planWarnings = append(planWarnings, warn.Msg)
 	}
 
-	return &GitHubFields{
-		Labels:    deriveGitHubLabels(phaseName),
-		Milestone: change.Name,
-		Body:      body,
-	}, warn, nil
-}
-
-// labelCleanRe strips non-alphanumeric characters for label normalization.
-var labelCleanRe = regexp.MustCompile(`[^a-z0-9]+`)
-
-// deriveGitHubLabels converts a phase name to a GitHub label slice.
-// "1. Foundation" → ["phase:foundation"]
-func deriveGitHubLabels(phaseName string) []string {
-	if phaseName == "" {
-		return nil
-	}
-	// Strip leading "N." numbering.
-	name := regexp.MustCompile(`^\d+\.?\s*`).ReplaceAllString(phaseName, "")
-	name = strings.ToLower(name)
-	name = labelCleanRe.ReplaceAllString(name, "-")
-	name = strings.Trim(name, "-")
-	if name == "" {
-		return nil
-	}
-	return []string{"phase:" + name}
+	return Plan{
+		Change:     change.Name,
+		Title:      exported.Title,
+		Summary:    exported.Summary,
+		Overview:   overview,
+		Target:     target,
+		Milestones: milestones,
+		Operations: ops,
+		Warnings:   planWarnings,
+	}, nil
 }
 
 // sortOps orders operations deterministically: by kind (create, update,

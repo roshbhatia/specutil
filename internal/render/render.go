@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	sprig "github.com/Masterminds/sprig/v3"
+	"github.com/roshbhatia/specutil/internal/export"
 	"github.com/roshbhatia/specutil/internal/ir"
 )
 
@@ -29,11 +30,15 @@ type Options struct {
 	Title string
 }
 
-// templateData is the value passed to the Go template.
+// templateData is the value passed to the Go template. Change is the raw IR for
+// templates that need source fidelity; Export is the same change projected into
+// tracker vocabulary, with no phase numbers or task identifiers.
 type templateData struct {
 	Title   string
 	Change  *ir.Change
+	Export  export.Change
 	Section map[string]string
+	Ticket  export.Ticket
 }
 
 // Render projects change into the named target, returning the rendered bytes and
@@ -68,70 +73,103 @@ func Render(change *ir.Change, target string, opts Options) ([]byte, []ir.Warnin
 		warns = append(warns, *tmplWarn)
 	}
 
-	// Merge Sprig functions; our section func takes precedence on any conflict.
-	funcs := sprig.FuncMap()
-	funcs["section"] = func(m map[string]string, key string) string { return m[key] }
-	tmpl, err := template.New(target).Funcs(funcs).Parse(tmplText)
+	tmpl, err := template.New(target).Funcs(templateFuncs()).Parse(tmplText)
 	if err != nil {
 		return nil, warns, fmt.Errorf("parsing %s template: %w", target, err)
 	}
 
+	exported := export.BuildChange(change)
 	title := opts.Title
 	if title == "" {
-		title = change.Name
+		title = exported.Title
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, templateData{Title: title, Change: change, Section: sections}); err != nil {
+	if err := tmpl.Execute(&buf, templateData{
+		Title:   title,
+		Change:  change,
+		Export:  exported,
+		Section: sections,
+	}); err != nil {
 		return nil, warns, fmt.Errorf("executing %s template: %w", target, err)
 	}
 	return buf.Bytes(), warns, nil
 }
 
-// IssueBodyData carries per-task fields injected alongside the change when
-// rendering a github-issues body. These supplement the change-level sections.
-type IssueBodyData struct {
-	PhaseName string
-	TaskRef   string
-	TaskTitle string
+// templateFuncs merges Sprig with the helpers the shipped templates use. A
+// local helper takes precedence on any name conflict.
+func templateFuncs() template.FuncMap {
+	funcs := sprig.FuncMap()
+	funcs["section"] = func(m map[string]string, key string) string { return m[key] }
+	return funcs
 }
 
-// RenderIssueBody renders the github-issues body template for a single task.
-// overrideDir follows the same semantics as Options.OverrideDir.
-// The second return value carries the override-not-found warning when applicable.
-func RenderIssueBody(change *ir.Change, d IssueBodyData, overrideDir string) (string, *ir.Warning, error) {
-	const target = "github-issues"
-	tmplText, tmplWarn, err := loadTemplate(target, overrideDir)
+// TicketTarget and OverviewTarget are the template names for a single tracker
+// ticket body and for the change-level container body. Both are deliberately
+// target-neutral: Linear, Notion, and GitHub Issues all accept the same
+// Markdown, so one template serves all three.
+const (
+	TicketTarget   = "ticket"
+	OverviewTarget = "overview"
+)
+
+// RenderOverview renders the change-level body a tracker shows on the container
+// it groups tickets under: a Linear project, a GitHub milestone, or a Notion
+// page. The returned warning is non-nil when an override was requested but not
+// found.
+func RenderOverview(change *ir.Change, exported export.Change, overrideDir string) (string, *ir.Warning, error) {
+	tmplText, tmplWarn, err := loadTemplate(OverviewTarget, overrideDir)
+	if err != nil {
+		return "", nil, err
+	}
+	summary := exported.Summary
+	if summary == "" {
+		summary = placeholder
+	}
+	tmpl, err := template.New(OverviewTarget).Funcs(templateFuncs()).Parse(tmplText)
+	if err != nil {
+		return "", nil, fmt.Errorf("parsing overview template: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, templateData{
+		Title:   exported.Title,
+		Change:  change,
+		Export:  exported,
+		Section: map[string]string{"summary": summary},
+	}); err != nil {
+		return "", nil, fmt.Errorf("executing overview template: %w", err)
+	}
+	return buf.String(), tmplWarn, nil
+}
+
+// RenderTicketBody renders the body an external tracker shows for one ticket.
+// exported must be the projection of change. overrideDir follows the same
+// semantics as Options.OverrideDir; the returned warning is non-nil when an
+// override was requested but not found.
+func RenderTicketBody(change *ir.Change, exported export.Change, ticket export.Ticket, overrideDir string) (string, *ir.Warning, error) {
+	tmplText, tmplWarn, err := loadTemplate(TicketTarget, overrideDir)
 	if err != nil {
 		return "", nil, err
 	}
 
-	sections := map[string]string{
-		"summary": func() string {
-			if change.Proposal != nil && change.Proposal.Why != "" {
-				return change.Proposal.Why
-			}
-			return placeholder
-		}(),
-		"phase": d.PhaseName,
-		"ref":   d.TaskRef,
-		"title": d.TaskTitle,
+	summary := exported.Summary
+	if summary == "" {
+		summary = placeholder
 	}
-
-	funcs := sprig.FuncMap()
-	funcs["section"] = func(m map[string]string, key string) string { return m[key] }
-	tmpl, err := template.New(target).Funcs(funcs).Parse(tmplText)
+	tmpl, err := template.New(TicketTarget).Funcs(templateFuncs()).Parse(tmplText)
 	if err != nil {
-		return "", nil, fmt.Errorf("parsing github-issues template: %w", err)
+		return "", nil, fmt.Errorf("parsing ticket template: %w", err)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, templateData{
-		Title:   d.TaskTitle,
+		Title:   ticket.Title,
 		Change:  change,
-		Section: sections,
+		Export:  exported,
+		Ticket:  ticket,
+		Section: map[string]string{"summary": summary},
 	}); err != nil {
-		return "", nil, fmt.Errorf("executing github-issues template: %w", err)
+		return "", nil, fmt.Errorf("executing ticket template: %w", err)
 	}
 	return buf.String(), tmplWarn, nil
 }

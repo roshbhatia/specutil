@@ -145,7 +145,7 @@ func TestRenderOverrideTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(string(out), "OVERRIDE demo") {
+	if !strings.HasPrefix(string(out), "OVERRIDE Demo") {
 		t.Errorf("override template not honored: %q", string(out))
 	}
 }

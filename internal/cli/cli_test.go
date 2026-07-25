@@ -32,7 +32,7 @@ func TestRenderRFC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render rfc: %v", err)
 	}
-	for _, want := range []string{"add-auth-layer", "JWT", "middleware"} {
+	for _, want := range []string{"Add auth layer", "JWT", "middleware"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("render rfc output missing %q", want)
 		}
@@ -44,8 +44,8 @@ func TestRenderDesign(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render design: %v", err)
 	}
-	if !strings.Contains(out, "add-auth-layer") {
-		t.Error("render design output missing change name")
+	if !strings.Contains(out, "Add auth layer") {
+		t.Error("render design output missing the reader-facing title")
 	}
 }
 
@@ -54,8 +54,14 @@ func TestRenderTickets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render tickets: %v", err)
 	}
-	if !strings.Contains(out, "add-auth-layer") {
-		t.Error("render tickets output missing change name")
+	if !strings.Contains(out, "Add auth layer") {
+		t.Error("render tickets output missing the reader-facing title")
+	}
+	// Tickets are what reaches a tracker, so the source numbering must be gone.
+	for _, leak := range []string{"1.1 ", "## 1. ", "### 1.1"} {
+		if strings.Contains(out, leak) {
+			t.Errorf("render tickets leaked source numbering %q", leak)
+		}
 	}
 }
 
@@ -145,8 +151,8 @@ func TestRenderBMAD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render bmad rfc: %v", err)
 	}
-	if !strings.Contains(out, "story-1.1") {
-		t.Error("render bmad output missing change name")
+	if !strings.Contains(out, "Story 1.1") {
+		t.Error("render bmad output missing the reader-facing title")
 	}
 }
 

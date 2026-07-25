@@ -1,6 +1,8 @@
 package syncplan
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/roshbhatia/specutil/internal/ir"
@@ -102,10 +104,8 @@ func TestPlanDeterministic(t *testing.T) {
 	if len(p1.Operations) != len(p2.Operations) {
 		t.Fatal("plan length unstable")
 	}
-	for i := range p1.Operations {
-		if p1.Operations[i] != p2.Operations[i] {
-			t.Errorf("op %d differs: %+v vs %+v", i, p1.Operations[i], p2.Operations[i])
-		}
+	if !reflect.DeepEqual(p1, p2) {
+		t.Errorf("plan unstable across runs:\n%+v\n%+v", p1, p2)
 	}
 }
 
@@ -127,37 +127,12 @@ func TestDiffReportsCategories(t *testing.T) {
 	}
 }
 
-func TestDeriveGitHubLabels(t *testing.T) {
-	cases := []struct {
-		phase string
-		want  []string
-	}{
-		{"1. Foundation", []string{"phase:foundation"}},
-		{"2. Build and Deploy", []string{"phase:build-and-deploy"}},
-		{"3.", []string(nil)},
-		{"", nil},
-		{"Setup", []string{"phase:setup"}},
-	}
-	for _, tc := range cases {
-		got := deriveGitHubLabels(tc.phase)
-		if len(got) != len(tc.want) {
-			t.Errorf("deriveGitHubLabels(%q) = %v, want %v", tc.phase, got, tc.want)
-			continue
-		}
-		for i := range got {
-			if got[i] != tc.want[i] {
-				t.Errorf("deriveGitHubLabels(%q)[%d] = %q, want %q", tc.phase, i, got[i], tc.want[i])
-			}
-		}
-	}
-}
-
-func TestGitHubPlanPopulatesFields(t *testing.T) {
+func TestPlanLabelsCarryStageAndKind(t *testing.T) {
 	c := &ir.Change{
 		Name: "my-feature",
 		Tasks: &ir.Tasks{Phases: []ir.Phase{
-			{Number: "1", Name: "Foundation", Items: []ir.TaskItem{
-				{ID: "1.1", Text: "Create endpoint"},
+			{Number: "1", Name: "Build and Deploy", Items: []ir.TaskItem{
+				{ID: "1.1", Text: "verify: endpoint returns 200", Kind: ir.KindVerify},
 			}},
 		}},
 	}
@@ -168,25 +143,68 @@ func TestGitHubPlanPopulatesFields(t *testing.T) {
 		t.Fatalf("expected 1 operation, got %d", len(plan.Operations))
 	}
 	op := plan.Operations[0]
-	if op.GitHub == nil {
-		t.Fatal("GitHub fields should be populated for github-issues target")
+	want := []string{"stage:build-and-deploy", "kind:verify"}
+	if !reflect.DeepEqual(op.Labels, want) {
+		t.Errorf("Labels = %v, want %v", op.Labels, want)
 	}
-	if op.GitHub.Milestone != "my-feature" {
-		t.Errorf("Milestone = %q, want %q", op.GitHub.Milestone, "my-feature")
-	}
-	if len(op.GitHub.Labels) == 0 || op.GitHub.Labels[0] != "phase:foundation" {
-		t.Errorf("Labels = %v, want [phase:foundation]", op.GitHub.Labels)
+	if op.Milestone != "Build and Deploy" {
+		t.Errorf("Milestone = %q, want %q", op.Milestone, "Build and Deploy")
 	}
 }
 
-func TestGitHubFieldsNilForLinear(t *testing.T) {
-	c := change(task("1.1", "Do something"))
-	lock, _ := LoadLock(t.TempDir(), "demo")
+// A tracker must never see the source numbering: no task identifier in the
+// title, no phase number in the milestone, no "1.1" anywhere in the body.
+func TestPlanCarriesNoSourceNumbering(t *testing.T) {
+	c := &ir.Change{
+		Name: "my-feature",
+		Tasks: &ir.Tasks{Phases: []ir.Phase{
+			{Number: "1", Name: "Foundation", Items: []ir.TaskItem{
+				{ID: "1.1", Text: "create the endpoint"},
+			}},
+		}},
+	}
+	lock, _ := LoadLock(t.TempDir(), "my-feature")
 	plan := BuildPlan(c, lock, "linear")
-	for _, op := range plan.Operations {
-		if op.GitHub != nil {
-			t.Error("GitHub fields should be nil for linear target")
+
+	op := plan.Operations[0]
+	if op.Title != "Create the endpoint" {
+		t.Errorf("Title = %q, want the capitalized task text with no identifier", op.Title)
+	}
+	if op.Milestone != "Foundation" {
+		t.Errorf("Milestone = %q, want the phase name with no number", op.Milestone)
+	}
+	if op.Position != 1 {
+		t.Errorf("Position = %d, want 1", op.Position)
+	}
+	for _, field := range []string{op.Title, op.Milestone, op.Body, plan.Overview, plan.Title} {
+		if strings.Contains(field, "1.1") {
+			t.Errorf("source task identifier leaked into tracker output: %q", field)
 		}
+	}
+}
+
+func TestPlanTitleAndOverviewAreReaderFacing(t *testing.T) {
+	c := &ir.Change{
+		Name:     "add-auth-layer",
+		Proposal: &ir.Proposal{Why: "Endpoints are open."},
+		Tasks: &ir.Tasks{Phases: []ir.Phase{
+			{Number: "1", Name: "Foundation", Items: []ir.TaskItem{{ID: "1.1", Text: "do it"}}},
+		}},
+	}
+	lock, _ := LoadLock(t.TempDir(), "add-auth-layer")
+	plan := BuildPlan(c, lock, "linear")
+
+	if plan.Title != "Add auth layer" {
+		t.Errorf("Title = %q, want the humanized slug", plan.Title)
+	}
+	if plan.Change != "add-auth-layer" {
+		t.Errorf("Change = %q, want the slug retained as the correlation key", plan.Change)
+	}
+	if !strings.Contains(plan.Overview, "Endpoints are open.") {
+		t.Errorf("overview must carry the summary, got %q", plan.Overview)
+	}
+	if !reflect.DeepEqual(plan.Milestones, []string{"Foundation"}) {
+		t.Errorf("Milestones = %v, want [Foundation]", plan.Milestones)
 	}
 }
 

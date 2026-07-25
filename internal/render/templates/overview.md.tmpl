@@ -1,5 +1,3 @@
-# {{ .Title }}
-
 {{ section .Section "summary" }}
 {{ with .Export.Scope }}
 ## Scope
@@ -24,15 +22,11 @@
 {{- range .Steps }}
   - {{ . }}
 {{- end }}
-{{ end }}{{ end }}{{ end }}
-## Delivery plan
-{{ if .Export.Milestones }}
+{{ end }}{{ end }}{{ end }}{{ with .Export.Milestones }}
+## Delivery stages
+
 Each stage depends on the one before it. Work inside a stage can run in parallel.
-{{ range .Export.Milestones }}
-### {{ .Name }}
-{{ range .Tickets }}
-- [{{ if .Done }}x{{ else }} {{ end }}] {{ .Title }}{{ with .Labels }} — {{ range $i, $l := . }}{{ if $i }}, {{ end }}`{{ $l }}`{{ end }}{{ end }}
+{{ range . }}
+- {{ .Name }}
 {{- end }}
-{{ end }}{{ else }}
-_No delivery stages defined for this change._
 {{ end }}
