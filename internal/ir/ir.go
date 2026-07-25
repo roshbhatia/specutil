@@ -72,6 +72,9 @@ type Requirement struct {
 	Delta     DeltaOp
 	Text      string
 	Scenarios []Scenario
+	// Markers holds schema-declared facts lifted from the block's bullets by
+	// the extract pass. Nil when the repository declares no extraction.
+	Markers map[string]string
 }
 
 // Scenario is a `#### Scenario:` block.
@@ -79,6 +82,10 @@ type Scenario struct {
 	Section
 	Name  string
 	Steps []string
+	// Markers holds schema-declared facts lifted from the block's bullets by
+	// the extract pass (e.g. "polarity": "negative"). Nil when the repository
+	// declares no extraction.
+	Markers map[string]string
 }
 
 // Design models design.md.
@@ -115,6 +122,13 @@ type Phase struct {
 	Number string
 	Name   string
 	Items  []TaskItem
+	// Notes holds the phase's non-checkbox bullets verbatim. They are retained
+	// rather than dropped so a config-driven extract pass can interpret the
+	// ones a spec framework defines; whatever it does not claim stays here.
+	Notes []string
+	// Markers holds schema-declared facts lifted from Notes by the extract pass
+	// (e.g. "shape": "loop"). Nil when the repository declares no extraction.
+	Markers map[string]string
 }
 
 // TaskItem is a single `- [ ] N.M` checkbox.
@@ -125,6 +139,12 @@ type TaskItem struct {
 	Kind       TaskKind
 	Tags       []string // bracket-prefixed labels extracted from text: [BLOCKER], [residency], …
 	InlineRefs []string // ticket/PR references found in text: INF-2345, #219, …
+	// Fields holds schema-declared inline values lifted from Text by the
+	// extract pass. Nil when the repository declares no extraction.
+	Fields map[string][]string
+	// DependsOn lists the IDs of sibling tasks this task waits on, resolved
+	// from any taskRefs-typed field. Empty when none are declared.
+	DependsOn []string
 }
 
 // Warning records a recoverable parse problem so malformed input is surfaced

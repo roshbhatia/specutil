@@ -255,6 +255,12 @@ func ParseTasks(file, src string) (*ir.Tasks, []ir.Warning) {
 		}
 		for _, it := range extractListItems(phaseNode.Body) {
 			if !it.hasBox {
+				// Retain the bullet verbatim. A spec framework may state a fact
+				// about the phase here (its shape, a loop bound); the extract
+				// pass decides, not the parser.
+				if t := strings.TrimSpace(it.text); t != "" {
+					phase.Notes = append(phase.Notes, t)
+				}
 				continue
 			}
 			item := ir.TaskItem{Done: it.checked, Kind: ir.KindPlain}

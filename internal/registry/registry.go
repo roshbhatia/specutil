@@ -10,7 +10,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/roshbhatia/specutil/internal/extract"
 	"github.com/roshbhatia/specutil/internal/graph"
+	"github.com/roshbhatia/specutil/internal/ir"
 	"github.com/roshbhatia/specutil/internal/provider"
 	"github.com/roshbhatia/specutil/internal/provider/bmad"
 	openspecprovider "github.com/roshbhatia/specutil/internal/provider/openspec"
@@ -22,7 +24,60 @@ import (
 //   - When from is empty, auto-detection inspects the repo layout.
 //   - path is the positional file-path argument (may be empty).
 //   - providers is the list of script adapters from specutil.yaml.
+//
+// The returned provider applies the repository's extraction declaration to every
+// change it loads, so no adapter needs to know about a spec framework's marker
+// conventions.
 func SelectProvider(from, repo, path string, providers []graph.ProviderConfig) (provider.Provider, error) {
+	p, err := selectRaw(from, repo, path, providers)
+	if err != nil {
+		return nil, err
+	}
+	manifest, merr := graph.LoadManifest(repo)
+	if merr != nil {
+		// A malformed manifest is surfaced by the caller that loads it for the
+		// dependency graph; extraction degrades to none rather than failing the
+		// load twice for the same reason.
+		return p, nil
+	}
+	cfg, cerr := manifest.ExtractConfig(repo)
+	if cerr != nil {
+		return nil, cerr
+	}
+	if cfg.IsZero() {
+		return p, nil
+	}
+	return &extracting{Provider: p, cfg: cfg}, nil
+}
+
+// extracting decorates a provider with the post-parse extraction pass.
+type extracting struct {
+	provider.Provider
+	cfg extract.Config
+}
+
+func (e *extracting) Load(name string) (*ir.Change, error) {
+	c, err := e.Provider.Load(name)
+	if err != nil {
+		return nil, err
+	}
+	c.Warnings = append(c.Warnings, extract.Apply(e.cfg, c)...)
+	return c, nil
+}
+
+func (e *extracting) LoadAll() ([]*ir.Change, error) {
+	changes, err := e.Provider.LoadAll()
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range changes {
+		c.Warnings = append(c.Warnings, extract.Apply(e.cfg, c)...)
+	}
+	return changes, nil
+}
+
+// selectRaw resolves the undecorated provider for the 'from' value.
+func selectRaw(from, repo, path string, providers []graph.ProviderConfig) (provider.Provider, error) {
 	resolved := from
 	if resolved == "" {
 		var err error

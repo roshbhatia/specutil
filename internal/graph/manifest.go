@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
+	"github.com/roshbhatia/specutil/internal/extract"
 	"gopkg.in/yaml.v3"
 )
 
@@ -26,6 +28,46 @@ type Manifest struct {
 	Changes   map[string]ManifestEntry `yaml:"changes"`
 	Edges     []Edge                   `yaml:"edges"`
 	Providers []ProviderConfig         `yaml:"providers"`
+	// Extract declares the schema-specific markers and inline fields to lift
+	// out of parsed artifacts. Absent means "detect from the spec framework's
+	// own config, and extract nothing if that is unrecognized".
+	Extract extract.Config `yaml:"extract"`
+}
+
+// schemaConfigFile is the spec framework's own config, read only to detect
+// which extraction preset applies when specutil.yaml does not say.
+const schemaConfigFile = "openspec/config.yaml"
+
+// ExtractConfig returns the effective extraction declaration for a repository.
+// An explicit `extract:` block wins. Otherwise the spec framework's declared
+// schema name selects a matching built-in preset, and an unrecognized name
+// extracts nothing rather than guessing.
+func (m *Manifest) ExtractConfig(repoRoot string) (extract.Config, error) {
+	if m != nil && !m.Extract.IsZero() {
+		return extract.Resolve(m.Extract)
+	}
+	name := detectSchemaName(repoRoot)
+	if name == "" || !extract.HasPreset(name) {
+		return extract.Config{}, nil
+	}
+	return extract.Resolve(extract.Config{Preset: name})
+}
+
+// detectSchemaName reads the `schema:` key from the spec framework's config.
+// An absent or unreadable file yields an empty name, never an error: detection
+// is a convenience, and a repository without one simply extracts nothing.
+func detectSchemaName(repoRoot string) string {
+	b, err := os.ReadFile(filepath.Join(repoRoot, schemaConfigFile))
+	if err != nil {
+		return ""
+	}
+	var cfg struct {
+		Schema string `yaml:"schema"`
+	}
+	if err := yaml.Unmarshal(b, &cfg); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(cfg.Schema)
 }
 
 // ManifestEntry is one change's manifest record.
