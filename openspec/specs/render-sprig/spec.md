@@ -1,5 +1,8 @@
-## ADDED Requirements
+# render-sprig Specification
 
+## Purpose
+TBD - created by archiving change specutil-providers. Update Purpose after archive.
+## Requirements
 ### Requirement: Sprig functions available in render templates
 The `render` template engine SHALL merge the Sprig function map (`github.com/Masterminds/sprig/v3`) into the template FuncMap alongside the existing `section` function. When a Sprig function name conflicts with a specutil-defined function, the specutil function SHALL take precedence. All embedded and user-override templates SHALL have access to Sprig functions without any additional configuration.
 
@@ -29,15 +32,15 @@ The addition of Sprig SHALL be backward-compatible. Existing embedded templates 
 - **WHEN** `specutil render --as rfc` is run before and after the Sprig dependency is added
 - **THEN** the rendered output is byte-for-byte identical for the same input change
 
-### Requirement: Embedded github-issues.md.tmpl ships as a render target
-An embedded `github-issues.md.tmpl` template SHALL ship alongside rfc/design/tickets and SHALL be used to pre-render the `github.body` field in plan operations. The template SHALL use the standard `section`, `.Title`, `.Change`, and Sprig functions. Users MAY override it via `--templates` following the existing override convention.
+### Requirement: Embedded tracker templates ship as internal render targets
+Embedded `ticket.md.tmpl` and `overview.md.tmpl` templates SHALL ship alongside rfc/design/tickets and SHALL be used to pre-render the `body` and `overview` fields in plan operations. They SHALL use the standard `section`, `.Title`, `.Export`, `.Ticket`, and Sprig functions. Users MAY override them via `--templates` following the existing override convention. Neither is exposed as a user-facing `--as` value.
 
-#### Scenario: github-issues template overridable
-- **WHEN** `--templates ./templates/` and `./templates/github-issues.md.tmpl` exists
+#### Scenario: ticket template overridable
+- **WHEN** `--templates ./templates/` and `./templates/ticket.md.tmpl` exists
 - **THEN** the body field in plan operations uses the user-provided template
 
-#### Scenario: github-issues template falls back to embedded
-- **WHEN** `--templates` is set but `github-issues.md.tmpl` is absent from the override directory
+#### Scenario: ticket template falls back to embedded
+- **WHEN** `--templates` is set but `ticket.md.tmpl` is absent from the override directory
 - **THEN** specutil emits a warning and uses the embedded default
 
 ### Requirement: Sprig dependency declared in go.mod
@@ -46,3 +49,4 @@ An embedded `github-issues.md.tmpl` template SHALL ship alongside rfc/design/tic
 #### Scenario: go.mod contains sprig dependency
 - **WHEN** the change is implemented
 - **THEN** `go.mod` lists `github.com/Masterminds/sprig/v3` as a direct dependency
+

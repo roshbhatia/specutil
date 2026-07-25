@@ -42,7 +42,15 @@
 - [ ] 5.5 Apply: exercise `sync-to-linear` end-to-end against a real Linear target via MCP (user-confirmed; impactful — remote writes)
 - [ ] 5.6 Confirm: created Linear issues match the plan and their IDs are recorded in the lockfile
 
+> Archived with 5.5 and 5.6 not performed. Both need a real Linear workspace and
+> a user-confirmed remote write, which never happened. The skill was validated
+> against a sample plan by 5.4 only.
+
 ## 6. TUI (tui-visualizer)
+
+> The `tui` verb shipped and was later removed; the `tui-visualizer` capability
+> no longer exists. The tasks below record what was built, not what the tool
+> does today.
 
 - [x] 6.1 Implement the bubbletea + bubblezone workstream kanban (lifecycle columns; mouse zones; empty-repo guidance)
 - [x] 6.2 Implement the layered-by-depth dependency graph view (cycle surfaced, not looped)
@@ -58,3 +66,6 @@
 - [x] 8.1 Verify: `nix develop -c go build ./...` and `go test ./...` green; determinism guard passes; `git diff` reviewed
 - [x] 8.2 Apply: push the branch and open a PR (impactful — `git push`; never push to `main`)
 - [ ] 8.3 Confirm: CI green and PR reflects the intended diff
+
+> Archived with 8.3 not performed. The work landed on `main` directly rather
+> than through a PR, so there was no PR diff to confirm.

@@ -1,5 +1,8 @@
-## ADDED Requirements
+# cli-foundation Specification
 
+## Purpose
+TBD - created by archiving change specutil-core. Update Purpose after archive.
+## Requirements
 ### Requirement: Deterministic binary with no network I/O
 The `specutil` binary SHALL perform no network I/O in any code path. All remote interaction MUST be delegated to an external agent via emitted artifacts (plans) and shipped skills. Any durable local-state mutation MUST be exposed as an explicit CLI verb.
 
@@ -12,7 +15,7 @@ The `specutil` binary SHALL perform no network I/O in any code path. All remote 
 - **THEN** the determinism check (lint/test) fails and the change is rejected
 
 ### Requirement: Cobra root command and verb registry
-The CLI SHALL expose its functionality through a cobra root command with the subcommands `render`, `plan`, `diff`, `lock`, `graph`, `tui`, and `serve`. There SHALL be no `sync` verb in the binary.
+The CLI SHALL expose its functionality through a cobra root command with the subcommands `render`, `plan`, `diff`, `lock`, `graph`, and `web`. There SHALL be no `sync` verb in the binary.
 
 #### Scenario: Help lists the verb surface
 - **WHEN** the user runs `specutil --help`
@@ -43,3 +46,4 @@ The repository SHALL provide a Nix flake / dev shell pinning the Go toolchain an
 #### Scenario: Dev shell builds the binary
 - **WHEN** a contributor enters the provided dev shell and builds
 - **THEN** the binary compiles and `go test ./...` runs without requiring globally-installed tools
+

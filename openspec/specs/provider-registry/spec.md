@@ -1,7 +1,10 @@
-## ADDED Requirements
+# provider-registry Specification
 
+## Purpose
+TBD - created by archiving change specutil-providers. Update Purpose after archive.
+## Requirements
 ### Requirement: Provider selection via --from flag
-Every verb that loads changes (render, plan, diff, lock, graph, tui, web) SHALL accept a persistent `--from <name>` flag that selects the input provider. Recognized built-in values are `openspec`, `bmad`, `plan`, and `stdin`. User-defined values MUST match a `providers[].name` entry in `specutil.yaml`. An unrecognized value SHALL produce an error listing available providers.
+Every verb that loads changes (render, plan, diff, lock, graph, web) SHALL accept a persistent `--from <name>` flag that selects the input provider. Recognized built-in values are `openspec`, `bmad`, `plan`, and `stdin`. User-defined values MUST match a `providers[].name` entry in `specutil.yaml`. An unrecognized value SHALL produce an error listing available providers.
 
 #### Scenario: Explicit built-in provider selected
 - **WHEN** user runs `specutil render --from bmad --as rfc stories/story-1.md`
@@ -50,3 +53,4 @@ Parse warnings emitted to stderr SHALL include the active provider name so error
 #### Scenario: Warning includes provider name
 - **WHEN** a loaded change has a missing proposal section
 - **THEN** the warning message includes the provider name (e.g. `warning [bmad]: story-1: ...`)
+
