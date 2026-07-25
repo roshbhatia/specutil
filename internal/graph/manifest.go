@@ -14,12 +14,17 @@ import (
 // dependency model stays framework-agnostic.
 const ManifestFile = "openspec/specutil.yaml"
 
-// Manifest is the hand-editable, repo-level dependency DAG. Dependencies are
-// keyed by change name: each change lists the changes it depends on (its
-// prerequisites), so `add-auth.depends_on: [add-db]` yields edge add-db ->
-// add-auth.
+// Manifest is the hand-editable, repo-level dependency DAG. It accepts two
+// equivalent spellings of the same edge set, because both appear in the wild:
+//
+//   - changes.<name>.depends_on — each change lists its prerequisites, so
+//     `add-auth.depends_on: [add-db]` yields edge add-db -> add-auth.
+//   - edges — an explicit from/to list, where from is the prerequisite.
+//
+// Both are merged and deduplicated by edges().
 type Manifest struct {
 	Changes   map[string]ManifestEntry `yaml:"changes"`
+	Edges     []Edge                   `yaml:"edges"`
 	Providers []ProviderConfig         `yaml:"providers"`
 }
 
@@ -55,8 +60,8 @@ func LoadManifest(repoRoot string) (*Manifest, error) {
 	return &m, nil
 }
 
-// edges flattens the manifest into a deterministic directed edge list
-// (prerequisite -> dependent).
+// edges flattens both manifest spellings into a deterministic, deduplicated
+// directed edge list (prerequisite -> dependent).
 func (m *Manifest) edges() []Edge {
 	if m == nil {
 		return nil
@@ -67,13 +72,24 @@ func (m *Manifest) edges() []Edge {
 	}
 	sort.Strings(names)
 
+	seen := make(map[Edge]bool)
 	var edges []Edge
+	add := func(e Edge) {
+		if e.From == "" || e.To == "" || seen[e] {
+			return
+		}
+		seen[e] = true
+		edges = append(edges, e)
+	}
 	for _, dependent := range names {
 		deps := append([]string(nil), m.Changes[dependent].DependsOn...)
 		sort.Strings(deps)
 		for _, prereq := range deps {
-			edges = append(edges, Edge{From: prereq, To: dependent})
+			add(Edge{From: prereq, To: dependent})
 		}
+	}
+	for _, e := range m.Edges {
+		add(e)
 	}
 	return edges
 }

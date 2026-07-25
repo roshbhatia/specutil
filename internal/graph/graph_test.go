@@ -31,6 +31,48 @@ func TestManifestEdgeBuildsDAG(t *testing.T) {
 	}
 }
 
+func TestManifestEdgesListBuildsDAG(t *testing.T) {
+	// The explicit `edges:` spelling must produce the same DAG as depends_on.
+	m := &Manifest{Edges: []Edge{{From: "A", To: "B"}}}
+	g, diags := Build(changes("A", "B"), m)
+	if len(diags) != 0 {
+		t.Fatalf("unexpected diagnostics: %v", diags)
+	}
+	if len(g.Edges) != 1 || g.Edges[0] != (Edge{From: "A", To: "B"}) {
+		t.Fatalf("expected single edge A->B, got %v", g.Edges)
+	}
+}
+
+func TestManifestSpellingsDeduplicate(t *testing.T) {
+	// The same edge declared both ways must appear once.
+	m := &Manifest{
+		Changes: map[string]ManifestEntry{"B": {DependsOn: []string{"A"}}},
+		Edges:   []Edge{{From: "A", To: "B"}},
+	}
+	g, _ := Build(changes("A", "B"), m)
+	if len(g.Edges) != 1 {
+		t.Fatalf("expected the duplicate edge to collapse to one, got %v", g.Edges)
+	}
+}
+
+func TestLoadManifestReadsEdgesList(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "openspec"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	src := "edges:\n  - from: A\n    to: B\n"
+	if err := os.WriteFile(filepath.Join(dir, ManifestFile), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, err := LoadManifest(dir)
+	if err != nil {
+		t.Fatalf("LoadManifest: %v", err)
+	}
+	if len(m.Edges) != 1 || m.Edges[0] != (Edge{From: "A", To: "B"}) {
+		t.Fatalf("expected the edges list to parse, got %v", m.Edges)
+	}
+}
+
 func TestDanglingReferenceReported(t *testing.T) {
 	m := &Manifest{Changes: map[string]ManifestEntry{"B": {DependsOn: []string{"ghost"}}}}
 	g, diags := Build(changes("B"), m)

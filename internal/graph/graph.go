@@ -18,10 +18,11 @@ type Node struct {
 }
 
 // Edge is a directed dependency edge: From is the prerequisite, To the
-// dependent (i.e. To depends on From).
+// dependent (i.e. To depends on From). It doubles as the manifest's `edges:`
+// entry shape, hence the yaml tags.
 type Edge struct {
-	From string `json:"from"`
-	To   string `json:"to"`
+	From string `json:"from" yaml:"from"`
+	To   string `json:"to"   yaml:"to"`
 }
 
 // Graph is the canonical, sorted dependency DAG and the feed for visualizers.
