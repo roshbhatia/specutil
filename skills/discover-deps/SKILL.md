@@ -53,7 +53,9 @@ show from → to with reason. Use AskUserQuestion to confirm before writing.
 
 ### 4. Apply accepted edges
 
-For each accepted candidate `{from, to}`, add it to `openspec/specutil.yaml`:
+For each accepted candidate `{from, to}`, add it to `openspec/specutil.yaml`.
+The manifest accepts two equivalent spellings. Match whichever the file already
+uses; use `changes:` for a new file.
 
 ```yaml
 changes:
@@ -62,8 +64,14 @@ changes:
       - <from>
 ```
 
-Edit the file directly. If `changes:` doesn't exist, create it. If the change
-entry already exists, append to its `depends_on` list.
+```yaml
+edges:
+  - from: <from>
+    to: <to>
+```
+
+Edit the file directly. If the change entry already exists, append to its
+`depends_on` list rather than adding a second entry.
 
 ### 5. Verify
 
