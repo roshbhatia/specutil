@@ -1,6 +1,6 @@
 // Package cli wires the cobra command tree. Verbs: render, plan, diff, lock,
-// graph, tui, web. No `sync` verb — orchestration of remote writes lives in
-// the shipped skills, never in the binary.
+// graph, web. No `sync` verb — orchestration of remote writes lives in the
+// shipped skills, never in the binary.
 package cli
 
 import (
@@ -19,7 +19,6 @@ import (
 	"github.com/roshbhatia/specutil/internal/registry"
 	"github.com/roshbhatia/specutil/internal/render"
 	"github.com/roshbhatia/specutil/internal/syncplan"
-	"github.com/roshbhatia/specutil/internal/tui"
 	"github.com/roshbhatia/specutil/internal/web"
 	"github.com/spf13/cobra"
 )
@@ -65,7 +64,6 @@ func NewRootCmd(version ...string) *cobra.Command {
 		newDiffCmd(),
 		newLockCmd(),
 		newGraphCmd(),
-		newTUICmd(),
 		newWebCmd(),
 	)
 	return root
@@ -200,7 +198,7 @@ func emitWarnings(cmd *cobra.Command, warns []ir.Warning) {
 	}
 }
 
-// loadAllChanges uses the registry to load all changes for graph/tui/web.
+// loadAllChanges uses the registry to load all changes for graph and web.
 func loadAllChanges(cmd *cobra.Command) ([]*ir.Change, error) {
 	repo, _ := cmd.Flags().GetString("repo")
 	from, _ := cmd.Flags().GetString("from")
@@ -444,7 +442,7 @@ func newGraphCmd() *cobra.Command {
 		Short: "Output the cross-change dependency graph in various formats",
 		Long: "Projects the cross-change dependency DAG into a machine-readable format for\n" +
 			"integration with external tools. Primarily used by the skills and CI scripts;\n" +
-			"for interactive browsing use `specutil web` or `specutil tui` instead.\n\n" +
+			"for interactive browsing use `specutil web` instead.\n\n" +
 			"Output formats:\n" +
 			"  json     — Full graph model (nodes + edges) as JSON [default]\n" +
 			"  mermaid  — Mermaid graph definition for embedding in docs or GitHub\n" +
@@ -536,42 +534,6 @@ func writeOut(cmd *cobra.Command, b []byte) error {
 	return err
 }
 
-func newTUICmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "tui",
-		Short: "Open an interactive terminal view of the change board and dependency graph",
-		Long: "Launches a keyboard-driven terminal UI with the same three views as\n" +
-			"`specutil web` but rendered in the terminal — no browser required.\n\n" +
-			"  Kanban  — lifecycle columns (proposed/active/archived) with progress cards.\n" +
-			"            Left/right arrows move the selection; Enter opens the detail panel.\n\n" +
-			"  Graph   — depth-ordered dependency columns; selection highlights neighbors.\n" +
-			"            Tab switches between Kanban and Graph.\n\n" +
-			"  Detail  — side panel showing the execution plan, Why/What Changes narrative,\n" +
-			"            outstanding tasks, and per-stage progress meters.\n\n" +
-			"Use `specutil web` when you want a shareable link or richer rendering.\n" +
-			"Use `specutil tui` for quick in-terminal review or when a browser isn't handy.",
-		Args: cobra.NoArgs,
-		RunE: runTUI,
-	}
-}
-
-func runTUI(cmd *cobra.Command, args []string) error {
-	repo, _ := cmd.Flags().GetString("repo")
-	changes, err := loadAllChanges(cmd)
-	if err != nil {
-		return err
-	}
-	for _, c := range changes {
-		emitWarnings(cmd, c.Warnings)
-	}
-	manifest, err := graph.LoadManifest(repo)
-	if err != nil {
-		return err
-	}
-	g, diags := graph.Build(changes, manifest)
-	return tui.Run(changes, g, diags)
-}
-
 func newWebCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "web",
@@ -587,9 +549,7 @@ func newWebCmd() *cobra.Command {
 			"            What Changes narrative, outstanding tasks, and per-stage chart.\n\n" +
 			"A fresh file is written to the system temp directory on each invocation so\n" +
 			"you always see current data; old files accumulate in /tmp and can be cleared\n" +
-			"periodically. Pass -o to write a specific path or '-' for stdout.\n\n" +
-			"This is the primary day-to-day interface for spec review and progress\n" +
-			"tracking. The TUI (specutil tui) provides the same views in the terminal.",
+			"periodically. Pass -o to write a specific path or '-' for stdout.",
 		Args: cobra.NoArgs,
 		RunE: runWeb,
 	}

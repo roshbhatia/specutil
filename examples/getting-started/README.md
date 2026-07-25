@@ -26,9 +26,6 @@ caller identity from JWT claims that the auth middleware puts in context.
 Run all commands from this directory (`examples/getting-started/`).
 
 ```bash
-# View the interactive terminal dashboard
-specutil tui
-
 # Open the web dashboard in your browser
 specutil web
 

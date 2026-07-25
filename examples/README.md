@@ -13,13 +13,13 @@ Working examples for each specutil input provider.
 **I have an OpenSpec project:**
 ```bash
 cd examples/getting-started
-specutil tui
+specutil web
 ```
 
 **I have BMAD stories:**
 ```bash
 cd examples/bmad-project
-specutil --from bmad tui
+specutil --from bmad web
 ```
 
 **I just have a plan.md:**

@@ -39,11 +39,10 @@ rather than duplicated into the detail projection.
 
 ### Requirement: Shared lifecycle and progress classification
 The system SHALL classify a workstream's lifecycle (proposed, active, archived)
-and progress from task done state in a single shared component consumed by both
-the TUI and the detail projection, so the two surfaces never report different
-states for the same change.
+and progress from task done state in a single shared component consumed by every
+surface, so no two surfaces report different states for the same change.
 
 #### Scenario: Identical classification across surfaces
-- **WHEN** the TUI and the detail projection classify the same change
+- **WHEN** the detail projection and the web view classify the same change
 - **THEN** both report the same lifecycle and the same progress value
 

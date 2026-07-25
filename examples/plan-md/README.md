@@ -24,8 +24,8 @@ specutil --from plan render --as design --change billing-retry
 # See the Linear sync plan
 specutil --from plan plan --target linear --change billing-retry
 
-# View in the TUI kanban
-specutil --from plan tui
+# Open the web dashboard
+specutil --from plan web
 ```
 
 ## Reading from stdin

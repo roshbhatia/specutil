@@ -27,8 +27,8 @@ specutil --from bmad render --as design --change story-1.1
 # See what a Linear sync plan would look like
 specutil --from bmad plan --target linear --change story-1.1
 
-# Interactive kanban
-specutil --from bmad tui
+# Open the web dashboard
+specutil --from bmad web
 
 # Dependency graph (mermaid)
 specutil --from bmad graph --as mermaid

@@ -1,5 +1,5 @@
 // Package ir defines the normalized, framework-agnostic intermediate
-// representation that every specutil projection (render, plan, graph, tui, web)
+// representation that every specutil projection (render, plan, graph, web)
 // consumes. The model is hybrid: each section carries both structured fields
 // and its retained raw markdown block for lossless round-trip.
 package ir

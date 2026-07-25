@@ -1,7 +1,7 @@
 // Package lifecycle derives a workstream's status and progress from its task
 // completion. OpenSpec tasks are only done/not-done, so lifecycle is computed
 // rather than read from a status field. It is the single source of truth shared
-// by every renderer (TUI, detail feed) so they never disagree about a change.
+// by every renderer so they never disagree about a change.
 package lifecycle
 
 import "github.com/roshbhatia/specutil/internal/ir"
