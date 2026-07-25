@@ -26,7 +26,8 @@ internal/
   cli/                cobra command tree; all verb wiring lives here
   ir/                 normalized intermediate representation (IR)
   provider/           input providers: openspec, bmad, plan, stdin, script
-  registry/           provider and target registration
+  registry/           provider and target registration; wraps providers with extract
+  extract/            schema-declared marker/field grammar (composable, config-driven)
   export/             IR → tracker vocabulary (the naming boundary)
   render/             IR → RFC / design / tickets Markdown
   syncplan/           IR → create/update/orphan JSON plan
@@ -81,6 +82,24 @@ relations between consecutive stages (drawn by the skill).
 
 If you add a field that reaches a tracker, route it through `export`. If you find
 yourself formatting a title in a skill, the formatting belongs here instead.
+
+---
+
+## Schema-specific conventions are composable, not assumed
+
+specutil ships plain OpenSpec support and nothing more by default. A spec
+framework that layers extra convention on top of markdown (a scenario's
+polarity, a phase's shape, an inline task-dependency field) declares that
+convention in `openspec/specutil.yaml` under `extract:`, or gets it for free
+when its own config names a schema specutil recognizes (`internal/extract`'s
+built-in presets, e.g. `rosh-spec-driven`). Nothing in `parse`, the providers,
+`export`, `graph`, or `web` hard-codes a specific framework's marker names.
+
+Adding support for a new convention means adding an `extract.Marker` or
+`extract.Field` declaration (or a new preset), never a branch keyed on a schema
+name in a consuming package. If you catch yourself writing
+`if schema == "some-framework"` anywhere outside `internal/extract`, stop:
+that knowledge belongs in a preset instead.
 
 ---
 

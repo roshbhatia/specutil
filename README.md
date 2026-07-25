@@ -314,6 +314,53 @@ Phases are `## N. Phase Name` headings; tasks are `- [x]`/`- [ ]` checkboxes. Ta
 - [ ] 2.2 confirm: CI green and PR reflects intended diff
 ```
 
+### extract (composable schema conventions)
+
+specutil reads plain OpenSpec by default: no phase shapes, no polarity, no
+inline dependency fields. A repository using a spec framework with extra
+convention on top of markdown declares it under `extract:` in
+`openspec/specutil.yaml`:
+
+```yaml
+# openspec/specutil.yaml
+extract:
+  preset: rosh-spec-driven
+```
+
+If `openspec/config.yaml` already names a recognized `schema:`, specutil picks
+up the matching preset automatically and no `extract:` block is needed. An
+unrecognized schema name extracts nothing rather than guessing.
+
+The built-in `rosh-spec-driven` preset understands:
+
+| Convention | Kind | Effect |
+|---|---|---|
+| `- **POLARITY** positive\|negative` on a scenario | marker | groups acceptance criteria into success/error paths in every export |
+| `- **SHAPE** loop\|graph` on a phase | marker | shown in the web detail view and `graph --as detail` |
+| `- **STOP** <condition>` on a loop phase | marker | shown alongside shape |
+| `- **MAX-ITERS** <n>` on a loop phase | marker | shown alongside shape |
+| `` `deps:` 1.1, 1.2 `` on a task | field | becomes a real task-level dependency edge, driving the graph's parallelism levels instead of assuming phases are strictly sequential |
+
+A repository can declare its own markers and fields instead of (or alongside)
+a preset:
+
+```yaml
+extract:
+  markers:
+    - key: owner
+      scope: task        # phase | task | scenario | requirement
+      bullet: OWNER
+  fields:
+    - key: estimate
+      scope: task
+      label: est
+      type: string        # string | list | taskRefs
+```
+
+Every declared marker and field is stripped from the prose it was written in
+and carried as data instead — a tracker, a spec renderer, or `graph --as
+detail` never sees the raw bullet.
+
 ### specutil.yaml (cross-change dependencies)
 
 Declare dependencies either way. Both spellings mean the same thing and can be mixed.
