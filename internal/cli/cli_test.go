@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -188,4 +189,126 @@ func setupMinimalOpenspec(t *testing.T, changeName string) string {
 		t.Fatalf("write tasks: %v", err)
 	}
 	return dir
+}
+
+// writeSchema declares the spec framework's schema so check and extract detect
+// their presets without an explicit specutil.yaml block.
+func writeSchema(t *testing.T, repo, schema string) {
+	t.Helper()
+	path := filepath.Join(repo, "openspec", "config.yaml")
+	if err := os.WriteFile(path, []byte("schema: "+schema+"\n"), 0o644); err != nil {
+		t.Fatalf("write config.yaml: %v", err)
+	}
+}
+
+func TestCheckListRules(t *testing.T) {
+	out, _, err := run("check", "--list-rules")
+	if err != nil {
+		t.Fatalf("check --list-rules: %v", err)
+	}
+	for _, want := range []string{"no-em-dash", "scenario-marker-coverage", "task-deps-resolve"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("rule listing missing %q", want)
+		}
+	}
+}
+
+func TestCheckWithNoRubricIsANoOp(t *testing.T) {
+	dir := setupMinimalOpenspec(t, "plain")
+	_, stderr, err := run("-C", dir, "check")
+	if err != nil {
+		t.Fatalf("a repo with no rubric must not fail: %v", err)
+	}
+	if !strings.Contains(stderr, "no rubric declared") {
+		t.Errorf("expected a note explaining nothing was checked, got %q", stderr)
+	}
+}
+
+func TestCheckDetectsPresetFromSchemaAndFails(t *testing.T) {
+	dir := setupMinimalOpenspec(t, "rough")
+	writeSchema(t, dir, "rosh-spec-driven")
+
+	out, _, err := run("-C", dir, "check")
+	if err == nil {
+		t.Fatal("expected a rubric violation for a change missing Non-goals and a shape")
+	}
+	if !cli.IsCheckFailed(err) {
+		t.Fatalf("expected the check sentinel, got %v", err)
+	}
+	for _, want := range []string{"proposal-sections", "phase-marker-required", "check: failed"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("findings missing %q; got:\n%s", want, out)
+		}
+	}
+}
+
+func TestCheckJSONOutput(t *testing.T) {
+	dir := setupMinimalOpenspec(t, "rough")
+	writeSchema(t, dir, "rosh-spec-driven")
+
+	out, _, err := run("-C", dir, "check", "--as", "json")
+	if err == nil || !cli.IsCheckFailed(err) {
+		t.Fatalf("expected a rubric violation, got %v", err)
+	}
+	var report struct {
+		Findings []struct {
+			Rule     string `json:"rule"`
+			Severity string `json:"severity"`
+			Change   string `json:"change"`
+			Msg      string `json:"msg"`
+		} `json:"findings"`
+		Checked []string `json:"checked"`
+	}
+	if jerr := json.Unmarshal([]byte(out), &report); jerr != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", jerr, out)
+	}
+	if len(report.Findings) == 0 {
+		t.Fatal("expected findings in the JSON report")
+	}
+	if len(report.Checked) != 1 || report.Checked[0] != "rough" {
+		t.Errorf("checked = %v, want [rough]", report.Checked)
+	}
+	for _, f := range report.Findings {
+		if f.Rule == "" || f.Severity == "" || f.Change == "" || f.Msg == "" {
+			t.Errorf("finding is missing fields: %+v", f)
+		}
+	}
+}
+
+func TestCheckUnknownFormatIsAnError(t *testing.T) {
+	dir := setupMinimalOpenspec(t, "rough")
+	writeSchema(t, dir, "rosh-spec-driven")
+	if _, _, err := run("-C", dir, "check", "--as", "xml"); err == nil {
+		t.Error("expected an error naming the supported formats")
+	}
+}
+
+// The verb accepts a change directory so it is a drop-in for a lint that took a
+// path; the repository root and change name are derived from the layout.
+func TestCheckAcceptsAChangeDirectory(t *testing.T) {
+	dir := setupMinimalOpenspec(t, "rough")
+	writeSchema(t, dir, "rosh-spec-driven")
+
+	changeDir := filepath.Join(dir, "openspec", "changes", "rough")
+	out, _, err := run("check", changeDir)
+	if err == nil || !cli.IsCheckFailed(err) {
+		t.Fatalf("expected a rubric violation, got %v", err)
+	}
+	if !strings.Contains(out, "rough") {
+		t.Errorf("findings should name the change derived from the path; got:\n%s", out)
+	}
+}
+
+func TestCheckPathFormMatchesNameForm(t *testing.T) {
+	dir := setupMinimalOpenspec(t, "rough")
+	writeSchema(t, dir, "rosh-spec-driven")
+
+	byName, _, err1 := run("-C", dir, "check", "--change", "rough")
+	byPath, _, err2 := run("check", filepath.Join(dir, "openspec", "changes", "rough"))
+	if !cli.IsCheckFailed(err1) || !cli.IsCheckFailed(err2) {
+		t.Fatalf("both forms should fail the rubric: %v / %v", err1, err2)
+	}
+	if byName != byPath {
+		t.Errorf("the two forms must report identically:\n--- name:\n%s\n--- path:\n%s", byName, byPath)
+	}
 }

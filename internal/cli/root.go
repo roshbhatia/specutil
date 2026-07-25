@@ -7,12 +7,15 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
+	"github.com/roshbhatia/specutil/internal/check"
 	"github.com/roshbhatia/specutil/internal/detail"
 	"github.com/roshbhatia/specutil/internal/graph"
 	"github.com/roshbhatia/specutil/internal/ir"
@@ -58,6 +61,7 @@ func NewRootCmd(version ...string) *cobra.Command {
 		newDiffCmd(),
 		newLockCmd(),
 		newGraphCmd(),
+		newCheckCmd(),
 		newWebCmd(),
 	)
 	return root
@@ -532,6 +536,204 @@ func writeOut(cmd *cobra.Command, b []byte) error {
 	}
 	_, err := cmd.OutOrStdout().Write(b)
 	return err
+}
+
+func newCheckCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "check [change]",
+		Short: "Validate changes against the rubric declared in specutil.yaml",
+		Long: "Checks each change against a declared rubric and exits non-zero when any\n" +
+			"rule is violated, so it works as a pre-commit hook or a CI gate.\n\n" +
+			"Rules are generic and parameterized; the repository supplies the specifics\n" +
+			"under `check:` in openspec/specutil.yaml. When that block is absent and\n" +
+			"openspec/config.yaml names a schema specutil ships a preset for, that preset\n" +
+			"applies automatically. A repository with neither is not checked.\n\n" +
+			"Every rule reads only what the author stated: a heading that is present, a\n" +
+			"marker that is declared, a bullet that follows another. None infers intent\n" +
+			"from prose, so two runs over the same input always agree.\n\n" +
+			"Exit codes:\n" +
+			"  0  every rule passed (warnings may still be reported)\n" +
+			"  1  at least one error-severity rule was violated\n\n" +
+			"Typical invocations:\n" +
+			"  specutil check                     # every change\n" +
+			"  specutil check my-change           # one change\n" +
+			"  specutil check --as json | jq      # machine-readable findings\n" +
+			"  specutil check --list-rules        # what the resolved rubric enforces",
+		Args: cobra.MaximumNArgs(1),
+		RunE: runCheck,
+	}
+	cmd.Flags().String("change", "", "check a single change (or pass as positional arg)")
+	cmd.Flags().String("as", "text", "output format: text|json")
+	cmd.Flags().Bool("list-rules", false, "list every built-in rule and exit")
+	cmd.Flags().StringP("out", "o", "", "write output to a file instead of stdout")
+	return cmd
+}
+
+func runCheck(cmd *cobra.Command, args []string) error {
+	if list, _ := cmd.Flags().GetBool("list-rules"); list {
+		var b strings.Builder
+		for _, id := range check.RuleIDs() {
+			fmt.Fprintf(&b, "%-26s %s\n", id, check.RuleDoc(id))
+		}
+		return writeOut(cmd, []byte(b.String()))
+	}
+
+	repo, _ := cmd.Flags().GetString("repo")
+	name, _ := cmd.Flags().GetString("change")
+
+	// A positional argument naming an existing change directory is accepted so
+	// this verb is a drop-in for a lint that took a path. The repository root
+	// and change name are derived from the standard layout.
+	if len(args) > 0 && name == "" {
+		if derivedRepo, derivedName, ok := changeDirTarget(args[0]); ok {
+			repo, name = derivedRepo, derivedName
+			args = nil
+			if err := cmd.Flags().Set("repo", repo); err != nil {
+				return err
+			}
+			if err := cmd.Flags().Set("change", name); err != nil {
+				return err
+			}
+		}
+	}
+
+	manifest, err := graph.LoadManifest(repo)
+	if err != nil {
+		return err
+	}
+	cfg, err := manifest.CheckConfig(repo)
+	if err != nil {
+		return err
+	}
+	if cfg.IsZero() {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"no rubric declared: add a `check:` block to %s or name a known schema in openspec/config.yaml\n",
+			graph.ManifestFile)
+		return nil
+	}
+
+	var changes []*ir.Change
+	if name != "" || len(args) > 0 {
+		c, cerr := resolveChange(cmd, args)
+		if cerr != nil {
+			return cerr
+		}
+		changes = []*ir.Change{c}
+	} else {
+		changes, err = loadAllChanges(cmd)
+		if err != nil {
+			return err
+		}
+	}
+	for _, c := range changes {
+		emitWarnings(cmd, c.Warnings)
+	}
+
+	report, err := check.Run(cfg, changes)
+	if err != nil {
+		return err
+	}
+
+	format, _ := cmd.Flags().GetString("as")
+	switch format {
+	case "json":
+		out, merr := json.MarshalIndent(report, "", "  ")
+		if merr != nil {
+			return merr
+		}
+		if werr := writeOut(cmd, append(out, '\n')); werr != nil {
+			return werr
+		}
+	case "text":
+		if werr := writeOut(cmd, []byte(checkText(report))); werr != nil {
+			return werr
+		}
+	default:
+		return fmt.Errorf("unknown check format %q; supported formats: json, text", format)
+	}
+
+	if !report.OK() {
+		// The findings are already on stdout, so silence cobra's error line and
+		// signal the failure through the exit code alone.
+		cmd.SilenceErrors = true
+		return errCheckFailed
+	}
+	return nil
+}
+
+// changeDirTarget maps a path like <repo>/openspec/changes/<name> to its
+// repository root and change name. It reports false for anything that is not a
+// change directory in that layout, so the argument falls through to being
+// treated as a change name.
+func changeDirTarget(arg string) (repo, name string, ok bool) {
+	info, err := os.Stat(arg)
+	if err != nil || !info.IsDir() {
+		return "", "", false
+	}
+	abs, err := filepath.Abs(arg)
+	if err != nil {
+		return "", "", false
+	}
+	abs = filepath.Clean(abs)
+	changesDir := filepath.Dir(abs)
+	if filepath.Base(changesDir) != "changes" {
+		return "", "", false
+	}
+	openspecDir := filepath.Dir(changesDir)
+	if filepath.Base(openspecDir) != "openspec" {
+		return "", "", false
+	}
+	return filepath.Dir(openspecDir), filepath.Base(abs), true
+}
+
+// errCheckFailed reports a rubric violation. It reaches main only to set the
+// exit code; runCheck silences its printing because the findings are already
+// on stdout.
+var errCheckFailed = errors.New("check: rubric violated")
+
+// IsCheckFailed reports whether err is the rubric-violation sentinel.
+func IsCheckFailed(err error) bool { return errors.Is(err, errCheckFailed) }
+
+// checkText renders a report for a human reader: findings grouped by change,
+// then a one-line verdict.
+func checkText(r *check.Report) string {
+	var b strings.Builder
+	change := ""
+	for _, f := range r.Findings {
+		if f.Change != change {
+			change = f.Change
+			fmt.Fprintf(&b, "\n%s\n", change)
+		}
+		loc := f.File
+		if f.Line > 0 {
+			loc = fmt.Sprintf("%s:%d", f.File, f.Line)
+		}
+		if loc != "" {
+			loc = " (" + loc + ")"
+		}
+		fmt.Fprintf(&b, "  %-5s %-24s %s%s\n", f.Severity, f.Rule, f.Msg, loc)
+	}
+	if len(r.Findings) > 0 {
+		b.WriteString("\n")
+	}
+	noun := "changes"
+	if len(r.Checked) == 1 {
+		noun = "change"
+	}
+	if r.OK() {
+		fmt.Fprintf(&b, "check: passed for %d %s", len(r.Checked), noun)
+		if w := r.Warnings(); w > 0 {
+			fmt.Fprintf(&b, " (%d warning(s))", w)
+		}
+		b.WriteString("\n")
+		return b.String()
+	}
+	fmt.Fprintf(&b, "check: failed for %d %s: %d error(s)", len(r.Checked), noun, r.Errors())
+	if w := r.Warnings(); w > 0 {
+		fmt.Fprintf(&b, ", %d warning(s)", w)
+	}
+	b.WriteString("\n")
+	return b.String()
 }
 
 func newWebCmd() *cobra.Command {
