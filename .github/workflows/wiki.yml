@@ -85,7 +85,7 @@ jobs:
             "$BIN" --help 2>&1 || true
             echo '```'
             echo ""
-            for verb in render plan diff lock graph tui web; do
+            for verb in render plan diff lock graph web; do
               echo "## specutil $verb"
               echo '```'
               "$BIN" "$verb" --help 2>&1 || true
@@ -133,7 +133,10 @@ jobs:
                 desc=$(awk '/^description:/{sub(/^description: */,""); print; exit}' "$skill_dir/SKILL.md")
                 [ -n "$desc" ] && echo "$desc" && echo ""
                 # Print body content after the second --- (end of frontmatter)
-                awk 'BEGIN{n=0} /^---/{n++; next} n>=2{print}' "$skill_dir/SKILL.md" | head -40
+                # Cap inside awk rather than piping to head: head exiting early
+                # sends SIGPIPE to awk, which `set -o pipefail` turns into a
+                # build failure (exit 141).
+                awk 'BEGIN{n=0} /^---/{n++; next} n>=2 && ++body<=40 {print}' "$skill_dir/SKILL.md"
               fi
               echo ""
             done
