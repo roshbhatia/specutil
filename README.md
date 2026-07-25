@@ -7,7 +7,7 @@
 Write specs in OpenSpec, BMAD, or a plain `plan.md`. specutil renders them as shareable docs, syncs tasks to Linear, Notion, or GitHub Issues, and shows how your changes depend on each other — all from your repo, no manual copy-paste.
 
 ```
-specutil [render|plan|diff|lock|graph|web] [--from <provider>] [flags]
+specutil [render|plan|diff|lock|graph|check|web] [--from <provider>] [flags]
 ```
 
 ## What it does
@@ -20,6 +20,7 @@ bmad stories/*.md    ──────────▶  ir.Change     ──▶ 
 plan.md convention   ──────────▶                ──▶ diff    → lockfile delta
 stdin / pipe         ──────────▶                ──▶ lock    → identity map
 script adapters      ──────────▶                ──▶ graph   → DAG (json/mermaid/dot)
+                                                ──▶ check   → rubric violations (CI gate)
                                                 ──▶ web     → HTML dashboard
 ```
 
@@ -230,6 +231,55 @@ specutil graph --suggest    # infer candidate edges without mutating the manifes
 ```
 
 Dependencies come from `openspec/specutil.yaml`. Use `--suggest` to get inferred candidates from shared capabilities (does not write the file).
+
+### `check`
+
+Validates changes against a declared rubric and exits non-zero on violation, so
+it works as a pre-commit hook or a CI gate.
+
+```bash
+specutil check                  # every change
+specutil check my-change        # one change
+specutil check --as json | jq   # machine-readable findings
+specutil check --list-rules     # what the built-in rules are
+```
+
+Rules are generic and parameterized; the repository supplies the specifics under
+`check:` in `openspec/specutil.yaml`. As with `extract:`, a recognized `schema:`
+in `openspec/config.yaml` selects a matching preset automatically, and a
+repository with neither declared is not checked.
+
+```yaml
+# openspec/specutil.yaml
+check:
+  preset: rosh-spec-driven
+  disable: [no-em-dash]          # drop one rule
+  rules:
+    - id: bolded-bullet-lead     # retune another
+      severity: warn
+      allow: [WHEN, THEN, BREAKING]
+```
+
+Built-in rules:
+
+| Rule | Enforces |
+|---|---|
+| `required-sections` | an artifact contains each named heading |
+| `paired-bullet` | every lead bullet is followed by its counterpart |
+| `scenario-marker-coverage` | every requirement has a scenario declaring marker=value |
+| `phase-marker-required` | every phase declares a marker |
+| `phase-marker-conditional` | a phase with one marker value declares its dependents |
+| `phase-task-pattern` | every phase contains a task matching a pattern |
+| `task-deps-resolve` | every declared task dependency names a real sibling |
+| `no-em-dash` | no artifact contains an em-dash |
+| `bolded-bullet-lead` | bullets do not open with a disallowed bolded term |
+
+Every rule reads only what the author stated: a heading that is present, a
+marker that is declared, a bullet that follows another. None infers intent from
+prose, so two runs over the same input always agree.
+
+Exit codes: `0` passed (warnings may still print), `1` at least one
+error-severity violation.
 
 ### `web`
 
@@ -500,6 +550,8 @@ internal/
   parse/                  goldmark-based lenient markdown parser
   render/                 Artifact rendering (mapping + templates + Sprig)
   graph/                  Cross-change DAG (build, project, suggest)
+  extract/                Schema-declared marker/field grammar
+  check/                  Rubric rules and presets
   export/                 Tracker-vocabulary projection (titles, criteria)
   detail/                 Per-change detail feed for visualizers
   syncplan/               Plan/diff/lock (content-hash identity)

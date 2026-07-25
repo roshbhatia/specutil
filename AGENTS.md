@@ -28,6 +28,7 @@ internal/
   provider/           input providers: openspec, bmad, plan, stdin, script
   registry/           provider and target registration; wraps providers with extract
   extract/            schema-declared marker/field grammar (composable, config-driven)
+  check/              rubric rules and presets for the check verb
   export/             IR → tracker vocabulary (the naming boundary)
   render/             IR → RFC / design / tickets Markdown
   syncplan/           IR → create/update/orphan JSON plan
@@ -98,8 +99,22 @@ built-in presets, e.g. `rosh-spec-driven`). Nothing in `parse`, the providers,
 Adding support for a new convention means adding an `extract.Marker` or
 `extract.Field` declaration (or a new preset), never a branch keyed on a schema
 name in a consuming package. If you catch yourself writing
-`if schema == "some-framework"` anywhere outside `internal/extract`, stop:
-that knowledge belongs in a preset instead.
+`if schema == "some-framework"` anywhere outside `internal/extract` or
+`internal/check`, stop: that knowledge belongs in a preset instead.
+
+The same rule governs `internal/check`. A rubric rule is generic and takes
+parameters (`required-sections` with a section list, `phase-marker-required`
+with a marker name); the framework-specific values live only in a preset in
+`internal/check/presets.go`.
+
+### Adding a check rule
+
+1. Register it in `internal/check/rules.go` with an ID, a one-line doc, and
+   parameters. The doc shows up in `specutil check --list-rules`
+2. Read only stated facts (a heading, a declared marker, a bullet ordering).
+   A rule that infers intent from prose is not reproducible and does not belong
+3. Reference it from a preset if a framework needs it
+4. Test the pass case and the fail case in `internal/check/check_test.go`
 
 ---
 
