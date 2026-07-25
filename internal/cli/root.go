@@ -23,17 +23,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ErrNoMapping reports that a `lock get` found no entry. main maps it to exit
+// IsNoMapping reports that a `lock get` found no entry. main maps it to exit
 // code 3 so callers can distinguish "absent" from other failures.
 func IsNoMapping(err error) bool {
 	_, ok := err.(errNoMapping)
 	return ok
-}
-
-// errNotImplemented is returned by verbs whose behavior lands in a later slice.
-// It keeps the verb surface stable and discoverable while implementation fills in.
-func notImplemented(verb string) error {
-	return fmt.Errorf("%s: not implemented yet", verb)
 }
 
 // NewRootCmd builds the specutil root command and registers every verb.
@@ -515,7 +509,8 @@ func runGraph(cmd *cobra.Command, args []string) error {
 
 	format, _ := cmd.Flags().GetString("as")
 	// The detail feed is the per-change ticket projection the visualizers drill
-	// into; it shares graph's loader but is its own renderer-independent schema.
+	// into. It shares graph's loader but is its own renderer-independent schema,
+	// so it is dispatched here rather than through Graph.Project.
 	if format == "detail" {
 		out, err := detail.Build(changes).JSON()
 		if err != nil {
@@ -525,7 +520,7 @@ func runGraph(cmd *cobra.Command, args []string) error {
 	}
 	out, err := g.Project(format)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w (or: detail)", err)
 	}
 	return writeOut(cmd, out)
 }

@@ -127,19 +127,6 @@ type TaskItem struct {
 	InlineRefs []string // ticket/PR references found in text: INF-2345, #219, …
 }
 
-// DesignSections holds the structured sections from design.md that are useful
-// to surface in visualizers without requiring a full re-parse of Raw.
-type DesignSections struct {
-	Context       string
-	Goals         string
-	NonGoals      string
-	Decisions     string
-	Risks         string
-	Rollout       string
-	Migration     string
-	OpenQuestions string
-}
-
 // Warning records a recoverable parse problem so malformed input is surfaced
 // loudly rather than dropped silently.
 type Warning struct {
