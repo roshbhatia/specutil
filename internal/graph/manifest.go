@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/roshbhatia/specutil/internal/check"
 	"github.com/roshbhatia/specutil/internal/extract"
 	"gopkg.in/yaml.v3"
 )
@@ -32,6 +33,24 @@ type Manifest struct {
 	// out of parsed artifacts. Absent means "detect from the spec framework's
 	// own config, and extract nothing if that is unrecognized".
 	Extract extract.Config `yaml:"extract"`
+	// Check declares the rubric `specutil check` enforces. Absent follows the
+	// same detection rule as Extract.
+	Check check.Config `yaml:"check"`
+}
+
+// CheckConfig returns the effective rubric for a repository, following the same
+// precedence as ExtractConfig: an explicit `check:` block wins, otherwise the
+// spec framework's declared schema selects a matching built-in preset, and an
+// unrecognized name enforces nothing.
+func (m *Manifest) CheckConfig(repoRoot string) (check.Config, error) {
+	if m != nil && !m.Check.IsZero() {
+		return m.Check, nil
+	}
+	name := detectSchemaName(repoRoot)
+	if name == "" || !check.HasPreset(name) {
+		return check.Config{}, nil
+	}
+	return check.Config{Preset: name}, nil
 }
 
 // schemaConfigFile is the spec framework's own config, read only to detect
