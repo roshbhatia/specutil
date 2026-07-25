@@ -331,3 +331,39 @@ func TestAbsentOptionalArtifactIsNotAViolation(t *testing.T) {
 		t.Errorf("absent design.md should not fire design rules, got %+v", rep.Findings)
 	}
 }
+
+// A change with no artifacts satisfies every rule vacuously, because each rule
+// treats an absent artifact as nothing to check. A gate must never report that
+// as a pass.
+func TestChangeWithNoArtifactsFails(t *testing.T) {
+	rep, err := Run(Config{Preset: "rosh-spec-driven"}, []*ir.Change{{Name: "empty"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.OK() {
+		t.Fatal("an artifact-less change must not pass the rubric")
+	}
+	if got := rep.Findings[0].Rule; got != "change-has-artifacts" {
+		t.Errorf("rule = %q, want change-has-artifacts", got)
+	}
+}
+
+// One artifact is a legitimately minimal change, not an empty directory.
+func TestChangeWithOnlyOneArtifactIsChecked(t *testing.T) {
+	c := &ir.Change{Name: "minimal", Proposal: &ir.Proposal{
+		Section: ir.Section{Raw: "## Why\n\nA reason.\n"},
+	}}
+	rep, err := Run(Config{Preset: "rosh-spec-driven"}, []*ir.Change{c})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range rep.Findings {
+		if f.Rule == "change-has-artifacts" {
+			t.Error("a change with a proposal must be checked, not rejected as empty")
+		}
+	}
+	// It still fails the rubric, on the real rule: no Non-goals block.
+	if rep.OK() {
+		t.Error("expected the proposal-sections rule to fire")
+	}
+}

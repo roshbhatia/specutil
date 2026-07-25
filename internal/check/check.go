@@ -235,6 +235,18 @@ func Run(cfg Config, changes []*ir.Change) (*Report, error) {
 			continue
 		}
 		rep.Checked = append(rep.Checked, c.Name)
+
+		// Every rule treats an absent artifact as nothing to check, so a change
+		// with no artifacts at all would satisfy the whole rubric vacuously.
+		// That is the one failure a gate must never report as a pass.
+		if !hasAnyArtifact(c) {
+			rep.Findings = append(rep.Findings, Finding{
+				Rule: "change-has-artifacts", Severity: SeverityError, Change: c.Name,
+				Msg: "change has no proposal, design, tasks, or specs; nothing could be checked",
+			})
+			continue
+		}
+
 		for _, r := range rules {
 			for _, f := range r.eval(r.params, c) {
 				f.Rule = r.name
@@ -256,6 +268,13 @@ func Run(cfg Config, changes []*ir.Change) (*Report, error) {
 		return a.Msg < b.Msg
 	})
 	return rep, nil
+}
+
+// hasAnyArtifact reports whether a change carries anything to check. A change
+// with a single artifact is legitimately minimal; one with none is an empty
+// directory.
+func hasAnyArtifact(c *ir.Change) bool {
+	return c.Proposal != nil || c.Design != nil || c.Tasks != nil || len(c.Specs) > 0
 }
 
 // params is a rule's parameter bag with typed readers. A missing parameter
