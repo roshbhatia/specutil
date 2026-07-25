@@ -2,7 +2,9 @@ package detail
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/roshbhatia/specutil/internal/ir"
 	"github.com/roshbhatia/specutil/internal/lifecycle"
@@ -132,5 +134,147 @@ func TestBuildWithNilRefsMatchesBuild(t *testing.T) {
 	b, _ := BuildWithRefs(changes, nil).JSON()
 	if !bytes.Equal(a, b) {
 		t.Fatalf("Build and BuildWithRefs(nil) should produce identical output")
+	}
+}
+
+func TestTaskLevelsFallBackToPhaseOrdinal(t *testing.T) {
+	// No task declares a dependency, so every task's level is just its phase's
+	// ordinal — the pre-existing behavior a repo with no extraction still gets.
+	c := &ir.Change{
+		Name: "demo",
+		Tasks: &ir.Tasks{Phases: []ir.Phase{
+			{Number: "1", Name: "A", Items: []ir.TaskItem{{Text: "a1"}, {Text: "a2"}}},
+			{Number: "2", Name: "B", Items: []ir.TaskItem{{Text: "b1"}}},
+		}},
+	}
+	f := Build([]*ir.Change{c})
+	items := f.Changes[0].Phases
+	for _, it := range items[0].Items {
+		if it.Level != 0 {
+			t.Errorf("phase 0 item level = %d, want 0", it.Level)
+		}
+	}
+	if items[1].Items[0].Level != 1 {
+		t.Errorf("phase 1 item level = %d, want 1", items[1].Items[0].Level)
+	}
+}
+
+func TestTaskLevelsFollowDeclaredDependencies(t *testing.T) {
+	// A single phase with a real DAG: 1.1 has no deps, 1.2 and 1.3 both wait on
+	// 1.1 (so they share a level and can run in parallel), and 1.4 waits on both.
+	c := &ir.Change{
+		Name: "demo",
+		Tasks: &ir.Tasks{Phases: []ir.Phase{{
+			Number: "1", Name: "Build",
+			Items: []ir.TaskItem{
+				{ID: "1.1", Text: "root"},
+				{ID: "1.2", Text: "left", DependsOn: []string{"1.1"}},
+				{ID: "1.3", Text: "right", DependsOn: []string{"1.1"}},
+				{ID: "1.4", Text: "join", DependsOn: []string{"1.2", "1.3"}},
+			},
+		}}},
+	}
+	items := Build([]*ir.Change{c}).Changes[0].Phases[0].Items
+	levels := map[string]int{}
+	for _, it := range items {
+		levels[it.ID] = it.Level
+	}
+	if levels["1.1"] != 0 {
+		t.Errorf("1.1 level = %d, want 0", levels["1.1"])
+	}
+	if levels["1.2"] != 1 || levels["1.3"] != 1 {
+		t.Errorf("1.2/1.3 levels = %d/%d, want 1/1 (parallel siblings)", levels["1.2"], levels["1.3"])
+	}
+	if levels["1.4"] != 2 {
+		t.Errorf("1.4 level = %d, want 2 (waits on both parallel siblings)", levels["1.4"])
+	}
+}
+
+func TestTaskLevelsCombineSequentialPhasesAndDeclaredDeps(t *testing.T) {
+	// Phase 1 has an internal chain (1.2 waits on 1.1), so phase 1's deepest
+	// task sits at level 1. Phase 2's task declares a dependency only on the
+	// shallow 1.1, but the phase-sequential edge still makes it wait on all of
+	// phase 1 — its level must reflect the deeper requirement, not the looser
+	// declared one.
+	c := &ir.Change{
+		Name: "demo",
+		Tasks: &ir.Tasks{Phases: []ir.Phase{
+			{Number: "1", Name: "A", Items: []ir.TaskItem{
+				{ID: "1.1", Text: "a1"},
+				{ID: "1.2", Text: "a2", DependsOn: []string{"1.1"}},
+			}},
+			{Number: "2", Name: "B", Items: []ir.TaskItem{{ID: "2.1", Text: "b1", DependsOn: []string{"1.1"}}}},
+		}},
+	}
+	phases := Build([]*ir.Change{c}).Changes[0].Phases
+	if got := phases[1].Items[0].Level; got != 2 {
+		t.Errorf("2.1 level = %d, want 2 (bounded by all of phase 1, deeper than its own declared dep)", got)
+	}
+}
+
+func TestTaskLevelsIgnoreCycles(t *testing.T) {
+	// A cycle must not hang the walk or produce an unbounded level; it simply
+	// stops descending when it meets a node already being visited.
+	c := &ir.Change{
+		Name: "demo",
+		Tasks: &ir.Tasks{Phases: []ir.Phase{{
+			Number: "1", Name: "Build",
+			Items: []ir.TaskItem{
+				{ID: "1.1", Text: "a", DependsOn: []string{"1.2"}},
+				{ID: "1.2", Text: "b", DependsOn: []string{"1.1"}},
+			},
+		}}},
+	}
+	done := make(chan struct{})
+	var items []Item
+	go func() {
+		items = Build([]*ir.Change{c}).Changes[0].Phases[0].Items
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("cycle caused the level computation to hang")
+	}
+	for _, it := range items {
+		if it.Level < 0 {
+			t.Errorf("negative level for %s: %d", it.ID, it.Level)
+		}
+	}
+}
+
+func TestPhaseMarkersCarriedToDetailFeed(t *testing.T) {
+	c := &ir.Change{
+		Name: "demo",
+		Tasks: &ir.Tasks{Phases: []ir.Phase{{
+			Number: "1", Name: "Harden",
+			Markers: map[string]string{"shape": "loop", "stop": "green", "maxIters": "3"},
+			Items:   []ir.TaskItem{{Text: "x"}},
+		}}},
+	}
+	got := Build([]*ir.Change{c}).Changes[0].Phases[0].Markers
+	want := map[string]string{"shape": "loop", "stop": "green", "maxIters": "3"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("markers = %v, want %v", got, want)
+	}
+}
+
+func TestTaskItemCarriesDependsOn(t *testing.T) {
+	c := &ir.Change{
+		Name: "demo",
+		Tasks: &ir.Tasks{Phases: []ir.Phase{{
+			Number: "1", Name: "Build",
+			Items: []ir.TaskItem{
+				{ID: "1.1", Text: "root"},
+				{ID: "1.2", Text: "leaf", DependsOn: []string{"1.1"}},
+			},
+		}}},
+	}
+	items := Build([]*ir.Change{c}).Changes[0].Phases[0].Items
+	if !reflect.DeepEqual(items[1].DependsOn, []string{"1.1"}) {
+		t.Errorf("DependsOn = %v, want [1.1]", items[1].DependsOn)
+	}
+	if items[0].ID != "1.1" {
+		t.Errorf("ID not carried through: %+v", items[0])
 	}
 }

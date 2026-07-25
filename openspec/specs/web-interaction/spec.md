@@ -112,18 +112,18 @@ hash; it MUST NOT be vendored into the repository.
 - **WHEN** the page is opened at a view's hash route (board, graph, or a change document)
 - **THEN** that view renders directly
 
-### Requirement: Graph laid out in dependency waves
-The graph view SHALL group changes into waves, where a wave is the set of changes whose
-prerequisites all sit in earlier waves. Every change in one wave can therefore be worked in
-parallel. Each wave SHALL be drawn as a labeled container naming its ordinal and its size,
-and SHALL also be listed in a text roster so the same model is readable without a pointer.
-The view SHALL state, before the diagram, how many changes are ready to start, how many
-waves deep the graph runs, and how many changes sit on the critical path.
+### Requirement: Graph laid out in dependency levels
+The graph view SHALL group its nodes into levels, where a node's level is the length of the
+longest chain of prerequisites that must finish first. Every node at one level can therefore
+be worked in parallel. Each level SHALL be drawn as a labeled container naming its ordinal
+and its size, and SHALL also be listed in a text roster so the same model is readable
+without a pointer. The view SHALL state, before the diagram, how many changes are ready to
+start, how many levels deep the graph runs, and how many changes sit on the critical path.
 
 #### Scenario: Parallel work is a visible group
 - **WHEN** three changes share a single prerequisite and nothing else blocks them
-- **THEN** all three render inside one wave container labeled with the count, and each is
-  listed under the same wave in the roster
+- **THEN** all three render inside one level container labeled with the count, and each is
+  listed under the same level in the roster
 
 #### Scenario: Ready work is named up front
 - **WHEN** a change has no outstanding prerequisites and no completed tasks
@@ -133,6 +133,30 @@ waves deep the graph runs, and how many changes sit on the critical path.
 - **WHEN** the graph has at least one edge
 - **THEN** the changes on the longest dependency chain are marked in both the diagram and
   the roster, and their count is stated in the lede
+
+### Requirement: Task-level graph grain
+The graph view SHALL offer two grains: tasks (the default) and changes. The task grain
+SHALL lay out every change's tasks as nodes grouped in a container per change, columned by
+each task's dependency level; a task's level SHALL account for both the sequential order of
+its phases and any declared task-to-task dependency, so a phase that names no dependency
+still renders as a strictly sequential chain while one that does reveals its internal
+parallelism. The changes grain SHALL collapse each change to a single summary node. A
+control SHALL switch between the two grains without a page reload, and the choice SHALL
+persist across a single graph-view session.
+
+#### Scenario: Declared task dependency reveals parallelism
+- **WHEN** two tasks in the same phase both depend only on an earlier task in that phase and
+  not on each other
+- **THEN** the task grain places them at the same level, distinct from the phase's other
+  tasks
+
+#### Scenario: Undeclared dependencies default to sequential
+- **WHEN** a phase's tasks declare no dependency field
+- **THEN** the task grain renders them as a strictly sequential chain, one per level
+
+#### Scenario: Cross-change edges connect change groups, not tasks
+- **WHEN** the task grain renders a manifest dependency between two changes
+- **THEN** the edge connects the two changes' container nodes, not a specific task in either
 
 ### Requirement: Clickable, readiness-colored graph nodes
 In the graph view each node SHALL be colored by its work readiness — done, in progress,

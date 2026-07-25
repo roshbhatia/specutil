@@ -51,22 +51,34 @@ type Phase struct {
 	Number string `json:"number"`
 	Name   string `json:"name"`
 	Items  []Item `json:"items"`
+	// Markers carries the schema-declared facts about this phase lifted by the
+	// extract pass (e.g. "shape": "loop", "stop": "…"). Absent when the
+	// repository declares no extraction.
+	Markers map[string]string `json:"markers,omitempty"`
 }
 
-// Item is one checkbox task. Level is the 0-based dependency rank: phases are
-// sequential, so a phase's ordinal is the level, and every item in the same
-// phase shares it — those items can be worked in parallel. Key disambiguates
-// siblings within a level with a letter (0a, 0b, 1a, …), giving each task a
-// short stable handle that reads as "what blocks what".
+// Item is one checkbox task. Level is the 0-based dependency rank: the length of
+// the longest chain of work that must finish before this task can start. Every
+// item sharing a level can be worked in parallel. When a change declares no
+// task dependencies the rank falls back to the phase ordinal, since phases run
+// in sequence. Key disambiguates siblings within a level with a letter (0a, 0b,
+// 1a, …), giving each task a short stable handle that reads as "what blocks
+// what".
 type Item struct {
+	// ID is the source task identifier (e.g. "1.2"). It is the join key for
+	// DependsOn and is internal to these tools; it never reaches a tracker.
+	ID   string `json:"id,omitempty"`
 	Text string `json:"text"`
 	Done bool   `json:"done"`
 	// Kind is the verify/apply/confirm discipline classification carried from the
 	// IR ("task" for plain items), so visualizers can mark impactful and
 	// confirmation steps without re-parsing the source markdown.
-	Kind         string        `json:"kind"`
-	Level        int           `json:"level"`
-	Key          string        `json:"key"`
+	Kind  string `json:"kind"`
+	Level int    `json:"level"`
+	Key   string `json:"key"`
+	// DependsOn lists the source IDs of sibling tasks this task waits on, as
+	// declared through a taskRefs field. Empty when none are declared.
+	DependsOn    []string      `json:"dependsOn,omitempty"`
 	Tags         []string      `json:"tags,omitempty"`
 	InlineRefs   []string      `json:"inlineRefs,omitempty"`
 	ExternalRefs []ExternalRef `json:"externalRefs,omitempty"`
@@ -92,6 +104,85 @@ func levelKey(level, idx int) string {
 		return fmt.Sprintf("%d%c", level, 'a'+idx)
 	}
 	return strconv.Itoa(level) + "x" + strconv.Itoa(idx)
+}
+
+// taskKey identifies a task by its position, so levels can be looked up without
+// depending on the source ID being present or unique.
+func taskKey(phaseIndex, itemIndex int) [2]int { return [2]int{phaseIndex, itemIndex} }
+
+// taskLevels computes each task's 0-based dependency rank: the length of the
+// longest chain that must finish before it can start.
+//
+// Two edge sources combine. Phases are sequential, so every task in a phase
+// waits on every task in the phase before it. On top of that, a task may name
+// sibling tasks explicitly, which is what lets a phase express real parallelism
+// instead of a flat list. Without any explicit dependency the result is exactly
+// the phase ordinal, so a change that declares none is unaffected.
+//
+// A dependency cycle cannot lengthen a path here: the walk marks nodes in
+// progress and stops descending when it meets one, so the rank stays finite.
+func taskLevels(phases []ir.Phase) map[[2]int]int {
+	type node struct{ pi, ii int }
+	byID := map[string]node{}
+	for pi, p := range phases {
+		for ii, it := range p.Items {
+			if it.ID != "" {
+				byID[it.ID] = node{pi, ii}
+			}
+		}
+	}
+
+	levels := make(map[[2]int]int)
+	visiting := map[[2]int]bool{}
+
+	var depth func(n node) int
+	depth = func(n node) int {
+		key := taskKey(n.pi, n.ii)
+		if d, ok := levels[key]; ok {
+			return d
+		}
+		if visiting[key] {
+			return 0
+		}
+		visiting[key] = true
+
+		best := 0
+		// Every task in the previous phase must finish first.
+		if n.pi > 0 {
+			prev := phases[n.pi-1]
+			for pii := range prev.Items {
+				if d := depth(node{n.pi - 1, pii}) + 1; d > best {
+					best = d
+				}
+			}
+			// A phase with no items still advances the sequence.
+			if len(prev.Items) == 0 {
+				if d := depth(node{n.pi - 1, 0}); d >= best {
+					best = d
+				}
+			}
+		}
+		for _, ref := range phases[n.pi].Items[n.ii].DependsOn {
+			dep, ok := byID[ref]
+			if !ok {
+				continue
+			}
+			if d := depth(dep) + 1; d > best {
+				best = d
+			}
+		}
+
+		delete(visiting, key)
+		levels[key] = best
+		return best
+	}
+
+	for pi, p := range phases {
+		for ii := range p.Items {
+			depth(node{pi, ii})
+		}
+	}
+	return levels
 }
 
 // Build assembles the detail feed from the loaded changes with no external refs.
@@ -132,18 +223,27 @@ func BuildWithRefs(changes []*ir.Change, refs RefsByKey) *Feed {
 			}
 		}
 		if c.Tasks != nil {
+			levels := taskLevels(c.Tasks.Phases)
+			seen := map[int]int{}
 			for pi, p := range c.Tasks.Phases {
-				ph := Phase{Number: p.Number, Name: p.Name, Items: []Item{}}
+				ph := Phase{Number: p.Number, Name: p.Name, Items: []Item{}, Markers: p.Markers}
 				for ii, it := range p.Items {
+					level, ok := levels[taskKey(pi, ii)]
+					if !ok {
+						level = pi
+					}
 					it2 := Item{
+						ID:         it.ID,
 						Text:       it.Text,
 						Done:       it.Done,
 						Kind:       string(it.Kind),
-						Level:      pi,
-						Key:        levelKey(pi, ii),
+						Level:      level,
+						Key:        levelKey(level, seen[level]),
+						DependsOn:  it.DependsOn,
 						Tags:       it.Tags,
 						InlineRefs: it.InlineRefs,
 					}
+					seen[level]++
 					if len(refs) > 0 {
 						key := c.Name + "\x00" + p.Name + "\x00" + it.Text
 						it2.ExternalRefs = refs[key]

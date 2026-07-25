@@ -157,7 +157,7 @@ code {
   gap: .65rem; align-items: stretch;
 }
 .graph-workbench { min-width: 0; }
-/* Height is set inline from the wave model; this is the fallback. */
+/* Height is set inline from the level model; this is the fallback. */
 #cy-container {
   width: 100%; height: 420px; max-height: 68vh;
   border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-sm);
@@ -175,8 +175,20 @@ code {
 .graph-inspector-head span { opacity: .65; font-weight: 400; }
 .graph-inspector-body { padding: .65rem .75rem; overflow-y: auto; max-height: calc(100vh - 260px); }
 .graph-empty { padding: 1.5rem; color: var(--muted); line-height: 1.6; }
-.graph-toolbar { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+.graph-toolbar { display: flex; align-items: center; gap: .65rem; flex-wrap: wrap; margin-bottom: .5rem; }
 .graph-hint-text { font-size: 11px; color: var(--muted); }
+.grain-switch {
+  display: inline-flex; border: 1px solid var(--line); border-radius: 7px;
+  overflow: hidden; flex-shrink: 0;
+}
+.grain-btn {
+  font: inherit; font-size: 11px; font-weight: 600; color: var(--muted);
+  background: var(--content); border: 0; padding: 4px 10px; cursor: pointer;
+  display: flex; align-items: center; gap: .3rem;
+}
+.grain-btn + .grain-btn { border-left: 1px solid var(--line); }
+.grain-btn.on { background: var(--surface-2); color: var(--ink); }
+.grain-ct { font-size: 9px; font-weight: 400; opacity: .65; }
 
 .graph-status-bar {
   display: flex; align-items: center; flex-wrap: wrap; gap: .5rem;
@@ -203,6 +215,7 @@ code {
 .legend-line.blocking  { border-top: 2px dashed #f97316; }
 .legend-line.satisfied { border-top: 2px solid #86efac; }
 .legend-line.suggested { border-top: 2px dotted #c7d2fe; }
+.legend-line.declared  { border-top: 2px solid #a5b4fc; }
 @media (max-width: 52rem) { .graph-shell { grid-template-columns: 1fr; } }
 
 /* Lede — the answer before the picture: what is workable, how deep, what is
@@ -223,36 +236,36 @@ code {
 .lede-note { font-size: 11px; color: var(--muted); margin: .35rem 0 0; line-height: 1.45; }
 .lede-block .chips { margin-top: .4rem; }
 
-/* Wave roster — the canvas model as text, usable without a pointer. */
-.wave-roster {
+/* Level roster — the canvas model as text, usable without a pointer. */
+.level-roster {
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(13rem, 1fr);
   gap: .55rem; margin-top: .7rem; overflow-x: auto; padding-bottom: .3rem;
 }
-.wave-col {
+.level-col {
   background: var(--content); border: 1px solid var(--line);
   border-radius: 8px; box-shadow: var(--shadow-sm); overflow: hidden;
 }
-.wave-head {
+.level-head {
   display: flex; align-items: center; justify-content: space-between;
   background: var(--surface-2); border-bottom: 1px solid var(--line);
   padding: 5px 9px; font-size: 10px; font-weight: 700;
   letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
 }
-.wave-head .ct { font-weight: 400; opacity: .7; }
-.wave-body { padding: .4rem; display: flex; flex-direction: column; gap: .3rem; }
-.wave-item {
+.level-head .ct { font-weight: 400; opacity: .7; }
+.level-body { padding: .4rem; display: flex; flex-direction: column; gap: .3rem; }
+.level-item {
   display: grid; grid-template-columns: 8px 1fr; gap: .4rem .45rem;
   align-items: center; text-decoration: none; color: inherit;
   border: 1px solid var(--line); border-radius: 6px; padding: .35rem .45rem;
 }
-.wave-item:hover { border-color: var(--accent, #4f46e5); background: var(--surface-2); }
-.wave-name {
+.level-item:hover { border-color: var(--accent, #4f46e5); background: var(--surface-2); }
+.level-name {
   font-size: 11px; font-weight: 600; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.wave-meta { grid-column: 2; font-size: 10px; color: var(--muted); }
+.level-meta { grid-column: 2; font-size: 10px; color: var(--muted); }
 @media (max-width: 52rem) {
-  .wave-roster { grid-auto-flow: row; grid-auto-columns: auto; }
+  .level-roster { grid-auto-flow: row; grid-auto-columns: auto; }
 }
 
 /* ================================================================
@@ -403,6 +416,21 @@ details.narrative-block[open] summary.narrative-summary::before { content: "−"
 }
 .tc-check { font-size: 14px; color: var(--line-dark); line-height: 1; }
 .tc-check.done { color: var(--done); }
+.marker-list {
+  display: grid; grid-template-columns: auto 1fr; gap: .15rem .5rem;
+  margin: 0 0 .5rem; padding: .4rem .55rem;
+  background: var(--surface-2); border-radius: 6px;
+  font-size: 11px; line-height: 1.45;
+}
+.marker-list dt { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.marker-list dd { margin: 0; min-width: 0; }
+.tc-waits { font-size: 10px; color: var(--muted); margin-top: .2rem; }
+.dep {
+  display: inline-block; font-family: var(--font-mono); font-size: 9px;
+  border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; margin-right: 3px;
+}
+.dep-done { color: #16a34a; border-color: #86efac; }
+.dep-missing { color: #b45309; border-color: #fcd34d; }
 .tc-key {
   font-family: var(--font-mono); font-size: 9px; font-weight: 700;
   color: var(--muted); text-align: center;
@@ -832,24 +860,24 @@ const SUGGEST = {{.SuggestJSON}};
      The graph answers one question: what can be worked on now, and what has
      to wait. Three derived facts carry that answer.
 
-       wave         longest-path depth over confirmed edges. Every change in
-                    one wave has all its prerequisites in earlier waves, so a
-                    wave is exactly the set that can run in parallel.
+       level        longest-path depth over confirmed edges. Every change at
+                    one level has all its prerequisites at lower levels, so a
+                    level is exactly the set that can run in parallel.
        status       ready / in-progress / blocked / waiting / done, from
                     changeStatus(), which reads lifecycle plus dependency
                     completion.
        criticalPath the longest chain. Slipping any change on it slips the
                     whole graph.
 
-     Layout is a compound node per wave, so the parallelism is a visible box
+     Layout is a compound node per level, so the parallelism is a visible box
      rather than something the reader has to infer from arrow directions.
      ================================================================ */
   const trunc = (s, n) => s && s.length > n ? s.slice(0, n - 1) + "…" : (s || "");
 
-  /* waves() returns an array of arrays: waves()[d] is the change names at
+  /* levels() returns an array of arrays: levels()[d] is the change names at
      depth d, sorted with actionable work first. A dependency cycle would make
      depth unbounded, so the walk is memoized and cycle-guarded. */
-  function waves() {
+  function levels() {
     const names = changes.map((c) => c.name);
     const known = new Set(names);
     const preds = {};
@@ -901,16 +929,16 @@ const SUGGEST = {{.SuggestJSON}};
     done:          { label: "Done",        color: "#d1d5db" },
   };
 
-  /* graphElems builds one compound parent per wave plus one node per change.
+  /* graphElems builds one compound parent per level plus one node per change.
      Suggested edges are drawn only when they are not already confirmed. */
-  function graphElems(waveList, critical) {
+  function graphElems(levelList, critical) {
     const elems = [];
-    waveList.forEach((names, d) => {
+    levelList.forEach((names, d) => {
       if (!names.length) return;
       const parallel = names.length > 1 ? names.length + " in parallel" : "1 change";
       elems.push({
         group: "nodes",
-        data: { id: "wave:" + d, label: "Wave " + (d + 1) + " · " + parallel, type: "wave" },
+        data: { id: "level:" + d, label: "Level " + (d + 1) + " · " + parallel, type: "level" },
       });
       names.forEach((n) => {
         const c    = byName.get(n);
@@ -920,7 +948,7 @@ const SUGGEST = {{.SuggestJSON}};
         elems.push({
           group: "nodes",
           data: {
-            id: n, parent: "wave:" + d, type: "change",
+            id: n, parent: "level:" + d, type: "change",
             label: trunc(n, 22) + "\n" + line2,
             status: st, critical: critical.has(n) ? 1 : 0,
           },
@@ -951,7 +979,7 @@ const SUGGEST = {{.SuggestJSON}};
   }
 
   /* ---- Cytoscape graph initialiser ---- */
-  function initCy(containerId, waveList, critical) {
+  function initCy(containerId, levelList, critical) {
     if (typeof cytoscape === "undefined") {
       document.getElementById(containerId).innerHTML =
         '<div class="graph-empty">Cytoscape failed to load. Check the network connection.</div>';
@@ -961,10 +989,10 @@ const SUGGEST = {{.SuggestJSON}};
 
     cyInstance = cytoscape({
       container: document.getElementById(containerId),
-      elements: graphElems(waveList, critical),
+      elements: graphElems(levelList, critical),
       style: [
-        /* wave container — the parallelism boundary */
-        { selector: 'node[type = "wave"]', style: {
+        /* level container — the parallelism boundary */
+        { selector: 'node[type = "level"]', style: {
           shape: "round-rectangle", "corner-radius": 10,
           "background-color": "#f9fafb", "background-opacity": 1,
           "border-width": 1, "border-color": "#e5e7eb", "border-style": "dashed",
@@ -1003,9 +1031,10 @@ const SUGGEST = {{.SuggestJSON}};
         { selector: "edge.dim",                       style: { opacity: 0.08 } },
         { selector: "edge.focused",                   style: { "line-color": "#4f46e5", "target-arrow-color": "#4f46e5", width: 2.5 } },
       ],
-      /* Waves are columns, so the layout only has to stack changes inside each
-         wave. Preset positions keep that exact, which a force layout would not. */
-      layout: { name: "preset", positions: wavePositions(waveList), padding: 44, fit: true },
+      /* Levels are columns, so the layout only has to stack changes inside
+         each one. Preset positions keep that exact, which a force layout
+         would not. */
+      layout: { name: "preset", positions: levelPositions(levelList), padding: 44, fit: true },
       userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false,
       maxZoom: 2, minZoom: 0.08,
     });
@@ -1041,23 +1070,23 @@ const SUGGEST = {{.SuggestJSON}};
 
   /* Layout constants shared by the position function and the canvas sizing, so
      the box is never taller than the graph it holds. */
-  const WAVE_COL_W = 260, WAVE_ROW_H = 104;
+  const COL_W = 260, ROW_H = 104;
 
-  /* wavePositions stacks each wave's changes in a column at that wave's depth. */
-  function wavePositions(waveList) {
+  /* levelPositions stacks each level's changes in a column at its depth. */
+  function levelPositions(levelList) {
     const pos = {};
-    waveList.forEach((names, d) => {
-      (names || []).forEach((n, i) => { pos[n] = { x: d * WAVE_COL_W, y: i * WAVE_ROW_H }; });
+    levelList.forEach((names, d) => {
+      (names || []).forEach((n, i) => { pos[n] = { x: d * COL_W, y: i * ROW_H }; });
     });
     return (node) => pos[node.id()] || { x: 0, y: 0 };
   }
 
   /* canvasHeight sizes the box to the graph rather than to the viewport. A
      shallow graph in a viewport-tall box reads as missing data. Derived from
-     the wave model directly, so it needs no post-layout measurement. */
-  function canvasHeight(waveList) {
-    const widest = waveList.reduce((m, w) => Math.max(m, (w || []).length), 1);
-    return Math.max(300, Math.min(widest * WAVE_ROW_H + 150, Math.round(window.innerHeight * 0.68)));
+     the level model directly, so it needs no post-layout measurement. */
+  function canvasHeight(levelList) {
+    const widest = levelList.reduce((m, w) => Math.max(m, (w || []).length), 1);
+    return Math.max(300, Math.min(widest * ROW_H + 150, Math.round(window.innerHeight * 0.68)));
   }
 
   /* ---- phase progress chart ---- */
@@ -1209,6 +1238,11 @@ const SUGGEST = {{.SuggestJSON}};
   /* ================================================================
      GRAPH VIEW
      ================================================================ */
+  /* The graph has two grains. Tasks is the default because it is the grain work
+     actually happens at; Changes collapses to the workstream summary when the
+     task graph is too large to read. The choice survives navigation. */
+  let graphGrain = "tasks";
+
   function renderGraph() {
     destroyChart(); destroyCy();
 
@@ -1218,10 +1252,11 @@ const SUGGEST = {{.SuggestJSON}};
       view.innerHTML = h; afterRender(); return;
     }
 
-    const waveList = waves();
-    const critical = criticalPath();
-    const ready    = readyNow();
-    const novel    = novelCandidateGroups();
+    const levelList = levels();
+    const critical  = criticalPath();
+    const ready     = readyNow();
+    const novel     = novelCandidateGroups();
+    const taskModel = taskGraph(levelList);
 
     const stCounts = {};
     changes.forEach((c) => { const st = changeStatus(c); stCounts[st] = (stCounts[st] || 0) + 1; });
@@ -1232,12 +1267,12 @@ const SUGGEST = {{.SuggestJSON}};
          '<span class="lede-label">ready to start</span>' +
          (ready.length ? '<div class="chips">' + ready.map(chipLink).join("") + '</div>'
                        : '<p class="lede-note">Nothing is unblocked and unstarted.</p>') + '</div>';
-    h += '<div class="lede-block"><span class="lede-num tnum">' + waveList.length + '</span>' +
-         '<span class="lede-label">' + (waveList.length === 1 ? "wave" : "waves") + ' deep</span>' +
-         '<p class="lede-note">A wave is work that can run in parallel. Wave N waits on wave N-1.</p></div>';
+    h += '<div class="lede-block"><span class="lede-num tnum">' + levelList.length + '</span>' +
+         '<span class="lede-label">' + (levelList.length === 1 ? "level" : "levels") + ' deep</span>' +
+         '<p class="lede-note">Everything at one level can run in parallel. Level N waits on level N-1.</p></div>';
     h += '<div class="lede-block"><span class="lede-num tnum">' + critical.size + '</span>' +
          '<span class="lede-label">on the critical path</span>' +
-         '<p class="lede-note">The longest chain. Slipping any of these slips everything.</p></div>';
+         '<p class="lede-note">The longest dependency chain. Slipping any of these slips everything.</p></div>';
     h += '</div>';
 
     /* status legend */
@@ -1250,41 +1285,52 @@ const SUGGEST = {{.SuggestJSON}};
     h += '</div>';
 
     h += '<div class="graph-toolbar">';
-    h += '<span class="graph-hint-text">Each dashed box is one wave. Hover a change to inspect it; click to open its detail.</span>';
+    h += '<div class="grain-switch" role="group" aria-label="Graph detail">';
+    h += '<button type="button" class="grain-btn' + (graphGrain === "tasks" ? " on" : "") +
+         '" data-grain="tasks">Tasks <span class="grain-ct">' + taskModel.nodes.length + '</span></button>';
+    h += '<button type="button" class="grain-btn' + (graphGrain === "changes" ? " on" : "") +
+         '" data-grain="changes">Changes <span class="grain-ct">' + changes.length + '</span></button>';
+    h += '</div>';
+    h += '<span class="graph-hint-text">' + (graphGrain === "tasks"
+      ? "Each dashed box is one change. Columns are dependency levels. Click a task to open its change."
+      : "Each dashed box is one level. Hover a change to inspect it; click to open its detail.") + '</span>';
     h += '</div>';
 
+    const canvasH = graphGrain === "tasks" ? taskCanvasHeight(taskModel) : canvasHeight(levelList);
     h += '<div class="graph-shell">';
     h += '<div class="graph-workbench">' +
-      '<div id="cy-container" style="height:' + canvasHeight(waveList) + 'px"></div>' +
+      '<div id="cy-container" style="height:' + canvasH + 'px"></div>' +
       '<div class="graph-legend">' +
       '<span class="legend-item"><span class="legend-line critical"></span> critical path</span>' +
       '<span class="legend-item"><span class="legend-line blocking"></span> still blocking</span>' +
       '<span class="legend-item"><span class="legend-line satisfied"></span> satisfied</span>' +
-      '<span class="legend-item"><span class="legend-line suggested"></span> suggested, unconfirmed</span>' +
+      (graphGrain === "tasks"
+        ? '<span class="legend-item"><span class="legend-line declared"></span> declared task dependency</span>'
+        : '<span class="legend-item"><span class="legend-line suggested"></span> suggested, unconfirmed</span>') +
       '</div>' +
       '</div>';
     h += '<aside class="graph-inspector">' +
       '<div class="graph-inspector-head"><span>Inspector</span></div>' +
       '<div class="graph-inspector-body" id="graph-inspector-body">' +
-      '<p class="empty" style="margin-top:0">Hover a change to inspect it.</p>' +
+      '<p class="empty" style="margin-top:0">Hover a node to inspect it.</p>' +
       '</div></aside></div>';
 
-    /* Wave roster: the same model as the canvas, readable without a mouse. */
-    h += '<div class="wave-roster">';
-    waveList.forEach((names, d) => {
+    /* Roster: the same model as the canvas, readable without a pointer. */
+    h += '<div class="level-roster">';
+    levelList.forEach((names, d) => {
       if (!names.length) return;
-      h += '<section class="wave-col"><div class="wave-head">Wave ' + (d + 1) +
-        '<span class="ct">' + names.length + '</span></div><div class="wave-body">';
+      h += '<section class="level-col"><div class="level-head">Level ' + (d + 1) +
+        '<span class="ct">' + names.length + '</span></div><div class="level-body">';
       names.forEach((n) => {
         const c  = byName.get(n);
         const st = changeStatus(c);
-        const p  = progressOf(c);
-        h += '<a class="wave-item" href="#/c/' + encodeURIComponent(n) + '">' +
+        const pr = progressOf(c);
+        h += '<a class="level-item" href="#/c/' + encodeURIComponent(n) + '">' +
           '<span class="gsc-dot" style="--chip-color:' + STATUS_META[st].color + '"></span>' +
-          '<span class="wave-name">' + esc(n) +
+          '<span class="level-name">' + esc(n) +
             (critical.has(n) ? ' <span title="Critical path" style="color:#f59e0b">&#9733;</span>' : '') +
           '</span>' +
-          '<span class="wave-meta">' + STATUS_META[st].label + ' · ' + p.pct + '%</span>' +
+          '<span class="level-meta">' + STATUS_META[st].label + ' · ' + pr.pct + '%</span>' +
           '</a>';
       });
       h += '</div></section>';
@@ -1305,17 +1351,288 @@ const SUGGEST = {{.SuggestJSON}};
     }
 
     view.innerHTML = h;
-    initCy("cy-container", waveList, critical);
+    view.querySelectorAll(".grain-btn[data-grain]").forEach((b) => {
+      b.addEventListener("click", () => {
+        graphGrain = b.getAttribute("data-grain");
+        renderGraph();
+      });
+    });
+    if (graphGrain === "tasks") initTaskCy("cy-container", taskModel);
+    else initCy("cy-container", levelList, critical);
     afterRender();
+  }
+
+  /* ================================================================
+     TASK GRAPH
+
+     Nodes are tasks, grouped in a compound box per change. A task's column is
+     its dependency level: the detail feed already ranks each task by the
+     longest chain that must finish first, accounting for both declared
+     dependencies and the sequence of stages. The change's own level offsets
+     that rank, so a task never sits left of work in another change it waits on.
+
+     Only declared task dependencies are drawn as edges. Stage ordering is
+     already carried by the columns, and drawing it as edges would connect every
+     task in one stage to every task in the next for no added information.
+     ================================================================ */
+  function taskGraph(levelList) {
+    const changeLevel = {};
+    levelList.forEach((names, d) => (names || []).forEach((n) => { changeLevel[n] = d; }));
+
+    /* A change's tasks span as many columns as it has levels, so the next
+       change cannot simply start one column later. Offset by the widest span
+       of everything at earlier levels. */
+    const spanAt = [];
+    changes.forEach((c) => {
+      const d = changeLevel[c.name] || 0;
+      let span = 1;
+      (c.phases || []).forEach((p) => (p.items || []).forEach((it) => {
+        span = Math.max(span, (it.level || 0) + 1);
+      }));
+      spanAt[d] = Math.max(spanAt[d] || 1, span);
+    });
+    const offset = [];
+    let acc = 0;
+    for (let d = 0; d < Math.max(levelList.length, 1); d++) { offset[d] = acc; acc += (spanAt[d] || 1); }
+
+    const nodes = [], edges = [], rowOf = {};
+    let row = 0;
+    changes.forEach((c) => {
+      const items = (c.phases || []).flatMap((p) => (p.items || []).map((it) => ({ it, phase: p })));
+      if (!items.length) return;
+      const d = changeLevel[c.name] || 0;
+      const base = offset[d] || 0;
+      const perCol = {};
+      const start = row;
+      items.forEach(({ it, phase }) => {
+        const col = base + (it.level || 0);
+        perCol[col] = (perCol[col] || 0);
+        const id = c.name + "\x00" + (it.id || it.key);
+        rowOf[id] = start + perCol[col];
+        nodes.push({
+          id, changeId: c.name, taskId: it.id || "", key: it.key,
+          label: trunc(plainText(it.text), 34) + (it.kind && it.kind !== "task" ? "\n" + it.kind : ""),
+          done: !!it.done, kind: it.kind || "task", phase: phase.name,
+          x: col, y: rowOf[id],
+        });
+        perCol[col]++;
+      });
+      const tallest = Math.max(...Object.values(perCol), 1);
+      row = start + tallest + 1;
+
+      /* Declared dependencies, resolved inside this change. */
+      const byTaskId = new Map(items.filter((x) => x.it.id).map((x) => [x.it.id, x.it]));
+      items.forEach(({ it }) => {
+        (it.dependsOn || []).forEach((ref) => {
+          if (!byTaskId.has(ref)) return;
+          edges.push({
+            source: c.name + "\x00" + ref,
+            target: c.name + "\x00" + (it.id || it.key),
+            satisfied: !!byTaskId.get(ref).done,
+          });
+        });
+      });
+    });
+    return { nodes, edges, changeLevel };
+  }
+
+  const TASK_COL_W = 250, TASK_ROW_H = 62;
+
+  function taskCanvasHeight(model) {
+    const rows = model.nodes.reduce((m, n) => Math.max(m, n.y + 1), 1);
+    return Math.max(320, Math.min(rows * TASK_ROW_H + 140, Math.round(window.innerHeight * 0.72)));
+  }
+
+  function initTaskCy(containerId, model) {
+    if (typeof cytoscape === "undefined") {
+      document.getElementById(containerId).innerHTML =
+        '<div class="graph-empty">Cytoscape failed to load. Check the network connection.</div>';
+      return;
+    }
+    destroyCy();
+    if (!model.nodes.length) {
+      document.getElementById(containerId).innerHTML =
+        '<div class="graph-empty">No tasks defined. Switch to Changes for the workstream graph.</div>';
+      return;
+    }
+
+    const elems = [];
+    const pos = {};
+    const seenChange = new Set();
+    model.nodes.forEach((n) => {
+      if (!seenChange.has(n.changeId)) {
+        seenChange.add(n.changeId);
+        const c  = byName.get(n.changeId);
+        const st = changeStatus(c);
+        const pr = progressOf(c);
+        elems.push({ group: "nodes", data: {
+          id: "grp:" + n.changeId, type: "changeGroup",
+          label: n.changeId + " · " + STATUS_META[st].label + " · " + pr.pct + "%",
+        } });
+      }
+      elems.push({ group: "nodes", data: {
+        id: n.id, parent: "grp:" + n.changeId, type: "task",
+        label: n.label, changeId: n.changeId, taskId: n.taskId, key: n.key,
+        state: n.done ? "done" : "open", kind: n.kind,
+      } });
+      pos[n.id] = { x: n.x * TASK_COL_W, y: n.y * TASK_ROW_H };
+    });
+    model.edges.forEach((e, i) => {
+      elems.push({ group: "edges", data: {
+        id: "t:" + i, source: e.source, target: e.target,
+        edgeStatus: e.satisfied ? "satisfied" : "blocking",
+      } });
+    });
+    /* Cross-change dependencies connect the change boxes, not their tasks: the
+       manifest states that one workstream waits on another, not which task. */
+    edges.forEach((e) => {
+      if (!seenChange.has(e.from) || !seenChange.has(e.to)) return;
+      elems.push({ group: "edges", data: {
+        id: "x:" + e.from + ":" + e.to, source: "grp:" + e.from, target: "grp:" + e.to,
+        edgeStatus: edgeStatus(e.from), cross: 1,
+      } });
+    });
+
+    cyInstance = cytoscape({
+      container: document.getElementById(containerId),
+      elements: elems,
+      style: [
+        { selector: 'node[type = "changeGroup"]', style: {
+          shape: "round-rectangle", "corner-radius": 10,
+          "background-color": "#f9fafb", "border-width": 1,
+          "border-color": "#d1d5db", "border-style": "dashed",
+          label: "data(label)", "text-valign": "top", "text-halign": "center",
+          "text-margin-y": -6, "font-size": 10, "font-weight": 600,
+          color: "#6b7280", padding: 16,
+        } },
+        { selector: 'node[type = "task"]', style: {
+          shape: "round-rectangle", "corner-radius": 5, width: 196, height: 40,
+          "background-color": "#ffffff", "border-width": 1.5, "border-color": "#c7d2fe",
+          label: "data(label)",
+          "font-family": '-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Arial,sans-serif',
+          "font-size": 9.5, "text-valign": "center", "text-halign": "center",
+          color: "#374151", "text-wrap": "wrap", "text-max-width": 178,
+        } },
+        { selector: 'node[state = "done"]',  style: { "background-color": "#f9fafb", "border-color": "#e5e7eb", color: "#9ca3af" } },
+        { selector: 'node[state = "open"]',  style: { "background-color": "#ffffff", "border-color": "#c7d2fe", color: "#374151" } },
+        { selector: 'node[kind = "verify"]',  style: { "border-color": "#60a5fa" } },
+        { selector: 'node[kind = "apply"]',   style: { "border-color": "#f97316", "border-width": 2 } },
+        { selector: 'node[kind = "confirm"]', style: { "border-color": "#16a34a" } },
+        { selector: "node.focused", style: { "overlay-color": "#4f46e5", "overlay-opacity": 0.08, "overlay-padding": 4 } },
+        { selector: "node.dim",     style: { opacity: 0.18 } },
+        { selector: "edge", style: {
+          "curve-style": "bezier", "target-arrow-shape": "triangle", "arrow-scale": .8,
+          "line-color": "#c7d2fe", "target-arrow-color": "#c7d2fe", width: 1.4,
+        } },
+        { selector: 'edge[edgeStatus = "satisfied"]', style: { "line-color": "#86efac", "target-arrow-color": "#86efac" } },
+        { selector: 'edge[edgeStatus = "blocking"]',  style: { "line-color": "#f97316", "target-arrow-color": "#f97316" } },
+        { selector: 'edge[cross = 1]', style: { width: 2.5, "line-style": "dashed", "line-dash-pattern": [8, 4] } },
+        { selector: "edge.dim",     style: { opacity: 0.07 } },
+        { selector: "edge.focused", style: { "line-color": "#4f46e5", "target-arrow-color": "#4f46e5", width: 2.2 } },
+      ],
+      layout: { name: "preset", positions: (n) => pos[n.id()] || { x: 0, y: 0 }, padding: 44, fit: true },
+      userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false,
+      maxZoom: 2, minZoom: 0.05,
+    });
+
+    const inspBody = document.getElementById("graph-inspector-body");
+    const reset = () => {
+      if (inspBody) inspBody.innerHTML = '<p class="empty" style="margin-top:0">Hover a node to inspect it.</p>';
+    };
+
+    cyInstance.on("mouseover", 'node[type = "task"]', function (evt) {
+      const node = evt.target;
+      if (inspBody) inspBody.innerHTML = taskInspectorHTML(node);
+      cyInstance.elements().addClass("dim");
+      node.removeClass("dim").addClass("focused");
+      node.parent().removeClass("dim");
+      const conn = node.connectedEdges();
+      conn.removeClass("dim").addClass("focused");
+      conn.connectedNodes().removeClass("dim").parent().removeClass("dim");
+    });
+    cyInstance.on("mouseover", 'node[type = "changeGroup"]', function (evt) {
+      if (inspBody) inspBody.innerHTML = inspectorHTML(evt.target.id().slice(4));
+    });
+    cyInstance.on("mouseout", "node", function () {
+      cyInstance.elements().removeClass("dim focused");
+      reset();
+    });
+    cyInstance.on("tap", "node", function (evt) {
+      const id = evt.target.data("changeId") || evt.target.id().replace(/^grp:/, "");
+      if (byName.has(id)) location.hash = "#/c/" + encodeURIComponent(id);
+    });
+
+    cyInstance.fit(undefined, 40);
+  }
+
+  /* taskInspectorHTML describes one task node: where it sits, what it waits on,
+     and what waits on it. */
+  function taskInspectorHTML(node) {
+    const changeId = node.data("changeId");
+    const taskId   = node.data("taskId");
+    const c = byName.get(changeId);
+    if (!c) return '<p class="empty" style="margin-top:0">No detail.</p>';
+
+    let item = null, phaseName = "";
+    (c.phases || []).forEach((p) => (p.items || []).forEach((it) => {
+      if ((it.id || it.key) === (taskId || node.data("key"))) { item = it; phaseName = p.name; }
+    }));
+    if (!item) return inspectorHTML(changeId);
+
+    let h = '<div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-bottom:.35rem">' +
+      esc(changeId) + ' / ' + esc(phaseName) + '</div>';
+    h += '<div class="task-card' + (item.done ? " done" : "") + '" style="margin:.2rem 0">' +
+      '<div class="tc-status"><span class="tc-check' + (item.done ? " done" : "") + '">' +
+      (item.done ? "&#10003;" : "&#9744;") + '</span><span class="tc-key">' + esc(item.key) + '</span></div>' +
+      '<div class="tc-body"><div class="tc-title">' + inline(esc(item.text)) + '</div></div></div>';
+
+    const all = (c.phases || []).flatMap((p) => p.items || []);
+    const byId = new Map(all.filter((x) => x.id).map((x) => [x.id, x]));
+    const waits = (item.dependsOn || []).map((r) => byId.get(r)).filter(Boolean);
+    const feeds = all.filter((x) => (x.dependsOn || []).includes(item.id));
+
+    const chipRow = (label, list) => {
+      if (!list.length) return "";
+      return '<p class="eyebrow" style="margin-top:.55rem">' + label + '</p><div class="chips">' +
+        list.map((x) => '<span class="dep' + (x.done ? " dep-done" : "") + '" title="' +
+          esc(plainText(x.text)) + '">' + esc(x.key) + '</span>').join(" ") + '</div>';
+    };
+    h += chipRow("Waits on", waits);
+    h += chipRow("Unblocks", feeds);
+    if (item.kind && item.kind !== "task") {
+      h += '<p class="eyebrow" style="margin-top:.55rem">Step kind</p><p style="font-size:11px;margin:.15rem 0">' +
+        esc(item.kind) + '</p>';
+    }
+    h += '<p style="margin-top:.7rem"><a class="btn" href="#/c/' + encodeURIComponent(changeId) + '">Open change</a></p>';
+    return h;
   }
 
   /* ================================================================
      DRILLDOWN VIEW
      ================================================================ */
-  function taskRowHTML(it) {
+  /* phaseMarkerHTML renders whatever the extract pass lifted off a phase. A
+     loop phase is not a checklist: it repeats until its stop condition holds, so
+     showing the condition and the cap is the difference between a reader
+     understanding the plan and misreading it as six one-shot steps. */
+  function phaseMarkerHTML(p) {
+    const m = p.markers || {};
+    const keys = Object.keys(m);
+    if (!keys.length) return "";
+    const LABELS = { shape: "Shape", stop: "Runs until", maxIters: "Iteration cap" };
+    const ORDER  = ["shape", "stop", "maxIters"];
+    const ordered = ORDER.filter((k) => m[k]).concat(keys.filter((k) => !ORDER.includes(k)).sort());
+    let h = '<dl class="marker-list">';
+    ordered.forEach((k) => {
+      h += '<dt>' + esc(LABELS[k] || k) + '</dt><dd>' + inline(esc(m[k])) + '</dd>';
+    });
+    return h + '</dl>';
+  }
+
+  function taskRowHTML(it, siblings) {
     const done = it.done;
     const k = kindTag(it);
     const chips = tagChips(it) + inlineRefChips(it) + extRefChips(it);
+    const waits = dependencyLabel(it, siblings);
     return '<div class="task-card' + (done ? " done" : "") + '">' +
       '<div class="tc-status">' +
         '<span class="tc-check' + (done ? " done" : "") + '">' + (done ? "&#10003;" : "&#9744;") + '</span>' +
@@ -1323,9 +1640,27 @@ const SUGGEST = {{.SuggestJSON}};
       '</div>' +
       '<div class="tc-body">' +
         '<div class="tc-title">' + (k ? k + ' ' : '') + inline(esc(it.text)) + '</div>' +
+        (waits ? '<div class="tc-waits">' + waits + '</div>' : '') +
         (chips ? '<div class="tc-chips">' + chips + '</div>' : '') +
       '</div>' +
       '</div>';
+  }
+
+  /* dependencyLabel names what a task waits on, using each prerequisite's short
+     key rather than its source identifier, so the detail view and the graph use
+     one vocabulary. A prerequisite that is already done is not a blocker, so it
+     is styled as satisfied. */
+  function dependencyLabel(it, siblings) {
+    const deps = it.dependsOn || [];
+    if (!deps.length || !siblings) return "";
+    const byId = new Map(siblings.filter((s) => s.id).map((s) => [s.id, s]));
+    const parts = deps.map((id) => {
+      const dep = byId.get(id);
+      if (!dep) return '<span class="dep dep-missing">' + esc(id) + '</span>';
+      return '<span class="dep' + (dep.done ? " dep-done" : "") + '" title="' +
+        esc(plainText(dep.text)) + '">' + esc(dep.key) + '</span>';
+    });
+    return 'waits on ' + parts.join(" ");
   }
 
   function renderDetail(name) {
@@ -1395,8 +1730,9 @@ const SUGGEST = {{.SuggestJSON}};
         "</h2>" +
         '<span class="ct tnum">' + done + "/" + items.length + " &middot; " + phPct + "%</span></summary>";
       h += '<div class="meter" style="margin:.2rem 0 .4rem"><span style="width:' + phPct + '%"></span></div>';
+      h += phaseMarkerHTML(p);
       h += '<div class="task-list">';
-      items.forEach((it) => { h += taskRowHTML(it); });
+      items.forEach((it) => { h += taskRowHTML(it, items); });
       h += "</div></details>";
     });
 
