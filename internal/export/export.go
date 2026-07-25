@@ -84,6 +84,12 @@ type Criterion struct {
 	// Steps holds any step that carried no Given/When/Then keyword, so nothing
 	// the author wrote is dropped.
 	Steps []string
+	// Negative reports that the criterion describes a rejection or failure path
+	// rather than a success path. It is read from the scenario's declared
+	// polarity marker when the repository extracts one, and inferred from the
+	// scenario name otherwise. Trackers group on it so a reviewer can see at a
+	// glance whether the error cases were specified.
+	Negative bool
 }
 
 // stepKeywordRe matches a leading Gherkin keyword, tolerating the bold-caps
@@ -291,6 +297,7 @@ func buildCriterion(capability, requirement string, sc ir.Scenario) Criterion {
 		Capability:  Humanize(capability),
 		Requirement: Humanize(requirement),
 		Name:        capitalize(strings.TrimSpace(sc.Name)),
+		Negative:    isNegative(sc),
 	}
 	last := ""
 	for _, step := range sc.Steps {
@@ -321,6 +328,20 @@ func buildCriterion(capability, requirement string, sc ir.Scenario) Criterion {
 		}
 	}
 	return c
+}
+
+// negativeNameRe matches scenario names that describe a rejection or failure
+// path. It is the fallback for a repository that declares no polarity marker.
+var negativeNameRe = regexp.MustCompile(`(?i)\b(invalid|missing|expired|malformed|unauthori[sz]ed|forbidden|reject|refus|denied|fail|error|absent|unknown|conflict|duplicate|not found|empty|bad|timeout|corrupt)`)
+
+// isNegative reports whether a scenario describes a failure path. A declared
+// polarity marker is authoritative; without one the scenario name is the only
+// signal available, so it is read as a hint rather than treated as a fact.
+func isNegative(sc ir.Scenario) bool {
+	if p, ok := sc.Markers["polarity"]; ok {
+		return strings.EqualFold(strings.TrimSpace(p), "negative")
+	}
+	return negativeNameRe.MatchString(sc.Name)
 }
 
 // splitStep separates a step's leading Gherkin keyword from its body. A step
@@ -368,4 +389,21 @@ type RequirementGroup struct {
 	Capability  string
 	Requirement string
 	Criteria    []Criterion
+}
+
+// Negatives counts the criteria in the group that describe a failure path.
+func (g RequirementGroup) Negatives() int {
+	n := 0
+	for _, c := range g.Criteria {
+		if c.Negative {
+			n++
+		}
+	}
+	return n
+}
+
+// SuccessOnly reports that the group specifies no failure path. A reviewer
+// reads it as an open question: what happens when this goes wrong?
+func (g RequirementGroup) SuccessOnly() bool {
+	return len(g.Criteria) > 0 && g.Negatives() == 0
 }

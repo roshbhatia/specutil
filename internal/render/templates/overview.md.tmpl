@@ -8,8 +8,10 @@
 ## Acceptance criteria
 {{ range . }}
 ### {{ .Requirement }}
-{{ range .Criteria }}
-- [ ] **{{ .Name }}**
+{{ if .SuccessOnly }}
+_No failure path is specified for this requirement._
+{{ end }}{{ range .Criteria }}
+- [ ] **{{ .Name }}**{{ if .Negative }} _(error path)_{{ end }}
 {{- range .Given }}
   - Given {{ . }}
 {{- end }}
