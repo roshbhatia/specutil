@@ -33,6 +33,26 @@
           };
         };
 
+        # `nix fmt` is documented in the README and wired to `task fmt:nix`;
+        # without this attribute both fail on a missing formatter output. A bare
+        # nixfmt would be handed every path in the tree, including the Go and
+        # Markdown files it cannot parse, so scope it to .nix files when invoked
+        # with no arguments.
+        formatter = pkgs.writeShellApplication {
+          name = "specutil-nixfmt";
+          runtimeInputs = [
+            pkgs.fd
+            pkgs.nixfmt-rfc-style
+          ];
+          text = ''
+            if [ "$#" -gt 0 ]; then
+              exec nixfmt "$@"
+            fi
+
+            exec fd --extension nix --type file --exec-batch nixfmt
+          '';
+        };
+
         devShells.default = pkgs.mkShell {
           packages = [
             go
