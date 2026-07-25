@@ -7,7 +7,7 @@
 Write specs in OpenSpec, BMAD, or a plain `plan.md`. specutil renders them as shareable docs, syncs tasks to Linear, Notion, or GitHub Issues, and shows how your changes depend on each other — all from your repo, no manual copy-paste.
 
 ```
-specutil [render|plan|diff|lock|graph|tui|web] [--from <provider>] [flags]
+specutil [render|plan|diff|lock|graph|web] [--from <provider>] [flags]
 ```
 
 ## What it does
@@ -20,7 +20,6 @@ bmad stories/*.md    ──────────▶  ir.Change     ──▶ 
 plan.md convention   ──────────▶                ──▶ diff    → lockfile delta
 stdin / pipe         ──────────▶                ──▶ lock    → identity map
 script adapters      ──────────▶                ──▶ graph   → DAG (json/mermaid/dot)
-                                                ──▶ tui     → terminal kanban + graph
                                                 ──▶ web     → HTML dashboard
 ```
 
@@ -182,7 +181,21 @@ specutil plan [change] --target linear|notion|github-issues [--from <provider>] 
 
 The plan is a list of operations (`create`, `update`, `orphan`) keyed by stable content hashes, with no network calls made by the binary itself.
 
-For `--target github-issues`, each operation includes a pre-rendered `github.body` field (markdown), `github.labels` derived from the phase name, and `github.milestone` set to the change name. The `sync-to-github-issues` skill reads these fields directly — no re-templating required.
+Every operation is ready to write: `title`, `milestone`, `position`, `labels`, and a rendered Markdown `body`. The plan also carries an `overview` body for the container the target groups tickets under — a Linear project, a GitHub milestone, or a Notion page — which holds the acceptance criteria once. The sync skills copy these fields verbatim; no re-templating required.
+
+### Naming across the boundary
+
+Source numbering never reaches an external tracker. `1.1`, `## 2. Rollout`, sibling keys like `1a`, and spec delta keywords like `ADDED Requirements` all stop at the export layer.
+
+| In the repo | In Linear / Notion / GitHub |
+|---|---|
+| `add-auth-layer` | `Add auth layer` (the slug stays in the lockfile) |
+| `## 1. Foundation` | milestone `Foundation` |
+| `- [ ] 1.4 verify: tests pass` | issue `Tests pass`, label `kind:verify` |
+| `#### Scenario: missing token` | `- [ ] **Missing token**` with Given/When/Then sub-bullets |
+| `## ADDED Requirements` | `## Acceptance criteria` |
+
+Requirements and scenarios become acceptance criteria a reader outside the repo can check off. Ordering that the numbering used to carry is expressed with the target's own primitives instead: `position` for sort order, `milestone` for the stage, and blocking relations between consecutive stages.
 
 ### `diff`
 
@@ -218,32 +231,22 @@ specutil graph --suggest    # infer candidate edges without mutating the manifes
 
 Dependencies come from `openspec/specutil.yaml`. Use `--suggest` to get inferred candidates from shared capabilities (does not write the file).
 
-### `tui`
-
-Opens the terminal kanban and dependency graph.
-
-```bash
-specutil tui
-```
-
-- Left panel: lifecycle kanban (proposed / active / archived)
-- Right panel: layered-by-depth dependency graph
-- Mouse zones via bubblezone; keyboard navigation supported
-
-### `serve`
+### `web`
 
 Generates and opens a static HTML dashboard.
 
 ```bash
-specutil serve [-o output.html] [--open=false]
+specutil web [-o output.html] [--open=false]
 ```
 
-The page is a single self-contained HTML file:
-- Cross-change dependency DAG as binary-rendered inline SVG
-- Per-change progress, remaining tasks, per-phase chart
-- Unified overview with lifecycle board columns — click a card to inline-expand its full detail; Graph view for the full DAG workbench with node inspector
-- Data inlined; Chart.js loaded from a version-pinned, SRI-protected CDN at view time
-- Binary performs zero network I/O
+The page is a single self-contained HTML file with three views:
+- Kanban — lifecycle board (proposed / active / archived) with progress meters
+- Graph — the dependency DAG laid out in waves, coloured by work readiness
+  (ready / in progress / blocked / waiting / done), with the critical path marked
+- Detail — per-change drilldown: stages, tasks, narrative, per-stage chart
+
+Data feeds are inlined. Chart.js and Cytoscape load from a version-pinned,
+SRI-protected CDN at view time. The binary performs zero network I/O.
 
 ## OpenSpec Integration
 
@@ -313,13 +316,24 @@ Phases are `## N. Phase Name` headings; tasks are `- [x]`/`- [ ]` checkboxes. Ta
 
 ### specutil.yaml (cross-change dependencies)
 
+Declare dependencies either way. Both spellings mean the same thing and can be mixed.
+
 ```yaml
-# openspec/specutil.yaml
+# openspec/specutil.yaml — explicit edge list
 edges:
   - from: auth-redesign      # prerequisite
     to: user-profile-update  # depends on auth-redesign
   - from: auth-redesign
     to: session-management
+```
+
+```yaml
+# openspec/specutil.yaml — per-change prerequisites
+changes:
+  user-profile-update:
+    depends_on: [auth-redesign]
+  session-management:
+    depends_on: [auth-redesign]
 ```
 
 Use `specutil graph --suggest` to see inferred candidates from shared capabilities. Edges must be confirmed and written manually (or via the agent skill) — `--suggest` never mutates the file.
@@ -386,15 +400,19 @@ specutil graph --as mermaid
 specutil graph --suggest
 
 # Open the visual dashboard
-specutil serve
+specutil web
 ```
 
 ### Custom templates
 
+Override any shipped template by putting a file of the same name in a directory
+and pointing `--templates` at it. The names are `rfc.md.tmpl`, `design.md.tmpl`,
+`tickets.md.tmpl`, `ticket.md.tmpl` (one tracker ticket body), and
+`overview.md.tmpl` (the change-level container body).
+
 ```bash
-# Override the RFC template
 mkdir my-templates
-cp $(go env GOPATH)/... my-templates/rfc.md.tmpl  # edit as needed
+# write my-templates/rfc.md.tmpl
 specutil render --as rfc --templates my-templates/
 ```
 
@@ -435,9 +453,9 @@ internal/
   parse/                  goldmark-based lenient markdown parser
   render/                 Artifact rendering (mapping + templates + Sprig)
   graph/                  Cross-change DAG (build, project, suggest)
+  export/                 Tracker-vocabulary projection (titles, criteria)
   detail/                 Per-change detail feed for visualizers
   syncplan/               Plan/diff/lock (content-hash identity)
-  tui/                    Bubbletea terminal UI
   web/                    Static HTML generator
   lifecycle/              Lifecycle classification helpers
   cli/                    Cobra command wiring

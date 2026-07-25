@@ -27,10 +27,10 @@ internal/
   ir/                 normalized intermediate representation (IR)
   provider/           input providers: openspec, bmad, plan, stdin, script
   registry/           provider and target registration
+  export/             IR → tracker vocabulary (the naming boundary)
   render/             IR → RFC / design / tickets Markdown
   syncplan/           IR → create/update/orphan JSON plan
   graph/              dependency DAG (mermaid, dot, json)
-  tui/                terminal kanban (bubbletea)
   web/                HTML dashboard (embedded assets)
   detail/             per-change detail view
 skills/               AI skills for remote writes (one dir per target)
@@ -65,6 +65,25 @@ service belongs in a skill, not in the binary.
 
 ---
 
+## The naming boundary
+
+`internal/export` is where spec-framework convention stops. Anything that leaves
+the repository — a Linear issue, a Notion page, a GitHub issue — goes through it.
+
+It strips: task identifiers (`1.1`), phase numbers (`## 2.`), sibling keys
+(`1a`), the verify/apply/confirm keyword (it becomes a label), and spec delta
+keywords (`ADDED Requirements`). It translates requirements and scenarios into
+Given/When/Then acceptance criteria.
+
+Ordering that the numbering used to carry moves to the target's own primitives:
+`Ticket.Position` for sort order, `Ticket.Milestone` for the stage, and blocking
+relations between consecutive stages (drawn by the skill).
+
+If you add a field that reaches a tracker, route it through `export`. If you find
+yourself formatting a title in a skill, the formatting belongs here instead.
+
+---
+
 ## Making changes
 
 ### Adding an input provider
@@ -78,16 +97,20 @@ service belongs in a skill, not in the binary.
 
 ### Adding a sync target
 
-1. Add the target constant to `syncplan/plan.go`
-2. Write a skill at `skills/sync-to-<name>/SKILL.md` following the pattern
-   of `skills/sync-to-linear/SKILL.md`
-3. No binary changes are needed for the actual remote write — that lives in the
-   skill
+1. Write a skill at `skills/sync-to-<name>/SKILL.md` following the pattern of
+   `skills/sync-to-linear/SKILL.md`
+2. Map change/phase/task onto that target's own primitives; state the mapping in
+   a table in the skill
+3. Register the skill in `flake.nix` under `lib.skills`
+4. No binary changes are needed. The plan is target-neutral: every operation
+   already carries `title`, `milestone`, `position`, `labels`, and `body`
 
 ### Adding a render format
 
 1. Add the format to `render/mapping.go`
-2. Implement the template in `render/`
+2. Implement the template in `render/templates/`. Read from `.Export` for
+   anything a reader outside the repo sees; `.Change` is the raw IR and carries
+   source numbering
 3. Integration-test via `internal/cli/cli_test.go` (see `TestRenderRFC` pattern)
 
 ---
@@ -127,6 +150,8 @@ need a bare-minimum OpenSpec tree without depending on a specific example.
 ## What not to do
 
 - Do not add a `sync` verb. Sync lives in skills.
+- Do not write source numbering into anything a tracker or a reader outside the
+  repository sees. Route it through `internal/export` instead.
 - Do not add global state, init functions that do I/O, or package-level HTTP
   clients.
 - Do not modify `flake.nix` or `flake.lock` without understanding the overlay
