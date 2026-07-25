@@ -157,8 +157,9 @@ code {
   gap: .65rem; align-items: stretch;
 }
 .graph-workbench { min-width: 0; }
+/* Height is set inline from the wave model; this is the fallback. */
 #cy-container {
-  width: 100%; height: calc(100vh - 220px); min-height: 340px; max-height: 68vh;
+  width: 100%; height: 420px; max-height: 68vh;
   border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-sm);
   background: var(--surface-2);
 }
@@ -198,11 +199,61 @@ code {
 }
 .legend-item { display: flex; align-items: center; gap: .3rem; }
 .legend-line { display: inline-block; width: 24px; height: 0; vertical-align: middle; }
-.legend-line.sequential { border-top: 2px solid #d1d5db; }
-.legend-line.blocking   { border-top: 2px dashed #f97316; }
-.legend-line.satisfied  { border-top: 2px solid #86efac; }
-.legend-line.suggested  { border-top: 2px dotted #d1d5db; }
+.legend-line.critical  { border-top: 3px solid #f59e0b; }
+.legend-line.blocking  { border-top: 2px dashed #f97316; }
+.legend-line.satisfied { border-top: 2px solid #86efac; }
+.legend-line.suggested { border-top: 2px dotted #c7d2fe; }
 @media (max-width: 52rem) { .graph-shell { grid-template-columns: 1fr; } }
+
+/* Lede — the answer before the picture: what is workable, how deep, what is
+   on the critical path. */
+.graph-lede {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: .65rem; margin: .5rem 0 .7rem;
+}
+.lede-block {
+  background: var(--content); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: var(--shadow-sm); padding: .6rem .75rem;
+}
+.lede-num { font-size: 1.5rem; font-weight: 700; line-height: 1.1; margin-right: .35rem; }
+.lede-label {
+  font-size: 10px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted);
+}
+.lede-note { font-size: 11px; color: var(--muted); margin: .35rem 0 0; line-height: 1.45; }
+.lede-block .chips { margin-top: .4rem; }
+
+/* Wave roster — the canvas model as text, usable without a pointer. */
+.wave-roster {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(13rem, 1fr);
+  gap: .55rem; margin-top: .7rem; overflow-x: auto; padding-bottom: .3rem;
+}
+.wave-col {
+  background: var(--content); border: 1px solid var(--line);
+  border-radius: 8px; box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.wave-head {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface-2); border-bottom: 1px solid var(--line);
+  padding: 5px 9px; font-size: 10px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+}
+.wave-head .ct { font-weight: 400; opacity: .7; }
+.wave-body { padding: .4rem; display: flex; flex-direction: column; gap: .3rem; }
+.wave-item {
+  display: grid; grid-template-columns: 8px 1fr; gap: .4rem .45rem;
+  align-items: center; text-decoration: none; color: inherit;
+  border: 1px solid var(--line); border-radius: 6px; padding: .35rem .45rem;
+}
+.wave-item:hover { border-color: var(--accent, #4f46e5); background: var(--surface-2); }
+.wave-name {
+  font-size: 11px; font-weight: 600; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wave-meta { grid-column: 2; font-size: 10px; color: var(--muted); }
+@media (max-width: 52rem) {
+  .wave-roster { grid-auto-flow: row; grid-auto-columns: auto; }
+}
 
 /* ================================================================
    SUGGESTED EDGES
@@ -631,9 +682,6 @@ const SUGGEST = {{.SuggestJSON}};
   function destroyChart() { if (window.__chart) { window.__chart.destroy(); window.__chart = null; } }
   function destroyCy() {
     if (cyInstance) {
-      cyInstance.nodes().forEach((n) => {
-        savedPositions[n.id()] = { x: n.position("x"), y: n.position("y") };
-      });
       cyInstance.destroy();
       cyInstance = null;
     }
@@ -778,297 +826,238 @@ const SUGGEST = {{.SuggestJSON}};
     return h;
   }
 
-  /* inspector for a single expanded stage node */
-  function stageInspectorHTML(node) {
-    const changeId = node.data("changeId");
-    const c = byName.get(changeId);
-    if (!c) return '<p class="empty" style="margin-top:0">No detail.</p>';
-
-    /* find the phase by matching the node's encoded id: "changeName\x00phaseIndex" */
-    const nodeId = node.id();
-    const sep    = nodeId.indexOf("\x00");
-    const pi     = sep >= 0 ? parseInt(nodeId.slice(sep + 1), 10) : -1;
-    const p      = (c.phases || [])[pi];
-    if (!p) return inspectorHTML(changeId);
-
-    const items  = p.items || [];
-    const done   = items.filter((i) => i.done).length;
-    const pct    = items.length ? Math.round(done / items.length * 100) : 0;
-    const open   = items.length - done;
-
-    let h = '<div style="display:flex;align-items:baseline;gap:.4rem;flex-wrap:wrap;margin-bottom:.4rem">';
-    h += '<span style="font-size:10px;color:var(--muted);font-family:var(--font-mono)">' + esc(changeId) + '</span></div>';
-    h += '<strong>Stage ' + esc(p.number) + ': ' + esc(p.name) + '</strong>';
-
-    if (items.length) {
-      h += '<div class="meter" style="margin:.35rem 0 .15rem"><span style="width:' + pct + '%"></span></div>';
-      h += '<p class="metric">' + done + '/' + items.length + ' tasks · ' + pct + '%' + (open ? ' · <strong>' + open + ' open</strong>' : '') + '</p>';
-    }
-
-    /* task list for this stage */
-    if (items.length) {
-      h += '<div class="task-list" style="margin:.5rem 0">';
-      items.forEach((it) => {
-        const isDone = !!it.done;
-        h += '<div class="task-row' + (isDone ? ' done' : '') + '">' +
-          '<div class="task-check">' + (isDone ? '&#10003;' : '&#9744;') + '</div>' +
-          '<div class="task-key">' + esc(it.key) + '</div>' +
-          '<div class="task-body"><span class="task-title">' + esc(it.text) + '</span></div>' +
-          '</div>';
-      });
-      h += '</div>';
-    }
-
-    h += '<p style="margin-top:.6rem"><a class="btn" href="#/c/' + encodeURIComponent(changeId) + '">Open change</a></p>';
-    return h;
-  }
-
-  function taskInspectorHTML(node) {
-    const changeId  = node.data("changeId");
-    const stageId   = node.data("stageId");
-    const pi        = node.data("phaseIndex");
-    const ii        = node.data("taskIndex");
-    const c         = byName.get(changeId);
-    const p         = c && (c.phases || [])[pi];
-    const item      = p && (p.items || [])[ii];
-    if (!item) return '<p class="empty" style="margin-top:0">No detail.</p>';
-    const isDone    = !!item.done;
-    let h = '<div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-bottom:.35rem">';
-    h += esc(changeId) + ' / Stage ' + esc(p.number) + '</div>';
-    h += '<div class="task-row' + (isDone ? ' done' : '') + '" style="margin:.3rem 0">' +
-      '<div class="task-check">' + (isDone ? '&#10003;' : '&#9744;') + '</div>' +
-      (item.kind && item.kind !== "task" ? '<div class="task-key">' + esc(item.kind) + '</div>' : '') +
-      '<div class="task-body"><span class="task-title">' + esc(item.text) + '</span></div>' +
-      '</div>';
-    if ((item.externalRefs || []).length) {
-      h += '<div style="margin-top:.25rem">' + (item.externalRefs || []).map((r) => '<span class="ext-ref" title="' + esc(r.target) + '">' + esc(r.externalId) + '</span>').join(' ') + '</div>';
-    }
-    h += '<p style="margin-top:.6rem"><a class="btn" href="#/c/' + encodeURIComponent(changeId) + '">Open change</a></p>';
-    return h;
-  }
-
   /* ================================================================
-     GRAPH STATE — three-level progressive expansion:
-       Change → Stages → Tasks
-     Each node expands independently; positions survive across rebuilds.
+     WORK GRAPH MODEL
+
+     The graph answers one question: what can be worked on now, and what has
+     to wait. Three derived facts carry that answer.
+
+       wave         longest-path depth over confirmed edges. Every change in
+                    one wave has all its prerequisites in earlier waves, so a
+                    wave is exactly the set that can run in parallel.
+       status       ready / in-progress / blocked / waiting / done, from
+                    changeStatus(), which reads lifecycle plus dependency
+                    completion.
+       criticalPath the longest chain. Slipping any change on it slips the
+                    whole graph.
+
+     Layout is a compound node per wave, so the parallelism is a visible box
+     rather than something the reader has to infer from arrow directions.
      ================================================================ */
-  const expandedChanges = new Set();
-  const expandedStages  = new Set();
-  let   savedPositions  = {};
   const trunc = (s, n) => s && s.length > n ? s.slice(0, n - 1) + "…" : (s || "");
-  const phId  = (cn, pi) => cn + "\x00" + pi;
 
-  /* Tail endpoint of stage pi: last task ID if expanded, else stage ID. */
-  function stageEndId(cname, pi, phases) {
-    const sid = phId(cname, pi);
-    if (expandedStages.has(sid)) {
-      const items = (phases[pi] || {}).items || [];
-      if (items.length) return sid + "\x00" + (items.length - 1);
+  /* waves() returns an array of arrays: waves()[d] is the change names at
+     depth d, sorted with actionable work first. A dependency cycle would make
+     depth unbounded, so the walk is memoized and cycle-guarded. */
+  function waves() {
+    const names = changes.map((c) => c.name);
+    const known = new Set(names);
+    const preds = {};
+    names.forEach((n) => { preds[n] = []; });
+    edges.forEach((e) => {
+      if (known.has(e.from) && known.has(e.to)) preds[e.to].push(e.from);
+    });
+
+    const depth = {}, visiting = new Set();
+    function depthOf(n) {
+      if (depth[n] !== undefined) return depth[n];
+      if (visiting.has(n)) return 0;          /* cycle: stop descending */
+      visiting.add(n);
+      let d = 0;
+      for (const p of preds[n]) d = Math.max(d, depthOf(p) + 1);
+      visiting.delete(n);
+      depth[n] = d;
+      return d;
     }
-    return sid;
-  }
-  /* Head endpoint of stage pi: first task ID if expanded, else stage ID. */
-  function stageStartId(cname, pi, phases) {
-    const sid = phId(cname, pi);
-    if (expandedStages.has(sid)) {
-      const items = (phases[pi] || {}).items || [];
-      if (items.length) return sid + "\x00" + 0;
+    names.forEach(depthOf);
+
+    const rank = { "in-progress": 0, ready: 1, blocked: 2, waiting: 3, done: 4 };
+    const out = [];
+    names.forEach((n) => {
+      const d = depth[n];
+      (out[d] = out[d] || []).push(n);
+    });
+    for (let d = 0; d < out.length; d++) {
+      out[d] = (out[d] || []).sort((a, b) => {
+        const ra = rank[changeStatus(byName.get(a))] ?? 9;
+        const rb = rank[changeStatus(byName.get(b))] ?? 9;
+        return ra - rb || a.localeCompare(b);
+      });
     }
-    return sid;
-  }
-  /* Change-level cross-edge endpoint accounting for all expansions. */
-  function changeEndId(cname, phases, tail) {
-    if (!expandedChanges.has(cname) || !phases.length) return cname;
-    const pi = tail ? phases.length - 1 : 0;
-    return tail ? stageEndId(cname, pi, phases) : stageStartId(cname, pi, phases);
+    return out;
   }
 
-  function graphElems() {
+  /* readyNow lists the changes a person could pick up today: nothing upstream
+     is outstanding and the work has not started. */
+  function readyNow() {
+    return changes.filter((c) => changeStatus(c) === "ready").map((c) => c.name).sort();
+  }
+
+  const STATUS_META = {
+    "in-progress": { label: "In progress", color: "#4f46e5" },
+    ready:         { label: "Ready",       color: "#16a34a" },
+    blocked:       { label: "Blocked",     color: "#f97316" },
+    waiting:       { label: "Waiting",     color: "#9ca3af" },
+    done:          { label: "Done",        color: "#d1d5db" },
+  };
+
+  /* graphElems builds one compound parent per wave plus one node per change.
+     Suggested edges are drawn only when they are not already confirmed. */
+  function graphElems(waveList, critical) {
     const elems = [];
-    changes.forEach((c) => {
-      const phases = c.phases || [];
-      const st     = changeStatus(c);
-      const prog   = progressOf(c);
-      const label  = trunc(c.name, 20) + "\n" + prog.pct + "%" + (phases.length ? " · " + phases.length + " stage" + (phases.length === 1 ? "" : "s") : "");
+    waveList.forEach((names, d) => {
+      if (!names.length) return;
+      const parallel = names.length > 1 ? names.length + " in parallel" : "1 change";
       elems.push({
         group: "nodes",
-        data: { id: c.name, label, lifecycle: c.lifecycle || "proposed", status: st, type: "change", pct: prog.pct },
+        data: { id: "wave:" + d, label: "Wave " + (d + 1) + " · " + parallel, type: "wave" },
+      });
+      names.forEach((n) => {
+        const c    = byName.get(n);
+        const prog = progressOf(c);
+        const st   = changeStatus(c);
+        const line2 = STATUS_META[st].label + " · " + prog.pct + "%";
+        elems.push({
+          group: "nodes",
+          data: {
+            id: n, parent: "wave:" + d, type: "change",
+            label: trunc(n, 22) + "\n" + line2,
+            status: st, critical: critical.has(n) ? 1 : 0,
+          },
+        });
       });
     });
+
     const confirmed = new Set(edges.map((e) => e.from + ":" + e.to));
     edges.forEach((e) => {
-      const eSt = edgeStatus(e.from);
-      elems.push({ group: "edges", data: { id: "dep:" + e.from + ":" + e.to, source: e.from, target: e.to, type: "cross", edgeStatus: eSt } });
+      const onCritical = critical.has(e.from) && critical.has(e.to);
+      elems.push({
+        group: "edges",
+        data: {
+          id: "dep:" + e.from + ":" + e.to, source: e.from, target: e.to,
+          type: "cross", edgeStatus: edgeStatus(e.from), critical: onCritical ? 1 : 0,
+        },
+      });
     });
     novelCandidateGroups().forEach((c) => {
       if (!confirmed.has(c.from + ":" + c.to)) {
-        elems.push({ group: "edges", data: { id: "sug:" + c.from + ":" + c.to, source: c.from, target: c.to, suggested: true } });
+        elems.push({
+          group: "edges",
+          data: { id: "sug:" + c.from + ":" + c.to, source: c.from, target: c.to, suggested: true },
+        });
       }
     });
     return elems;
   }
 
-  /* LR layout via BFS depth → preset positions.
-     Nodes that survived a graph rebuild reuse their saved positions (enabling
-     stable drag-then-expand workflows). Only newly-added nodes get computed
-     positions. When all visible nodes are sequential stage nodes and the chain
-     is long, a snake/grid layout wraps them into rows. */
-  function lrPositions(elems) {
-    const nodes     = elems.filter((e) => e.group === "nodes");
-    const nids      = nodes.map((e) => e.data.id);
-    const elist     = elems.filter((e) => e.group === "edges" && !e.data.suggested);
-    const pos       = {};
-    const needsCalc = [];
-
-    /* Reuse saved positions for nodes that didn't disappear from the graph. */
-    nodes.forEach((n) => {
-      if (savedPositions[n.data.id]) pos[n.data.id] = savedPositions[n.data.id];
-      else needsCalc.push(n);
-    });
-    if (needsCalc.length === 0) return pos;
-
-    /* BFS depth for new nodes. */
-    const inDeg = Object.fromEntries(nids.map((id) => [id, 0]));
-    const adj   = Object.fromEntries(nids.map((id) => [id, []]));
-    elist.forEach((e) => {
-      if (inDeg[e.data.target] !== undefined) inDeg[e.data.target]++;
-      if (adj[e.data.source]) adj[e.data.source].push(e.data.target);
-    });
-    const depth = Object.fromEntries(nids.map((id) => [id, 0]));
-    const q = nids.filter((id) => inDeg[id] === 0);
-    for (let head = 0; head < q.length; head++) {
-      const id = q[head];
-      (adj[id] || []).forEach((next) => {
-        depth[next] = Math.max(depth[next], depth[id] + 1);
-        if (--inDeg[next] === 0) q.push(next);
-      });
-    }
-    const maxDepth    = nids.length ? Math.max(...nids.map((id) => depth[id] || 0)) : 0;
-    const allStages   = nodes.length > 0 && nodes.every((n) => n.data.type === "stage");
-    const hasTaskNodes = needsCalc.some((n) => n.data.type === "task");
-    const COL_W = 200, ROW_H = 100;
-
-    if (allStages && maxDepth >= 4) {
-      /* Snake layout: wrap long sequential stage chains into rows so they stay
-         readable without zooming out to illegible sizes.
-         Even rows go L→R, odd rows go R→L (serpentine). */
-      const SNAKE_COLS = 5;
-      needsCalc.sort((a, b) => (depth[a.data.id] || 0) - (depth[b.data.id] || 0));
-      needsCalc.forEach((n) => {
-        const d        = depth[n.data.id] || 0;
-        const row      = Math.floor(d / SNAKE_COLS);
-        const colInRow = d % SNAKE_COLS;
-        const col      = row % 2 === 0 ? colInRow : SNAKE_COLS - 1 - colInRow;
-        pos[n.data.id] = { x: col * COL_W, y: row * ROW_H };
-      });
-    } else if (hasTaskNodes) {
-      /* Column-per-stage layout: each stage's tasks stack vertically at the
-         stage's x position, preserving the horizontal ordering of stages.
-         If the stage had a saved position (visible before expansion) tasks
-         align to that column; otherwise we fall back to phaseIndex * COL_W. */
-      const nonTaskNodes = needsCalc.filter((n) => n.data.type !== "task");
-      nonTaskNodes.forEach((n) => {
-        const d = depth[n.data.id] || 0;
-        pos[n.data.id] = { x: +d * COL_W, y: 0 };
-      });
-      needsCalc.filter((n) => n.data.type === "task").forEach((n) => {
-        const pi      = n.data.phaseIndex || 0;
-        const ii      = n.data.taskIndex  || 0;
-        const stageId = n.data.stageId;
-        /* Prefer saved stage position so task columns align with where stages were. */
-        const baseX = savedPositions[stageId] ? savedPositions[stageId].x : pi * COL_W;
-        const baseY = savedPositions[stageId] ? savedPositions[stageId].y : 0;
-        pos[n.data.id] = { x: baseX, y: baseY + ii * ROW_H };
-      });
-    } else {
-      /* Standard LR layout for inter-change dependency DAGs. */
-      const cols = {};
-      needsCalc.forEach((n) => { const d = depth[n.data.id] || 0; (cols[d] = cols[d] || []).push(n); });
-      Object.entries(cols).sort((a, b) => +a[0] - +b[0]).forEach(([d, ns]) => {
-        ns.sort((a, b) => (a.data.changeId || "").localeCompare(b.data.changeId || "") || (a.data.id || "").localeCompare(b.data.id || ""));
-        ns.forEach((n, i) => { pos[n.data.id] = { x: +d * COL_W, y: i * ROW_H }; });
-      });
-    }
-    return pos;
-  }
-
   /* ---- Cytoscape graph initialiser ---- */
-  function initCy(containerId) {
+  function initCy(containerId, waveList, critical) {
     if (typeof cytoscape === "undefined") {
       document.getElementById(containerId).innerHTML =
-        '<div class="graph-empty">Cytoscape failed to load. Check network connection.</div>';
+        '<div class="graph-empty">Cytoscape failed to load. Check the network connection.</div>';
       return;
     }
     destroyCy();
-    const elems = graphElems();
-    const pos   = lrPositions(elems);
 
     cyInstance = cytoscape({
       container: document.getElementById(containerId),
-      elements: elems,
+      elements: graphElems(waveList, critical),
       style: [
-        /* base node — clean white card */
-        { selector: "node", style: { shape: "round-rectangle", "corner-radius": 6, width: 168, height: 48, "background-color": "#ffffff", "border-width": 1.5, "border-color": "#e5e7eb", label: "data(label)", "font-family": '-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Arial,sans-serif', "font-size": 10, "text-valign": "center", "text-halign": "center", color: "#374151", "text-wrap": "wrap", "text-max-width": 154 } },
-        { selector: 'node[type = "change"]', style: { height: 56, "border-width": 2, "font-size": 11 } },
-        /* status-driven node styles — encodes readiness, not just lifecycle */
+        /* wave container — the parallelism boundary */
+        { selector: 'node[type = "wave"]', style: {
+          shape: "round-rectangle", "corner-radius": 10,
+          "background-color": "#f9fafb", "background-opacity": 1,
+          "border-width": 1, "border-color": "#e5e7eb", "border-style": "dashed",
+          label: "data(label)", "text-valign": "top", "text-halign": "center",
+          "text-margin-y": -6, "font-size": 10, "font-weight": 600,
+          color: "#6b7280", padding: 18,
+        } },
+        /* change node — clean white card */
+        { selector: 'node[type = "change"]', style: {
+          shape: "round-rectangle", "corner-radius": 6, width: 172, height: 54,
+          "background-color": "#ffffff", "border-width": 2, "border-color": "#e5e7eb",
+          label: "data(label)",
+          "font-family": '-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Arial,sans-serif',
+          "font-size": 10.5, "text-valign": "center", "text-halign": "center",
+          color: "#374151", "text-wrap": "wrap", "text-max-width": 156,
+        } },
+        /* status drives colour — readiness, not just lifecycle */
         { selector: 'node[status = "done"]',        style: { "background-color": "#f9fafb", "border-color": "#e5e7eb", color: "#9ca3af" } },
         { selector: 'node[status = "in-progress"]', style: { "background-color": "#eef2ff", "border-color": "#4f46e5", color: "#3730a3" } },
         { selector: 'node[status = "blocked"]',     style: { "background-color": "#fff7ed", "border-color": "#f97316", color: "#9a3412" } },
         { selector: 'node[status = "ready"]',       style: { "background-color": "#f0fdf4", "border-color": "#16a34a", color: "#14532d" } },
         { selector: 'node[status = "waiting"]',     style: { "background-color": "#ffffff", "border-color": "#d1d5db", color: "#6b7280" } },
-        { selector: "node.focused", style: { "border-width": 3, "overlay-color": "#4f46e5", "overlay-opacity": 0.06, "overlay-padding": 4 } },
+        /* critical path — a heavier amber outline on nodes and edges */
+        { selector: 'node[critical = 1]', style: { "border-width": 3, "border-color": "#f59e0b" } },
+        { selector: "node.focused", style: { "overlay-color": "#4f46e5", "overlay-opacity": 0.08, "overlay-padding": 5 } },
         { selector: "node.dim",     style: { opacity: 0.2 } },
-        /* edges — semantic coloring by whether the dependency is blocking */
-        { selector: "edge", style: { "curve-style": "bezier", "target-arrow-shape": "triangle", "arrow-scale": .85, "line-color": "#d1d5db", "target-arrow-color": "#d1d5db", width: 1.5 } },
-        { selector: 'edge[type = "cross"][edgeStatus = "satisfied"]', style: { "line-color": "#86efac", "target-arrow-color": "#86efac", width: 1.5 } },
-        { selector: 'edge[type = "cross"][edgeStatus = "blocking"]',  style: { "line-color": "#f97316", "target-arrow-color": "#f97316", width: 2, "line-style": "dashed", "line-dash-pattern": [8, 4] } },
-        { selector: 'edge[type = "cross"]',          style: { "line-color": "#a5b4fc", "target-arrow-color": "#a5b4fc", width: 2 } },
-        { selector: "edge[?suggested]",              style: { "line-color": "#e5e7eb", "target-arrow-color": "#e5e7eb", width: 1, "line-style": "dashed", "line-dash-pattern": [4, 4] } },
-        { selector: "edge.dim",                      style: { opacity: 0.08 } },
-        { selector: "edge.focused",                  style: { "line-color": "#4f46e5", "target-arrow-color": "#4f46e5", width: 2.5 } },
-        /* task nodes — compact, dashed border, inherits status coloring */
-        { selector: 'node[type = "task"]',      style: { width: 144, height: 32, "font-size": 9, "border-style": "dashed", "border-width": 1.2, "background-color": "#fafafa", "border-color": "#c7d2fe", color: "#4b5563" } },
-        { selector: 'node[type = "task"][status = "done"]', style: { "background-color": "#f9fafb", "border-color": "#e5e7eb", color: "#9ca3af" } },
+        /* edges */
+        { selector: "edge", style: {
+          "curve-style": "bezier", "target-arrow-shape": "triangle", "arrow-scale": .85,
+          "line-color": "#d1d5db", "target-arrow-color": "#d1d5db", width: 1.5,
+        } },
+        { selector: 'edge[edgeStatus = "satisfied"]', style: { "line-color": "#86efac", "target-arrow-color": "#86efac", width: 1.5 } },
+        { selector: 'edge[edgeStatus = "blocking"]',  style: { "line-color": "#f97316", "target-arrow-color": "#f97316", width: 2, "line-style": "dashed", "line-dash-pattern": [8, 4] } },
+        { selector: 'edge[critical = 1]',             style: { "line-color": "#f59e0b", "target-arrow-color": "#f59e0b", width: 3, "line-style": "solid" } },
+        { selector: "edge[?suggested]",               style: { "line-color": "#c7d2fe", "target-arrow-color": "#c7d2fe", width: 1, "line-style": "dotted" } },
+        { selector: "edge.dim",                       style: { opacity: 0.08 } },
+        { selector: "edge.focused",                   style: { "line-color": "#4f46e5", "target-arrow-color": "#4f46e5", width: 2.5 } },
       ],
-      layout: { name: "preset", positions: (node) => pos[node.id()] || { x: 0, y: 0 }, padding: 40 },
-      userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: true,
+      /* Waves are columns, so the layout only has to stack changes inside each
+         wave. Preset positions keep that exact, which a force layout would not. */
+      layout: { name: "preset", positions: wavePositions(waveList), padding: 44, fit: true },
+      userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false,
       maxZoom: 2, minZoom: 0.08,
     });
 
     const inspBody = document.getElementById("graph-inspector-body");
+    const resetInspector = () => {
+      if (inspBody) inspBody.innerHTML = '<p class="empty" style="margin-top:0">Hover a change to inspect it.</p>';
+    };
 
-    cyInstance.on("mouseover", "node", function (evt) {
+    cyInstance.on("mouseover", 'node[type = "change"]', function (evt) {
       const node = evt.target;
-      const type = node.data("type");
-      if (inspBody) {
-        if (type === "stage") inspBody.innerHTML = stageInspectorHTML(node);
-        else if (type === "task") inspBody.innerHTML = taskInspectorHTML(node);
-        else inspBody.innerHTML = inspectorHTML(node.data("changeId") || node.id());
-      }
-      const changeId = node.data("changeId") || node.id();
+      if (inspBody) inspBody.innerHTML = inspectorHTML(node.id());
       cyInstance.elements().addClass("dim");
-      /* task/stage: highlight only this node; change: all its nodes */
-      const focusTarget = (type === "stage" || type === "task")
-        ? node
-        : cyInstance.nodes().filter((n) => (n.data("changeId") || n.id()) === changeId);
-      focusTarget.removeClass("dim").addClass("focused");
+      node.removeClass("dim").addClass("focused");
+      node.parent().removeClass("dim");
       const conn = node.connectedEdges();
       conn.removeClass("dim").addClass("focused");
-      conn.connectedNodes().removeClass("dim");
+      conn.connectedNodes().removeClass("dim").parent().removeClass("dim");
     });
 
-    cyInstance.on("mouseout", "node", function () {
+    cyInstance.on("mouseout", 'node[type = "change"]', function () {
       cyInstance.elements().removeClass("dim focused");
-      if (inspBody) inspBody.innerHTML = '<p class="empty" style="margin-top:0">Hover a node to inspect.</p>';
+      resetInspector();
     });
 
-    /* Tap: navigate to change detail view */
-    cyInstance.on("tap", "node", function (evt) {
+    cyInstance.on("tap", 'node[type = "change"]', function (evt) {
       const id = evt.target.id();
       if (byName.has(id)) location.hash = "#/c/" + encodeURIComponent(id);
     });
 
-    cyInstance.fit();
+    cyInstance.fit(undefined, 40);
+  }
+
+  /* Layout constants shared by the position function and the canvas sizing, so
+     the box is never taller than the graph it holds. */
+  const WAVE_COL_W = 260, WAVE_ROW_H = 104;
+
+  /* wavePositions stacks each wave's changes in a column at that wave's depth. */
+  function wavePositions(waveList) {
+    const pos = {};
+    waveList.forEach((names, d) => {
+      (names || []).forEach((n, i) => { pos[n] = { x: d * WAVE_COL_W, y: i * WAVE_ROW_H }; });
+    });
+    return (node) => pos[node.id()] || { x: 0, y: 0 };
+  }
+
+  /* canvasHeight sizes the box to the graph rather than to the viewport. A
+     shallow graph in a viewport-tall box reads as missing data. Derived from
+     the wave model directly, so it needs no post-layout measurement. */
+  function canvasHeight(waveList) {
+    const widest = waveList.reduce((m, w) => Math.max(m, (w || []).length), 1);
+    return Math.max(300, Math.min(widest * WAVE_ROW_H + 150, Math.round(window.innerHeight * 0.68)));
   }
 
   /* ---- phase progress chart ---- */
@@ -1222,58 +1211,90 @@ const SUGGEST = {{.SuggestJSON}};
      ================================================================ */
   function renderGraph() {
     destroyChart(); destroyCy();
-    const novel = novelCandidateGroups();
 
-    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.5rem">Dependency Graph</h1>';
+    let h = '<h1 tabindex="-1" id="view-title" style="margin-bottom:.5rem">Work graph</h1>';
     if (!changes.length) {
       h += '<div class="graph-empty">No changes found.</div>';
       view.innerHTML = h; afterRender(); return;
     }
 
-    /* compute counts for status summary */
-    const stCounts = { "in-progress": 0, ready: 0, blocked: 0, waiting: 0, done: 0 };
-    changes.forEach((c) => { const s = changeStatus(c); stCounts[s] = (stCounts[s] || 0) + 1; });
+    const waveList = waves();
+    const critical = criticalPath();
+    const ready    = readyNow();
+    const novel    = novelCandidateGroups();
 
-    h += '<div class="graph-toolbar">';
-    h += '<span class="graph-hint-text">click a node to open detail · drag to rearrange</span>';
+    const stCounts = {};
+    changes.forEach((c) => { const st = changeStatus(c); stCounts[st] = (stCounts[st] || 0) + 1; });
+
+    /* Lead with the answer: what is workable now, and how deep the chain runs. */
+    h += '<div class="graph-lede">';
+    h += '<div class="lede-block"><span class="lede-num tnum">' + ready.length + '</span>' +
+         '<span class="lede-label">ready to start</span>' +
+         (ready.length ? '<div class="chips">' + ready.map(chipLink).join("") + '</div>'
+                       : '<p class="lede-note">Nothing is unblocked and unstarted.</p>') + '</div>';
+    h += '<div class="lede-block"><span class="lede-num tnum">' + waveList.length + '</span>' +
+         '<span class="lede-label">' + (waveList.length === 1 ? "wave" : "waves") + ' deep</span>' +
+         '<p class="lede-note">A wave is work that can run in parallel. Wave N waits on wave N-1.</p></div>';
+    h += '<div class="lede-block"><span class="lede-num tnum">' + critical.size + '</span>' +
+         '<span class="lede-label">on the critical path</span>' +
+         '<p class="lede-note">The longest chain. Slipping any of these slips everything.</p></div>';
     h += '</div>';
 
     /* status legend */
     h += '<div class="graph-status-bar">';
-    const statusItems = [
-      { st: "in-progress", label: "In progress", color: "#4f46e5" },
-      { st: "ready",       label: "Ready",        color: "#16a34a" },
-      { st: "blocked",     label: "Blocked",      color: "#f97316" },
-      { st: "waiting",     label: "Waiting",      color: "#9ca3af" },
-      { st: "done",        label: "Done",         color: "#d1d5db" },
-    ];
-    statusItems.forEach(({ st, label, color }) => {
+    Object.keys(STATUS_META).forEach((st) => {
       if (!stCounts[st]) return;
-      h += '<span class="graph-status-chip" style="--chip-color:' + color + '">' +
-        '<span class="gsc-dot"></span>' + stCounts[st] + ' ' + label + '</span>';
+      h += '<span class="graph-status-chip" style="--chip-color:' + STATUS_META[st].color + '">' +
+        '<span class="gsc-dot"></span>' + stCounts[st] + ' ' + STATUS_META[st].label + '</span>';
     });
+    h += '</div>';
+
+    h += '<div class="graph-toolbar">';
+    h += '<span class="graph-hint-text">Each dashed box is one wave. Hover a change to inspect it; click to open its detail.</span>';
     h += '</div>';
 
     h += '<div class="graph-shell">';
     h += '<div class="graph-workbench">' +
-      '<div id="cy-container"></div>' +
+      '<div id="cy-container" style="height:' + canvasHeight(waveList) + 'px"></div>' +
       '<div class="graph-legend">' +
-      '<span class="legend-item"><span class="legend-line sequential"></span> sequential</span>' +
-      '<span class="legend-item"><span class="legend-line blocking"></span> blocking dep</span>' +
-      '<span class="legend-item"><span class="legend-line satisfied"></span> satisfied dep</span>' +
-      '<span class="legend-item"><span class="legend-line suggested"></span> suggested</span>' +
+      '<span class="legend-item"><span class="legend-line critical"></span> critical path</span>' +
+      '<span class="legend-item"><span class="legend-line blocking"></span> still blocking</span>' +
+      '<span class="legend-item"><span class="legend-line satisfied"></span> satisfied</span>' +
+      '<span class="legend-item"><span class="legend-line suggested"></span> suggested, unconfirmed</span>' +
       '</div>' +
       '</div>';
     h += '<aside class="graph-inspector">' +
       '<div class="graph-inspector-head"><span>Inspector</span></div>' +
       '<div class="graph-inspector-body" id="graph-inspector-body">' +
-      '<p class="empty" style="margin-top:0">Hover a node to inspect.</p>' +
+      '<p class="empty" style="margin-top:0">Hover a change to inspect it.</p>' +
       '</div></aside></div>';
 
+    /* Wave roster: the same model as the canvas, readable without a mouse. */
+    h += '<div class="wave-roster">';
+    waveList.forEach((names, d) => {
+      if (!names.length) return;
+      h += '<section class="wave-col"><div class="wave-head">Wave ' + (d + 1) +
+        '<span class="ct">' + names.length + '</span></div><div class="wave-body">';
+      names.forEach((n) => {
+        const c  = byName.get(n);
+        const st = changeStatus(c);
+        const p  = progressOf(c);
+        h += '<a class="wave-item" href="#/c/' + encodeURIComponent(n) + '">' +
+          '<span class="gsc-dot" style="--chip-color:' + STATUS_META[st].color + '"></span>' +
+          '<span class="wave-name">' + esc(n) +
+            (critical.has(n) ? ' <span title="Critical path" style="color:#f59e0b">&#9733;</span>' : '') +
+          '</span>' +
+          '<span class="wave-meta">' + STATUS_META[st].label + ' · ' + p.pct + '%</span>' +
+          '</a>';
+      });
+      h += '</div></section>';
+    });
+    h += '</div>';
+
     if (novel.length) {
-      h += '<div class="suggest-panel"><div class="suggest-head"><span>Suggested edges</span> &mdash; inferred from shared capabilities (' + novel.length + ')</div>';
+      h += '<div class="suggest-panel"><div class="suggest-head">Suggested edges <span>&mdash; inferred from shared capabilities, not yet confirmed (' + novel.length + ')</span></div>';
       h += '<div class="suggest-body"><table class="suggest-table"><thead><tr>' +
-        '<th>From (prerequisite)</th><th>To (dependent)</th><th>Shared capabilities</th><th>Add to specutil.yaml</th>' +
+        '<th>Prerequisite</th><th>Dependent</th><th>Shared capabilities</th><th>Add to specutil.yaml</th>' +
         '</tr></thead><tbody>';
       novel.forEach((c) => {
         h += '<tr><td>' + chipLink(c.from) + '</td><td>' + chipLink(c.to) + '</td>' +
@@ -1284,7 +1305,7 @@ const SUGGEST = {{.SuggestJSON}};
     }
 
     view.innerHTML = h;
-    initCy("cy-container");
+    initCy("cy-container", waveList, critical);
     afterRender();
   }
 

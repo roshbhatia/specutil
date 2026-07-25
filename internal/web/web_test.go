@@ -106,7 +106,6 @@ func TestRenderEscapesScriptBreakout(t *testing.T) {
 	}
 }
 
-
 func TestRenderInlinesExternalRefs(t *testing.T) {
 	// detail.Item.ExternalRefs must reach the page as part of the inlined detail
 	// JSON so the template can render "ENG-123" chips next to task keys.
@@ -129,4 +128,3 @@ func TestRenderInlinesExternalRefs(t *testing.T) {
 		}
 	}
 }
-

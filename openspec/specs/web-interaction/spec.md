@@ -23,16 +23,14 @@ The web visualizer SHALL render a static page whose presentation layer (a CSS
 framework and a charting library) loads at view time from a **version-pinned**
 CDN with Subresource Integrity hashes, `crossorigin`, and an `onerror` handler so
 a supply-chain swap cannot execute and an offline open degrades loudly. The data
-feeds (graph and detail) and the cross-change dependency DAG SHALL be inlined into
-the page — no data file is ever fetched. The cross-change DAG SHALL be drawn as a
-**static inline SVG** with directed arrows from prerequisite to dependent; the
-page does NOT provide pan, zoom, or fit. The binary itself MUST perform no network
-I/O and add no build-time toolchain to produce the page.
+feeds (graph and detail) SHALL be inlined into the page — no data file is ever
+fetched. The cross-change DAG SHALL be drawn with directed arrows from prerequisite
+to dependent. The binary itself MUST perform no network I/O and add no build-time
+toolchain to produce the page.
 
 #### Scenario: Directed arrows rendered
-- **WHEN** two or more changes exist and the overview renders a graph with edges
-- **THEN** each edge is drawn as a directed arrow, in inline SVG, from prerequisite
-  to dependent
+- **WHEN** two or more changes exist and the graph view renders edges
+- **THEN** each edge is drawn as a directed arrow from prerequisite to dependent
 
 #### Scenario: Presentation layer loads from a pinned CDN
 - **WHEN** the page is opened with network access
@@ -75,8 +73,8 @@ rendered as clickable chips that navigate to the referenced change's document.
 
 #### Scenario: Several changes show an overview
 - **WHEN** two or more changes exist and the page opens
-- **THEN** an overview with a lifecycle tally, the inline-SVG dependency graph, and
-  per-change cards renders, and selecting a change navigates to its document
+- **THEN** an overview with a lifecycle tally and per-change cards renders, and selecting
+  a change navigates to its document
 
 #### Scenario: Navigate via relationship chip
 - **WHEN** the user clicks a depends-on or blocks chip in a change's document
@@ -87,12 +85,12 @@ The web page SHALL offer a board view and a dedicated graph view in addition to 
 existing overview and per-change document, switchable in place without a page reload. The
 board SHALL lay changes out in lifecycle columns (proposed, active, archived), each change
 a card conveying its lifecycle and progress. The graph view SHALL present the cross-change
-dependency DAG full-width as the binary-emitted static inline SVG. For a single change the
-page SHALL still land directly on that change's document; for two or more changes the page
-SHALL land on the existing overview (lifecycle tally and cards), with the board and graph
-reachable as additional views. Each view SHALL be reachable by an in-page hash route so a
-specific view is deep-linkable. The page MUST NOT introduce pan, zoom, fit, or any vendored
-interactive-graph library to provide these views.
+dependency DAG full-width. For a single change the page SHALL still land directly on that
+change's document; for two or more changes the page SHALL land on the existing overview
+(lifecycle tally and cards), with the board and graph reachable as additional views. Each
+view SHALL be reachable by an in-page hash route so a specific view is deep-linkable. The
+graph runtime SHALL load from a version-pinned CDN reference carrying an SRI integrity
+hash; it MUST NOT be vendored into the repository.
 
 #### Scenario: Board groups changes by lifecycle
 - **WHEN** two or more changes exist and the user switches to the board view
@@ -107,35 +105,62 @@ interactive-graph library to provide these views.
 
 #### Scenario: Dedicated graph view
 - **WHEN** the user switches to the graph view and edges exist
-- **THEN** the cross-change dependency DAG renders as a static inline SVG with directed
-  arrows from prerequisite to dependent, without pan/zoom/fit
+- **THEN** the cross-change dependency DAG renders with directed arrows from prerequisite
+  to dependent
 
 #### Scenario: Views are deep-linkable
 - **WHEN** the page is opened at a view's hash route (board, graph, or a change document)
 - **THEN** that view renders directly
 
-### Requirement: Clickable, lifecycle-colored graph nodes
-In the graph view each node SHALL be colored by its change's lifecycle and SHALL be a
-navigation control that opens that change's document when activated. Selecting or hovering
-a node SHALL emphasize its incident edges and immediate neighbors and de-emphasize
-unrelated nodes, achieved without a scripting-dependent canvas so the graph still renders
-and navigates with scripting disabled.
+### Requirement: Graph laid out in dependency waves
+The graph view SHALL group changes into waves, where a wave is the set of changes whose
+prerequisites all sit in earlier waves. Every change in one wave can therefore be worked in
+parallel. Each wave SHALL be drawn as a labeled container naming its ordinal and its size,
+and SHALL also be listed in a text roster so the same model is readable without a pointer.
+The view SHALL state, before the diagram, how many changes are ready to start, how many
+waves deep the graph runs, and how many changes sit on the critical path.
 
-#### Scenario: Node reflects lifecycle and navigates
+#### Scenario: Parallel work is a visible group
+- **WHEN** three changes share a single prerequisite and nothing else blocks them
+- **THEN** all three render inside one wave container labeled with the count, and each is
+  listed under the same wave in the roster
+
+#### Scenario: Ready work is named up front
+- **WHEN** a change has no outstanding prerequisites and no completed tasks
+- **THEN** it is counted as ready to start and named in the lede before the diagram
+
+#### Scenario: Critical path is marked
+- **WHEN** the graph has at least one edge
+- **THEN** the changes on the longest dependency chain are marked in both the diagram and
+  the roster, and their count is stated in the lede
+
+### Requirement: Clickable, readiness-colored graph nodes
+In the graph view each node SHALL be colored by its work readiness — done, in progress,
+blocked, ready, or waiting — derived from the change's lifecycle together with whether its
+prerequisites are complete. Each node SHALL be a navigation control that opens that
+change's document when activated. Hovering a node SHALL emphasize its incident edges and
+immediate neighbors, de-emphasize unrelated nodes, and populate an inspector panel with
+that change's progress, next task, blockers, and downstream changes.
+
+#### Scenario: Node reflects readiness and navigates
 - **WHEN** the graph view renders a node and the user activates it
-- **THEN** the node's appearance reflects its change's lifecycle and activating it
-  navigates to that change's document
+- **THEN** the node's appearance reflects its readiness and activating it navigates to that
+  change's document
+
+#### Scenario: Blocked and satisfied edges are distinguishable
+- **WHEN** one prerequisite is complete and another is not
+- **THEN** the satisfied edge and the still-blocking edge render with different styling
 
 #### Scenario: Incident emphasis on focus
-- **WHEN** the user hovers or targets a node in the graph view
-- **THEN** that node's incident edges and immediate neighbors are emphasized and unrelated
-  nodes are de-emphasized
+- **WHEN** the user hovers a node in the graph view
+- **THEN** that node's incident edges and immediate neighbors are emphasized, unrelated
+  nodes are de-emphasized, and the inspector shows that change's detail
 
 ### Requirement: System-synced light and dark theme
 The page SHALL support light and dark themes. By default it SHALL follow the operating
 system preference via `prefers-color-scheme`, and SHALL provide a control to override the
 theme (auto, light, dark) with the choice persisted across reloads. All page colors,
-including the inline-SVG dependency graph and the progress chart, SHALL track the active
+including the dependency graph and the progress chart, SHALL track the active
 theme. The initial theme MUST be applied before first paint so there is no flash of the
 wrong theme.
 
@@ -145,8 +170,7 @@ wrong theme.
 
 #### Scenario: Manual override persists
 - **WHEN** the user sets the theme override and reloads the page
-- **THEN** the page renders in the chosen theme, and the inline-SVG graph and chart colors
-  match it
+- **THEN** the page renders in the chosen theme, and the graph and chart colors match it
 
 ### Requirement: Relationships beside the task checklist
 In a change's document the depends-on and blocks relationships SHALL be presented adjacent

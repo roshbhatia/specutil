@@ -89,4 +89,3 @@ func Render(g *graph.Graph, d *detail.Feed, diags []graph.Diagnostic, candidates
 	}
 	return buf.Bytes(), nil
 }
-

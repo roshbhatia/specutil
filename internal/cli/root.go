@@ -547,9 +547,10 @@ func newWebCmd() *cobra.Command {
 			"in the default browser. The page has three views:\n\n" +
 			"  Kanban  — lifecycle board (proposed / active / archived) with per-change\n" +
 			"            progress meters. Click a card to open the detail drilldown.\n\n" +
-			"  Graph   — interactive DAG showing each change's stages as nodes with\n" +
-			"            sequential edges within changes and dependency edges across them.\n" +
-			"            Hover to inspect a change; click to open its detail drilldown.\n\n" +
+			"  Graph   — dependency DAG laid out in waves. A wave is the set of changes\n" +
+			"            whose prerequisites are all satisfied at the same depth, so every\n" +
+			"            change in a wave can be worked in parallel. Node color encodes\n" +
+			"            readiness (ready / in progress / blocked / waiting / done).\n\n" +
 			"  Detail  — per-change drilldown: execution plan (stages → tasks), Why /\n" +
 			"            What Changes narrative, outstanding tasks, and per-stage chart.\n\n" +
 			"A fresh file is written to the system temp directory on each invocation so\n" +
