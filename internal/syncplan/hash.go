@@ -5,52 +5,15 @@
 // back through lock set.
 package syncplan
 
-import (
-	"crypto/sha256"
-	"encoding/hex"
-	"regexp"
-	"strings"
-)
+import "github.com/roshbhatia/specutil/internal/ident"
 
-// emphasisRe strips markdown emphasis/code markers so they do not perturb the
-// normalized identity key.
-var emphasisRe = regexp.MustCompile("[*_`]")
+// normalize is the identity normalization shared with every other consumer of
+// task handles; diff's token similarity works over the same normalized form.
+func normalize(s string) string { return ident.Normalize(s) }
 
-// wsRe collapses internal whitespace runs to a single space.
-var wsRe = regexp.MustCompile(`\s+`)
-
-// trailingPunctRe trims trailing sentence punctuation that minor edits add or
-// drop without changing meaning.
-var trailingPunctRe = regexp.MustCompile(`[.,;:!?\s]+$`)
-
-// normalize produces the position-independent, edit-tolerant key used for
-// identity: lowercased, emphasis-stripped, whitespace-collapsed, trailing
-// punctuation removed. It deliberately discards leading task numbers (the
-// caller passes already number-free text) so renumbering preserves identity.
-func normalize(s string) string {
-	s = strings.ToLower(s)
-	s = emphasisRe.ReplaceAllString(s, "")
-	s = wsRe.ReplaceAllString(s, " ")
-	s = strings.TrimSpace(s)
-	s = trailingPunctRe.ReplaceAllString(s, "")
-	return s
-}
-
-// Identity is the stable lock key for an item. It is built from the normalized
-// phase name and normalized item text, so it survives task renumbering and
-// minor text edits (which the normalization absorbs) while still distinguishing
-// genuinely different items. The phase name disambiguates identically-worded
-// tasks living in different phases.
-func Identity(phaseName, text string) string {
-	key := normalize(phaseName) + "\n" + normalize(text)
-	sum := sha256.Sum256([]byte(key))
-	return hex.EncodeToString(sum[:])[:16]
-}
+// Identity is the stable lock key for an item. See ident.Identity.
+func Identity(phaseName, text string) string { return ident.Identity(phaseName, text) }
 
 // ContentHash is the exact-content fingerprint stored alongside the external ID
-// so plan can tell an unchanged item (skip) from an edited one (update). Unlike
-// Identity it is NOT normalized: any byte change flips it.
-func ContentHash(text string) string {
-	sum := sha256.Sum256([]byte(text))
-	return hex.EncodeToString(sum[:])[:16]
-}
+// so plan can tell an unchanged item (skip) from an edited one (update).
+func ContentHash(text string) string { return ident.ContentHash(text) }

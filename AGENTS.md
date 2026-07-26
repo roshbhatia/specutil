@@ -29,11 +29,14 @@ internal/
   registry/           provider and target registration; wraps providers with extract
   extract/            schema-declared marker/field grammar (composable, config-driven)
   check/              rubric rules and presets for the check verb
+  ident/              content-addressed task handles (identity, hash, similarity)
+  review/             human verdict on a change: record, drift, agent brief
+  vcs/                local git working-tree diff, parsed into files and hunks
   export/             IR → tracker vocabulary (the naming boundary)
   render/             IR → RFC / design / tickets Markdown
   syncplan/           IR → create/update/orphan JSON plan
   graph/              dependency DAG (mermaid, dot, json)
-  web/                HTML dashboard (embedded assets)
+  web/                HTML dashboard (embedded assets, annotation surface)
   detail/             per-change detail view
 skills/               AI skills for remote writes (one dir per target)
 examples/             working examples (bmad-project, getting-started, plan-md)
@@ -106,6 +109,38 @@ The same rule governs `internal/check`. A rubric rule is generic and takes
 parameters (`required-sections` with a section list, `phase-marker-required`
 with a marker name); the framework-specific values live only in a preset in
 `internal/check/presets.go`.
+
+## The review loop is the only inbound path
+
+Every other package projects what the author wrote outward. `internal/review` is
+the one path that goes the other way: a person annotates the change in the
+browser page, exports a JSON document, and `specutil review ingest` folds it
+into `openspec/changes/<name>/specutil.review.yaml`.
+
+Two rules keep it inside the invariant.
+
+**Reading git is a local read; talking to a forge is not.** `internal/vcs` runs
+the local `git` binary to collect a working-tree diff, the same class of
+operation as reading a file. It must never fetch, push, clone, or hit a forge
+API. A pull-request URL does not belong here: that is a network read, and it
+belongs in a skill.
+
+**The page exports; it never posts.** It has no `fetch`, no `WebSocket`, no
+`<form>`, and no server behind it. Feedback leaves as a document the user copies
+or downloads. `internal/guard`'s `TestWebFeedbackIsExportedNotPosted` fails the
+build if that changes, because a listener would mean network I/O in the binary.
+
+**Staleness is a hash, never a timestamp.** A review record fingerprints the
+artifacts it describes. An edit reports the decision stale rather than letting
+it stand. Do not add a recorded time to the record: it would make two runs over
+the same repository disagree and would break resume-from-checkout.
+
+Handles come from `internal/ident`, which is the single definition of identity
+(normalized, edit-tolerant), content hash (exact), and similarity (token
+Jaccard). `syncplan` delegates to it, and `vcs` builds a hunk's handle from its
+changed lines alone so an edit elsewhere in the file does not orphan a comment.
+If you need to name something in a new consumer, call `ident`, do not re-derive
+one.
 
 ### Adding a check rule
 

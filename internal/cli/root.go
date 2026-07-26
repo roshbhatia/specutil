@@ -1,6 +1,6 @@
 // Package cli wires the cobra command tree. Verbs: render, plan, diff, lock,
-// graph, web. No `sync` verb — orchestration of remote writes lives in the
-// shipped skills, never in the binary.
+// graph, check, review, web. No `sync` verb — orchestration of remote writes
+// lives in the shipped skills, never in the binary.
 package cli
 
 import (
@@ -62,6 +62,7 @@ func NewRootCmd(version ...string) *cobra.Command {
 		newLockCmd(),
 		newGraphCmd(),
 		newCheckCmd(),
+		newReviewCmd(),
 		newWebCmd(),
 	)
 	return root
@@ -516,7 +517,7 @@ func runGraph(cmd *cobra.Command, args []string) error {
 	// into. It shares graph's loader but is its own renderer-independent schema,
 	// so it is dispatched here rather than through Graph.Project.
 	if format == "detail" {
-		out, err := detail.Build(changes).JSON()
+		out, err := detail.BuildWith(changes, reviewOptions(repo, changes)).JSON()
 		if err != nil {
 			return err
 		}
@@ -750,6 +751,13 @@ func newWebCmd() *cobra.Command {
 			"            readiness (ready / in progress / blocked / waiting / done).\n\n" +
 			"  Detail  — per-change drilldown: execution plan (stages → tasks), Why /\n" +
 			"            What Changes narrative, outstanding tasks, and per-stage chart.\n\n" +
+			"Every task takes a comment or a removal request, and the Detail view collects\n" +
+			"a decision. 'Copy feedback' and 'Download' produce the JSON that\n" +
+			"`specutil review ingest` folds back into the change. Nothing is posted: there\n" +
+			"is no server behind the page.\n\n" +
+			"Pass --diff to review the working-tree code alongside the plan. It runs git\n" +
+			"locally, needs --change to say which change the diff belongs to, and defaults\n" +
+			"its base to the commit recorded at that change's last review.\n\n" +
 			"A fresh file is written to the system temp directory on each invocation so\n" +
 			"you always see current data; old files accumulate in /tmp and can be cleared\n" +
 			"periodically. Pass -o to write a specific path or '-' for stdout.",
@@ -758,6 +766,9 @@ func newWebCmd() *cobra.Command {
 	}
 	cmd.Flags().StringP("out", "o", "", "output HTML file path (default: timestamped temp file; '-' for stdout)")
 	cmd.Flags().Bool("open", true, "open the generated page in the default browser")
+	cmd.Flags().Bool("diff", false, "include the working-tree diff for annotation (requires a single change)")
+	cmd.Flags().String("change", "", "change the --diff belongs to")
+	cmd.Flags().String("base", "", "git ref for --diff (default: the reviewed commit, else HEAD)")
 	return cmd
 }
 
@@ -803,7 +814,13 @@ func runWeb(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	html, err := web.Render(g, detail.BuildWithRefs(changes, refs), diags, graph.Suggest(changes))
+	opts := reviewOptions(repo, changes)
+	opts.Refs = refs
+	if err := attachDiff(cmd, repo, changes, &opts); err != nil {
+		return err
+	}
+
+	html, err := web.Render(g, detail.BuildWith(changes, opts), diags, graph.Suggest(changes))
 	if err != nil {
 		return err
 	}

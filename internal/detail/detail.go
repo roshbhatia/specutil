@@ -11,9 +11,12 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
+	"github.com/roshbhatia/specutil/internal/ident"
 	"github.com/roshbhatia/specutil/internal/ir"
 	"github.com/roshbhatia/specutil/internal/lifecycle"
+	"github.com/roshbhatia/specutil/internal/vcs"
 )
 
 // Feed is the whole detail projection: one entry per change, sorted by name for
@@ -32,6 +35,26 @@ type Change struct {
 	WhatChanges string          `json:"whatChanges,omitempty"`
 	Design      *DesignSections `json:"design,omitempty"`
 	Phases      []Phase         `json:"phases"`
+	// Review is the standing of the recorded human verdict, when one exists.
+	// Absent when the change has never been reviewed.
+	Review *ReviewState `json:"review,omitempty"`
+	// Diff is the working-tree diff a reviewer annotates alongside the plan.
+	// Absent unless the caller asked for it: collecting it runs git, which the
+	// default read-only projection has no reason to do.
+	Diff *vcs.Diff `json:"diff,omitempty"`
+	// Notes are the reviewer's standing remarks for this change, keyed by the
+	// identity they were written against. It covers tasks and diff hunks alike,
+	// so a renderer seeds its annotation state from one place.
+	Notes map[string]Note `json:"notes,omitempty"`
+}
+
+// ReviewState is the recorded verdict on a change, flattened for renderers.
+// Stale means the artifacts moved after the verdict was recorded, so the
+// verdict no longer describes the text on screen.
+type ReviewState struct {
+	Decision string `json:"decision,omitempty"`
+	Stale    bool   `json:"stale"`
+	Note     string `json:"note,omitempty"`
 }
 
 // DesignSections surfaces design.md content for visualizers.
@@ -82,7 +105,48 @@ type Item struct {
 	Tags         []string      `json:"tags,omitempty"`
 	InlineRefs   []string      `json:"inlineRefs,omitempty"`
 	ExternalRefs []ExternalRef `json:"externalRefs,omitempty"`
+	// Identity is the content-addressed task handle. It is what an annotation
+	// written in a browser names, so a comment survives the renumbering that
+	// follows almost every edit to the source.
+	Identity string `json:"identity,omitempty"`
+	// Drift classifies this task against the last recorded review: "new",
+	// "changed", or "unchanged". Empty when the change was never reviewed.
+	Drift string `json:"drift,omitempty"`
+	// Comment and Action carry the reviewer's standing remark on this task, so a
+	// reader sees prior feedback without re-opening the record.
+	Comment string `json:"comment,omitempty"`
+	Action  string `json:"action,omitempty"`
 }
+
+// Note is a reviewer's standing remark on one task or diff hunk.
+type Note struct {
+	Comment string `json:"comment,omitempty"`
+	Action  string `json:"action,omitempty"`
+}
+
+// Options carries the per-change facts that live outside the IR: external
+// ticket refs, review drift, and recorded verdicts. The caller assembles them
+// from the lockfiles and review records so this package stays free of sync and
+// review dependencies. Every field is optional.
+type Options struct {
+	Refs   RefsByKey
+	Drift  DriftByKey
+	Notes  NotesByKey
+	Review ReviewByChange
+	Diff   DiffByChange
+}
+
+// DiffByChange maps a change name to the working-tree diff shown against it.
+type DiffByChange map[string]*vcs.Diff
+
+// DriftByKey maps changeName + "\x00" + identity to a drift class.
+type DriftByKey map[string]string
+
+// NotesByKey maps changeName + "\x00" + identity to the reviewer's remark.
+type NotesByKey map[string]Note
+
+// ReviewByChange maps a change name to its recorded verdict.
+type ReviewByChange map[string]ReviewState
 
 // ExternalRef is a confirmed mapping from a task to an external system record
 // (e.g. a Linear issue or Notion page) written by `specutil lock set`.
@@ -186,11 +250,18 @@ func taskLevels(phases []ir.Phase) map[[2]int]int {
 }
 
 // Build assembles the detail feed from the loaded changes with no external refs.
-func Build(changes []*ir.Change) *Feed { return BuildWithRefs(changes, nil) }
+func Build(changes []*ir.Change) *Feed { return BuildWith(changes, Options{}) }
 
 // BuildWithRefs assembles the detail feed and annotates each task item with any
 // confirmed external references from refs. refs may be nil (no-op).
 func BuildWithRefs(changes []*ir.Change, refs RefsByKey) *Feed {
+	return BuildWith(changes, Options{Refs: refs})
+}
+
+// BuildWith assembles the detail feed and annotates it with every optional fact
+// in opts.
+func BuildWith(changes []*ir.Change, opts Options) *Feed {
+	refs := opts.Refs
 	out := make([]Change, 0, len(changes))
 	for _, c := range changes {
 		done, total := lifecycle.Progress(c)
@@ -232,6 +303,7 @@ func BuildWithRefs(changes []*ir.Change, refs RefsByKey) *Feed {
 					if !ok {
 						level = pi
 					}
+					identity := ident.Identity(p.Name, it.Text)
 					it2 := Item{
 						ID:         it.ID,
 						Text:       it.Text,
@@ -242,16 +314,39 @@ func BuildWithRefs(changes []*ir.Change, refs RefsByKey) *Feed {
 						DependsOn:  it.DependsOn,
 						Tags:       it.Tags,
 						InlineRefs: it.InlineRefs,
+						Identity:   identity,
 					}
 					seen[level]++
 					if len(refs) > 0 {
 						key := c.Name + "\x00" + p.Name + "\x00" + it.Text
 						it2.ExternalRefs = refs[key]
 					}
+					idKey := c.Name + "\x00" + identity
+					it2.Drift = opts.Drift[idKey]
+					if n, ok := opts.Notes[idKey]; ok {
+						it2.Comment, it2.Action = n.Comment, n.Action
+					}
 					ph.Items = append(ph.Items, it2)
 				}
 				dc.Phases = append(dc.Phases, ph)
 			}
+		}
+		if rs, ok := opts.Review[c.Name]; ok {
+			dc.Review = &rs
+		}
+		if d, ok := opts.Diff[c.Name]; ok {
+			dc.Diff = d
+		}
+		prefix := c.Name + "\x00"
+		for key, n := range opts.Notes {
+			id, ok := strings.CutPrefix(key, prefix)
+			if !ok {
+				continue
+			}
+			if dc.Notes == nil {
+				dc.Notes = map[string]Note{}
+			}
+			dc.Notes[id] = n
 		}
 		out = append(out, dc)
 	}

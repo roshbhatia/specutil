@@ -145,6 +145,40 @@ func TestWebRuntimeIsPinnedCDN(t *testing.T) {
 	}
 }
 
+// TestWebFeedbackIsExportedNotPosted guards the annotation return path. The page
+// collects a reviewer's comments, but it has nowhere to send them: there is no
+// server behind it and the binary opens no socket. The loop closes when the
+// reviewer hands the exported document to `specutil review ingest`.
+//
+// A future edit that "just posts it back" would need a listener, and a listener
+// would put network I/O in the binary. This test is what makes that a failing
+// build rather than a design drift nobody notices.
+func TestWebFeedbackIsExportedNotPosted(t *testing.T) {
+	root := moduleRoot(t)
+	tmpl, err := os.ReadFile(filepath.Join(root, "internal", "web", "assets", "page.html.tmpl"))
+	if err != nil {
+		t.Fatalf("reading page template: %v", err)
+	}
+	src := string(tmpl)
+
+	for _, banned := range []string{
+		"fetch(", "XMLHttpRequest", "WebSocket", "sendBeacon",
+		"EventSource", "<form", "document.cookie",
+	} {
+		if strings.Contains(src, banned) {
+			t.Errorf("page template uses %q: reviewer feedback leaves this page as an exported document, never over a connection", banned)
+		}
+	}
+
+	// The export path itself must still be there, or the review loop has no
+	// return leg at all.
+	for _, want := range []string{"createObjectURL", "specutil.review/v1", "specutil review ingest"} {
+		if !strings.Contains(src, want) {
+			t.Errorf("page template is missing %q; the annotation export is the review loop's return path", want)
+		}
+	}
+}
+
 // moduleRoot walks up from the test's working directory until it finds go.mod.
 func moduleRoot(t *testing.T) string {
 	t.Helper()

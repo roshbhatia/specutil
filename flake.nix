@@ -79,6 +79,7 @@
         "sync-to-notion" = ./skills/sync-to-notion/SKILL.md;
         "sync-to-github-issues" = ./skills/sync-to-github-issues/SKILL.md;
         "discover-deps" = ./skills/discover-deps/SKILL.md;
+        "review-change" = ./skills/review-change/SKILL.md;
       };
     };
 }

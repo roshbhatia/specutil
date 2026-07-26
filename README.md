@@ -7,7 +7,7 @@
 Write specs in OpenSpec, BMAD, or a plain `plan.md`. specutil renders them as shareable docs, syncs tasks to Linear, Notion, or GitHub Issues, and shows how your changes depend on each other — all from your repo, no manual copy-paste.
 
 ```
-specutil [render|plan|diff|lock|graph|check|web] [--from <provider>] [flags]
+specutil [render|plan|diff|lock|graph|check|review|web] [--from <provider>] [flags]
 ```
 
 ## What it does
@@ -21,7 +21,8 @@ plan.md convention   ──────────▶                ──▶ 
 stdin / pipe         ──────────▶                ──▶ lock    → identity map
 script adapters      ──────────▶                ──▶ graph   → DAG (json/mermaid/dot)
                                                 ──▶ check   → rubric violations (CI gate)
-                                                ──▶ web     → HTML dashboard
+                                                ──▶ review  → human verdict + drift since it
+                                                ──▶ web     → HTML dashboard (annotatable)
 ```
 
 The binary reads local artifacts and emits structured output — no network I/O. Remote writes (auth, drift reconciliation, actual Linear/Notion/GitHub API calls) are handled by a shipped AI skill that drives the agent's MCP tools.
@@ -273,6 +274,7 @@ Built-in rules:
 | `task-deps-resolve` | every declared task dependency names a real sibling |
 | `no-em-dash` | no artifact contains an em-dash |
 | `bolded-bullet-lead` | bullets do not open with a disallowed bolded term |
+| `review-decision-current` | a recorded review decision exists and still describes the artifacts |
 
 Every rule reads only what the author stated: a heading that is present, a
 marker that is declared, a bullet that follows another. None infers intent from
@@ -280,6 +282,70 @@ prose, so two runs over the same input always agree.
 
 Exit codes: `0` passed (warnings may still print), `1` at least one
 error-severity violation.
+
+### `review`
+
+Carries a human verdict back to the agent that wrote the change. `specutil web`
+collects the annotations; this folds them in and reports what moved since.
+
+```bash
+specutil review show [change]         # the standing verdict, comments, and drift
+specutil review diff [change]         # the working-tree diff since the review
+specutil review ingest [file|-]       # fold in an export from the web page
+specutil review set <change> --decision approved
+```
+
+The record lives at `openspec/changes/<name>/specutil.review.yaml`. It stores
+the reviewer's decision, their note, per-task comments, and a fingerprint of
+every artifact as it read at review time.
+
+```bash
+specutil web                              # annotate, pick a decision, press Copy
+pbpaste | specutil review ingest          # record it, print the brief
+specutil review show my-change            # after revising: what drifted
+```
+
+The brief is ordered by what blocks work: requested removals, then comments on
+tasks, then comments on code, then tasks that changed after the reviewer read
+them.
+
+`review diff` shows the code, not just the plan. Its base defaults to the commit
+recorded when the decision was taken, so with no flags it answers "what did the
+agent do after I looked at this". It reads the local git working tree by running
+git, including files git does not track yet; it contacts no remote and reads no
+credentials. Outside a git working tree it reports an empty diff with the reason.
+
+```bash
+specutil review diff my-change              # since the review
+specutil review diff --base main            # against a branch
+specutil review diff my-change --spec-only  # just the change artifacts
+specutil web --diff --change my-change      # annotate the code in the browser
+```
+
+Two properties make the record trustworthy:
+
+- Staleness is decided by content hash, never by a timestamp. An edit to any
+  artifact reports the decision as stale rather than letting it stand, and the
+  same inputs always produce the same verdict, so a record survives a rebase.
+- A comment is keyed to a content-addressed identity, not a position. Renumbering
+  does not move a task comment, a reworded task is re-matched by token similarity
+  so its comment follows it, and a hunk's identity ignores line numbers so an edit
+  elsewhere in the file does not orphan a code comment.
+
+Gate on it by declaring the rule:
+
+```yaml
+# openspec/specutil.yaml
+check:
+  preset: rosh-spec-driven
+  rules:
+    - id: review-decision-current
+      accept: [approved]           # requireRecord: false to check only reviewed changes
+```
+
+`specutil check` then fails while a change is unreviewed, is not approved, or
+was edited after its approval. The `review-change` skill drives the whole loop
+and shows how to wire `specutil check` to a harness stop hook.
 
 ### `web`
 
@@ -291,9 +357,23 @@ specutil web [-o output.html] [--open=false]
 
 The page is a single self-contained HTML file with three views:
 - Kanban — lifecycle board (proposed / active / archived) with progress meters
+  and each change's recorded review verdict
 - Graph — the dependency DAG laid out in waves, coloured by work readiness
   (ready / in progress / blocked / waiting / done), with the critical path marked
-- Detail — per-change drilldown: stages, tasks, narrative, per-stage chart
+- Detail — per-change drilldown: stages, tasks, narrative, per-stage chart, the
+  working-tree diff with `--diff`, and the review panel
+
+The Detail view is where a reviewer works. Every task takes a comment or a
+removal request, tasks that moved since the last review are badged, and the
+panel collects a decision and an overall note. Pass `--diff --change <name>` and
+every hunk of the working-tree diff takes a comment too, so the plan and the code
+it produced are judged in one pass. "Copy feedback" and "Download" produce a
+single JSON document for `specutil review ingest`.
+
+Nothing is posted anywhere. There is no server behind the page and the binary
+opens no socket, so feedback leaves as a document you hand back to the CLI. A
+test in `internal/guard` fails the build if the page ever grows a `fetch`, a
+`WebSocket`, or a `<form>`.
 
 Data feeds are inlined. Chart.js and Cytoscape load from a version-pinned,
 SRI-protected CDN at view time. The binary performs zero network I/O.

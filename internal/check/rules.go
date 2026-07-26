@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/roshbhatia/specutil/internal/ir"
+	"github.com/roshbhatia/specutil/internal/review"
 )
 
 func init() {
@@ -289,6 +290,60 @@ func init() {
 			return out
 		},
 	})
+
+	register(rule{
+		id: "review-decision-current",
+		doc: "a recorded review decision must exist and still describe the current " +
+			"artifacts (params: accept, requireRecord)",
+		eval: func(p params, c *ir.Change) []Finding {
+			rec, err := review.LoadForChange(c)
+			if err != nil {
+				return []Finding{{File: review.RecordFile, Msg: err.Error()}}
+			}
+			accept := p.Strings("accept")
+			if len(accept) == 0 {
+				accept = []string{string(review.DecisionApproved)}
+			}
+			if rec == nil {
+				// A repository that reviews only some changes sets requireRecord false
+				// and still gets the staleness check on the ones it does review.
+				if v, ok := p["requireRecord"].(bool); ok && !v {
+					return nil
+				}
+				return []Finding{{
+					File: review.RecordFile,
+					Msg: fmt.Sprintf("no review decision recorded; run `specutil review set --change %s --decision %s`",
+						c.Name, strings.Join(accept, "|")),
+				}}
+			}
+			var out []Finding
+			if !containsString(accept, string(rec.Decision)) {
+				out = append(out, Finding{
+					File: review.RecordFile,
+					Msg: fmt.Sprintf("review decision is %q; the rubric accepts %s",
+						rec.Decision, strings.Join(accept, ", ")),
+				})
+			}
+			if cur := review.ChangeHash(c); cur != rec.ChangeHash {
+				out = append(out, Finding{
+					File: review.RecordFile,
+					Msg: fmt.Sprintf("review decision is stale: the artifacts changed since it was recorded (reviewed %s, now %s)",
+						rec.ChangeHash, cur),
+				})
+			}
+			return out
+		},
+	})
+}
+
+// containsString reports whether list holds want.
+func containsString(list []string, want string) bool {
+	for _, s := range list {
+		if s == want {
+			return true
+		}
+	}
+	return false
 }
 
 // boldLeadRe matches a list bullet whose first token is bolded.

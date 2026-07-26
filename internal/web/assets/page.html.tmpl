@@ -569,6 +569,82 @@ ul.tasks li.done .txt { color: var(--muted); text-decoration: line-through; text
 #diag-banner ul { margin: .25rem 0 0; padding-left: 1.1rem; }
 .empty { color: var(--muted); max-width: 36rem; line-height: 1.6; font-size: 12px; }
 
+/* ---- review + annotation ---- */
+.drift {
+  display: inline-block; font-family: var(--font-mono); font-size: 9px;
+  text-transform: uppercase; letter-spacing: .04em; padding: 0 .3rem;
+  border-radius: 2px; margin-left: .3rem; vertical-align: middle;
+}
+.drift.new     { background: var(--lc-proposed-bg); color: var(--lc-proposed-ink); border: 1px solid var(--lc-proposed-line); }
+.drift.changed { background: var(--warn-bg);        color: var(--warn-ink);        border: 1px solid var(--warn-line); }
+.task-card.flagged { box-shadow: inset 2px 0 0 var(--err-line); }
+
+/* ---- diff ---- */
+.diff-file { border: 1px solid var(--line); margin-bottom: .5rem; background: var(--content); }
+.diff-file > summary {
+  cursor: pointer; padding: .35rem .5rem; font-family: var(--font-mono); font-size: 11px;
+  background: var(--surface-2); display: flex; align-items: center; gap: .4rem;
+}
+.diff-file > summary .status {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .04em;
+  padding: 0 .3rem; border: 1px solid var(--line-dark); color: var(--muted);
+}
+.diff-file > summary .counts { margin-left: auto; font-size: 10px; color: var(--muted); }
+.hunk { border-top: 1px solid var(--line); padding: .35rem .5rem; }
+.hunk-head { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-bottom: .2rem; }
+.diff-lines {
+  font-family: var(--font-mono); font-size: 11px; line-height: 1.45;
+  white-space: pre; overflow-x: auto; margin: 0;
+}
+.diff-lines .l { display: block; padding: 0 .3rem; }
+.diff-lines .l.add { background: #e7f6ec; color: #05603a; }
+.diff-lines .l.delete { background: #fdeceb; color: #a4262c; }
+.diff-lines .l.context { color: var(--muted); }
+.diff-empty { font-size: 11px; color: var(--muted); }
+
+details.ann { margin-top: .3rem; }
+details.ann > summary {
+  cursor: pointer; font-size: 10px; color: var(--muted); list-style: none;
+  font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .04em;
+}
+details.ann > summary::-webkit-details-marker { display: none; }
+details.ann > summary:hover { color: var(--accent); }
+details.ann > summary .has-note { color: var(--accent); font-weight: 700; }
+.ann-input {
+  display: block; width: 100%; margin-top: .3rem; padding: .35rem .45rem;
+  font-family: var(--font-ui); font-size: 11px; line-height: 1.5;
+  border: 1px solid var(--line-dark); background: var(--content); color: var(--ink);
+  border-radius: 3px; resize: vertical; box-sizing: border-box;
+}
+.ann-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.ann-drop {
+  display: inline-flex; align-items: center; gap: .3rem; margin-top: .25rem;
+  font-size: 10px; color: var(--muted); cursor: pointer;
+}
+
+.review-decision { display: flex; flex-direction: column; gap: .25rem; margin-bottom: .5rem; }
+.review-decision label {
+  display: flex; align-items: center; gap: .35rem; font-size: 11px; cursor: pointer;
+}
+.review-actions { display: flex; gap: .35rem; flex-wrap: wrap; margin-top: .5rem; }
+.review-actions button {
+  font-family: var(--font-ui); font-size: 11px; padding: .3rem .6rem;
+  border: 1px solid var(--line-dark); background: var(--surface-2); color: var(--ink);
+  border-radius: 3px; cursor: pointer;
+}
+.review-actions button.primary { background: var(--accent); color: var(--accent-on); border-color: var(--accent); }
+.review-actions button:hover { border-color: var(--accent); }
+.review-hint {
+  margin-top: .5rem; font-size: 10px; line-height: 1.6; color: var(--muted);
+}
+.review-hint code { font-size: 10px; }
+#ann-count { font-family: var(--font-mono); }
+.review-standing {
+  font-size: 11px; line-height: 1.6; margin-bottom: .5rem;
+  padding: .35rem .5rem; background: var(--surface-2); border: 1px solid var(--line);
+}
+.review-standing.stale { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn-ink); }
+
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
@@ -635,6 +711,143 @@ const SUGGEST = {{.SuggestJSON}};
     }
     flush(); close();
     return html;
+  }
+
+  /* ================================================================
+     ANNOTATION STATE
+
+     A reviewer's comments live only in this page's memory until they are
+     exported. There is no server to post them to and no storage to persist
+     them in: the page is a file on disk, and the return path is the JSON the
+     reviewer copies or downloads, which `specutil review ingest` folds into
+     the change's review record.
+
+     Keys are the task identity emitted in the detail feed, not a position, so
+     a comment written against task 3.2 still lands on the same task after the
+     author renumbers it.
+     ================================================================ */
+  const FEEDBACK_SCHEMA = "specutil.review/v1";
+  const notes    = new Map();  /* change \x00 identity -> {comment, action} */
+  const verdicts = new Map();  /* change -> {decision, note} */
+
+  const annKey = (change, identity) => change + "\x00" + identity;
+
+  /* Seed from the record already on disk so a second pass edits the standing
+     feedback instead of silently discarding it on the next export. The feed's
+     notes map covers tasks and diff hunks alike. */
+  changes.forEach((c) => {
+    Object.entries(c.notes || {}).forEach(([identity, n]) => {
+      notes.set(annKey(c.name, identity), {
+        comment: n.comment || "",
+        action:  n.action  || "comment",
+      });
+    });
+    if (c.review) verdicts.set(c.name, { decision: c.review.decision || "", note: c.review.note || "" });
+  });
+
+  function getNote(change, identity) {
+    return notes.get(annKey(change, identity)) || { comment: "", action: "comment" };
+  }
+  function setNote(change, identity, patch) {
+    const key = annKey(change, identity);
+    const cur = notes.get(key) || { comment: "", action: "comment" };
+    const next = { ...cur, ...patch };
+    if (!next.comment.trim() && next.action !== "drop") notes.delete(key);
+    else notes.set(key, next);
+  }
+  function getVerdict(change) {
+    return verdicts.get(change) || { decision: "", note: "" };
+  }
+  function annCount(change) {
+    let n = 0;
+    notes.forEach((v, k) => { if (k.startsWith(change + "\x00")) n++; });
+    return n;
+  }
+
+  /* buildFeedback assembles the export document. The phase, file, and text ride
+     along so a human reading the JSON can tell what a comment is about without
+     resolving hashes, but identity is what the ingest side matches on. */
+  function buildFeedback(name) {
+    const c = byName.get(name) || { phases: [] };
+    const v = getVerdict(name);
+    const annotations = [];
+    (c.phases || []).forEach((p) => (p.items || []).forEach((it) => {
+      if (!it.identity) return;
+      const n = notes.get(annKey(name, it.identity));
+      if (!n) return;
+      annotations.push({
+        scope: "task",
+        phase: p.name,
+        identity: it.identity,
+        text: it.text,
+        action: n.action || "comment",
+        comment: n.comment || "",
+      });
+    }));
+    ((c.diff && c.diff.files) || []).forEach((f) => (f.hunks || []).forEach((h) => {
+      const n = notes.get(annKey(name, h.identity));
+      if (!n) return;
+      annotations.push({
+        scope: "hunk",
+        file: f.path,
+        identity: h.identity,
+        text: h.header,
+        action: n.action || "comment",
+        comment: n.comment || "",
+      });
+    }));
+    return {
+      schema: FEEDBACK_SCHEMA,
+      change: name,
+      decision: v.decision || "commented",
+      note: v.note || "",
+      annotations,
+    };
+  }
+  const feedbackJSON = (name) => JSON.stringify(buildFeedback(name), null, 2);
+
+  function flash(msg) {
+    const el = document.getElementById("review-flash");
+    if (el) el.textContent = msg;
+    if (live) live.textContent = msg;
+  }
+
+  /* copyText prefers the async clipboard API and falls back to a hidden
+     textarea, because a page opened over file:// is not a secure context in
+     every browser and the async API is unavailable there. */
+  function copyText(text, okMsg) {
+    const fallback = () => {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      flash(ok ? okMsg : "Copy failed. Use Download instead.");
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => flash(okMsg), fallback);
+      return;
+    }
+    fallback();
+  }
+
+  /* downloadJSON writes the export through an object URL. It is a local blob,
+     so nothing leaves the machine. */
+  function downloadJSON(name) {
+    const blob = new Blob([feedbackJSON(name)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "specutil-feedback-" + name + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    flash("Downloaded specutil-feedback-" + name + ".json");
   }
 
   /* ---- helpers ---- */
@@ -1154,6 +1367,21 @@ const SUGGEST = {{.SuggestJSON}};
   /* ================================================================
      KANBAN VIEW
      ================================================================ */
+  /* reviewLineHTML puts the verdict on the board card, so "which of these has a
+     human signed off on, and is that signature still valid" is answerable
+     without opening each change. A never-reviewed change says nothing rather
+     than reading as a failure. */
+  function reviewLineHTML(c) {
+    const r = c.review;
+    if (!r || !r.decision) return "";
+    const drifted = (c.phases || []).some((p) => (p.items || []).some((it) => it.drift === "new" || it.drift === "changed"));
+    let label = "reviewed: " + esc(r.decision);
+    let color = r.decision === "approved" ? "var(--done)" : "var(--muted)";
+    if (r.stale) { label = "review stale: " + esc(r.decision); color = "var(--lc-active-ink)"; }
+    else if (drifted) { label += " · tasks moved"; color = "var(--lc-active-ink)"; }
+    return '<p class="sub" style="color:' + color + ';margin-top:.1rem">' + label + "</p>";
+  }
+
   function renderKanban() {
     destroyChart(); destroyCy();
     const tally = { active: 0, proposed: 0, archived: 0 };
@@ -1219,6 +1447,7 @@ const SUGGEST = {{.SuggestJSON}};
             '<div class="meter"><span style="width:' + p.pct + '%"></span></div>' +
             '<p class="sub">' + progressLabel(c) + (stgCount ? ' &middot; ' + stgCount + (stgCount === 1 ? ' stage' : ' stages') : '') + '</p>' +
             (depLine ? '<p class="sub" style="color:' + depLineColor + ';margin-top:.1rem">' + depLine + '</p>' : '') +
+            reviewLineHTML(c) +
             '</button>';
         });
       }
@@ -1628,20 +1857,46 @@ const SUGGEST = {{.SuggestJSON}};
     return h + '</dl>';
   }
 
-  function taskRowHTML(it, siblings) {
+  /* driftBadge marks what moved since the recorded review. It is silent when
+     the change was never reviewed: with no baseline, every task would read as
+     new, which says nothing. */
+  function driftBadge(it) {
+    if (it.drift === "new")     return '<span class="drift new" title="Added after the review">new</span>';
+    if (it.drift === "changed") return '<span class="drift changed" title="Reworded after the review">changed</span>';
+    return "";
+  }
+
+  function taskRowHTML(it, siblings, changeName) {
     const done = it.done;
     const k = kindTag(it);
     const chips = tagChips(it) + inlineRefChips(it) + extRefChips(it);
     const waits = dependencyLabel(it, siblings);
-    return '<div class="task-card' + (done ? " done" : "") + '">' +
+    const note = it.identity ? getNote(changeName, it.identity) : null;
+    const flagged = note && note.action === "drop";
+    const hasNote = note && (note.comment || flagged);
+
+    let ann = "";
+    if (it.identity) {
+      const dropped = note && note.action === "drop";
+      ann = '<details class="ann"' + (hasNote ? " open" : "") + '>' +
+        '<summary>' + (hasNote ? '<span class="has-note">&#9679; comment</span>' : "comment") + '</summary>' +
+        '<textarea class="ann-input" rows="2" data-change="' + esc(changeName) + '" data-identity="' + esc(it.identity) +
+          '" placeholder="What should change about this task?">' + esc(note ? note.comment : "") + '</textarea>' +
+        '<label class="ann-drop"><input type="checkbox" class="ann-action" data-change="' + esc(changeName) +
+          '" data-identity="' + esc(it.identity) + '"' + (dropped ? " checked" : "") + '> request removal</label>' +
+        '</details>';
+    }
+
+    return '<div class="task-card' + (done ? " done" : "") + (flagged ? " flagged" : "") + '">' +
       '<div class="tc-status">' +
         '<span class="tc-check' + (done ? " done" : "") + '">' + (done ? "&#10003;" : "&#9744;") + '</span>' +
         '<span class="tc-key">' + esc(it.key) + '</span>' +
       '</div>' +
       '<div class="tc-body">' +
-        '<div class="tc-title">' + (k ? k + ' ' : '') + inline(esc(it.text)) + '</div>' +
+        '<div class="tc-title">' + (k ? k + ' ' : '') + inline(esc(it.text)) + driftBadge(it) + '</div>' +
         (waits ? '<div class="tc-waits">' + waits + '</div>' : '') +
         (chips ? '<div class="tc-chips">' + chips + '</div>' : '') +
+        ann +
       '</div>' +
       '</div>';
   }
@@ -1661,6 +1916,108 @@ const SUGGEST = {{.SuggestJSON}};
         esc(plainText(dep.text)) + '">' + esc(dep.key) + '</span>';
     });
     return 'waits on ' + parts.join(" ");
+  }
+
+  /* ---- diff ----
+     The diff is here for the same reason the tasks are: a reviewer judges the
+     plan and the code that came out of it in one pass. A hunk takes a comment
+     exactly like a task does, keyed by the hunk's own identity, and both leave
+     in the same exported document. */
+  function hunkCounts(f) {
+    let add = 0, del = 0;
+    (f.hunks || []).forEach((h) => (h.lines || []).forEach((l) => {
+      if (l.kind === "add") add++;
+      else if (l.kind === "delete") del++;
+    }));
+    return "+" + add + " -" + del;
+  }
+
+  function diffLinesHTML(h) {
+    return '<pre class="diff-lines">' + (h.lines || []).map((l) => {
+      const sign = l.kind === "add" ? "+" : l.kind === "delete" ? "-" : " ";
+      return '<span class="l ' + esc(l.kind) + '">' + esc(sign + l.text) + "</span>";
+    }).join("") + "</pre>";
+  }
+
+  function diffSectionHTML(c) {
+    const d = c.diff;
+    if (!d) return "";
+    let h = '<p class="eyebrow" style="margin-top:1.25rem">Working tree diff</p>';
+    if (d.note) return h + '<p class="diff-empty">No diff: ' + esc(d.note) + "</p>";
+    const files = d.files || [];
+    if (!files.length) return h + '<p class="diff-empty">No changes against ' + esc(d.base) + ".</p>";
+
+    h += '<p class="diff-empty">' + files.length + " file(s) against " + esc(d.base) + "</p>";
+    files.forEach((f) => {
+      h += '<details class="diff-file"><summary>' +
+        '<span class="status">' + esc(f.status) + "</span>" +
+        "<span>" + esc(f.path) + "</span>" +
+        '<span class="counts">' + hunkCounts(f) + "</span>" +
+        "</summary>";
+      (f.hunks || []).forEach((hk) => {
+        const note = getNote(c.name, hk.identity);
+        const marked = !!(note.comment.trim() || note.action === "drop");
+        h += '<div class="hunk">' +
+          '<div class="hunk-head">' + esc(hk.header) + "</div>" +
+          diffLinesHTML(hk) +
+          '<details class="ann"' + (marked ? " open" : "") + ">" +
+            "<summary>" + (marked ? '<span class="has-note">&#9679; comment</span>' : "comment") + "</summary>" +
+            '<textarea class="ann-input" rows="2" data-change="' + esc(c.name) + '" data-identity="' + esc(hk.identity) +
+              '" placeholder="What should change about this hunk?">' + esc(note.comment) + "</textarea>" +
+          "</details>" +
+          "</div>";
+      });
+      if (!(f.hunks || []).length) {
+        h += '<div class="hunk"><p class="diff-empty">No text hunks (binary or mode change only).</p></div>';
+      }
+      h += "</details>";
+    });
+    return h;
+  }
+
+  /* reviewPanelHTML is the return path. Everything above it in the page is a
+     projection of what the agent wrote; this is the one place a reader writes
+     back. The panel states what is already recorded, collects a decision and
+     comments, and hands over a document rather than posting anywhere, because
+     there is nothing here to post to. */
+  const DECISIONS = [
+    ["approved",          "Approve"],
+    ["changes-requested", "Request changes"],
+    ["commented",         "Comment only"],
+  ];
+  function reviewPanelHTML(c) {
+    const v = getVerdict(c.name);
+    let h = '<div class="panel"><div class="panel-title"><span class="panel-title-label">Review</span></div><div class="panel-body">';
+
+    if (c.review && c.review.decision) {
+      h += '<div class="review-standing' + (c.review.stale ? " stale" : "") + '">' +
+        "Recorded: <b>" + esc(c.review.decision) + "</b>" +
+        (c.review.stale
+          ? "<br>The artifacts changed after this decision, so it no longer describes what you are reading."
+          : "<br>This decision still describes the current artifacts.") +
+        "</div>";
+    }
+
+    h += '<div class="review-decision">';
+    DECISIONS.forEach(([value, label]) => {
+      h += '<label><input type="radio" name="review-decision" value="' + value + '"' +
+        (v.decision === value ? " checked" : "") + '> ' + esc(label) + "</label>";
+    });
+    h += "</div>";
+
+    h += '<textarea class="ann-input" id="review-note" rows="3" ' +
+      'placeholder="Overall note for the author">' + esc(v.note || "") + "</textarea>";
+
+    h += '<div class="review-actions">' +
+      '<button type="button" data-act="copy" class="primary">Copy feedback</button>' +
+      '<button type="button" data-act="download">Download</button>' +
+      "</div>";
+
+    h += '<p class="review-hint"><span id="ann-count">' + annCount(c.name) + "</span> task comment(s). " +
+      "Paste or pass the file to:<br><code>specutil review ingest</code></p>";
+    h += '<p class="review-hint" id="review-flash" aria-live="polite"></p>';
+
+    return h + "</div></div>";
   }
 
   function renderDetail(name) {
@@ -1732,14 +2089,17 @@ const SUGGEST = {{.SuggestJSON}};
       h += '<div class="meter" style="margin:.2rem 0 .4rem"><span style="width:' + phPct + '%"></span></div>';
       h += phaseMarkerHTML(p);
       h += '<div class="task-list">';
-      items.forEach((it) => { h += taskRowHTML(it, items); });
+      items.forEach((it) => { h += taskRowHTML(it, items, c.name); });
       h += "</div></details>";
     });
 
+    h += diffSectionHTML(c);
+
     h += "</div>"; /* end .main */
 
-    /* Rail — Dependencies first, then Progress */
+    /* Rail — Review first (it is the action), then Dependencies, then Progress */
     h += '<aside class="rail">';
+    h += reviewPanelHTML(c);
 
     if (deps.length || blks.length) {
       h += '<div class="panel"><div class="panel-title"><span class="panel-title-label">Dependencies</span></div><div class="panel-body">';
@@ -1793,6 +2153,73 @@ const SUGGEST = {{.SuggestJSON}};
     if (h === "/graph") { currentRoute = "/graph"; renderGraph(); return; }
     currentRoute = "/"; renderKanban();
   }
+
+  /* ================================================================
+     ANNOTATION WIRING
+
+     Every handler is delegated from the view container and mutates only the
+     annotation maps, never the DOM the router owns. A keystroke must not
+     re-render: a re-render would move focus out of the textarea the reviewer
+     is typing into.
+     ================================================================ */
+  function currentChange() {
+    const m = currentRoute.match(/^\/c\/(.+)$/);
+    return m ? m[1] : "";
+  }
+  function refreshAnnCount(name) {
+    const el = document.getElementById("ann-count");
+    if (el) el.textContent = String(annCount(name));
+  }
+  function refreshAnnSummary(input) {
+    const det = input.closest("details.ann");
+    if (!det) return;
+    const sum = det.querySelector("summary");
+    if (!sum) return;
+    const n = getNote(input.dataset.change, input.dataset.identity);
+    const marked = !!(n.comment.trim() || n.action === "drop");
+    sum.innerHTML = marked ? '<span class="has-note">&#9679; comment</span>' : "comment";
+  }
+
+  view.addEventListener("input", (ev) => {
+    const t = ev.target;
+    if (t.classList && t.classList.contains("ann-input") && t.dataset.identity) {
+      setNote(t.dataset.change, t.dataset.identity, { comment: t.value });
+      refreshAnnSummary(t);
+      refreshAnnCount(t.dataset.change);
+      return;
+    }
+    if (t.id === "review-note") {
+      const name = currentChange();
+      if (name) verdicts.set(name, { ...getVerdict(name), note: t.value });
+    }
+  });
+
+  view.addEventListener("change", (ev) => {
+    const t = ev.target;
+    if (t.classList && t.classList.contains("ann-action")) {
+      setNote(t.dataset.change, t.dataset.identity, { action: t.checked ? "drop" : "comment" });
+      const card = t.closest(".task-card");
+      if (card) card.classList.toggle("flagged", t.checked);
+      const box = t.closest("details.ann");
+      const input = box && box.querySelector(".ann-input");
+      if (input) refreshAnnSummary(input);
+      refreshAnnCount(t.dataset.change);
+      return;
+    }
+    if (t.name === "review-decision") {
+      const name = currentChange();
+      if (name) verdicts.set(name, { ...getVerdict(name), decision: t.value });
+    }
+  });
+
+  view.addEventListener("click", (ev) => {
+    const b = ev.target.closest && ev.target.closest("button[data-act]");
+    if (!b) return;
+    const name = currentChange();
+    if (!name) return;
+    if (b.dataset.act === "copy") copyText(feedbackJSON(name), "Copied the feedback JSON. Run: pbpaste | specutil review ingest");
+    if (b.dataset.act === "download") downloadJSON(name);
+  });
 
   /* ---- tabs + afterRender ---- */
   function afterRender() {

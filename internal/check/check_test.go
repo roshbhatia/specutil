@@ -1,10 +1,13 @@
 package check
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/roshbhatia/specutil/internal/ir"
+	"github.com/roshbhatia/specutil/internal/review"
 )
 
 // good builds a change that satisfies every rule in the rosh-spec-driven
@@ -51,13 +54,34 @@ func good() *ir.Change {
 	}
 }
 
+// roshRun runs the preset over one change. The preset gates on a current review
+// decision, so it records one first: these tests are about the other rules, and
+// review-decision-current has its own tests in review_rule_test.go.
 func roshRun(t *testing.T, c *ir.Change) *Report {
 	t.Helper()
+	approve(t, c)
 	rep, err := Run(Config{Preset: "rosh-spec-driven"}, []*ir.Change{c})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	return rep
+}
+
+// approve gives a change an on-disk change directory holding an approved review
+// record that describes it exactly as it stands.
+func approve(t *testing.T, c *ir.Change) {
+	t.Helper()
+	repo := t.TempDir()
+	c.Root = filepath.Join(repo, "openspec", "changes", c.Name)
+	if err := os.MkdirAll(c.Root, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", c.Root, err)
+	}
+	rec := review.Apply(c, &review.Feedback{
+		Schema: review.Schema, Change: c.Name, Decision: review.DecisionApproved,
+	})
+	if err := rec.Save(repo, c.Name); err != nil {
+		t.Fatalf("writing the review record: %v", err)
+	}
 }
 
 // rules returns the set of rule names that fired.
@@ -241,6 +265,7 @@ func TestResolveRejectsUnknownPresetRuleAndSeverity(t *testing.T) {
 func TestDisableRemovesARule(t *testing.T) {
 	c := good()
 	c.Proposal.Raw = strings.Replace(c.Proposal.Raw, "A reason.", "A reason — long.", 1)
+	approve(t, c)
 	rep, err := Run(Config{Preset: "rosh-spec-driven", Disable: []string{"no-em-dash"}}, []*ir.Change{c})
 	if err != nil {
 		t.Fatal(err)
@@ -253,6 +278,7 @@ func TestDisableRemovesARule(t *testing.T) {
 func TestSeverityOverrideDowngradesToWarning(t *testing.T) {
 	c := good()
 	c.Proposal.Raw = strings.Replace(c.Proposal.Raw, "A reason.", "A reason — long.", 1)
+	approve(t, c)
 	rep, err := Run(Config{
 		Preset: "rosh-spec-driven",
 		Rules:  []RuleConfig{{ID: "no-em-dash", Severity: SeverityWarn}},
@@ -271,6 +297,7 @@ func TestSeverityOverrideDowngradesToWarning(t *testing.T) {
 func TestLocalRuleOverridesPresetByName(t *testing.T) {
 	c := good()
 	c.Proposal.Raw = strings.Replace(c.Proposal.Raw, "- Do the thing", "- **Thing** does it", 1)
+	approve(t, c)
 	rep, err := Run(Config{
 		Preset: "rosh-spec-driven",
 		Rules: []RuleConfig{{

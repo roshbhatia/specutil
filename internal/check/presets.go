@@ -75,5 +75,16 @@ var presets = map[string][]RuleConfig{
 				},
 			},
 		},
+		{
+			// A change nobody approved is not ready, and an approval given before
+			// the artifacts moved is not an approval of what is there now. Both
+			// read as a pass to every other rule in this preset, so the gate has
+			// to state it. A repository that reviews out of band drops this with
+			// `disable: [review-decision-current]`.
+			ID: "review-decision-current",
+			Params: map[string]any{
+				"accept": []string{"approved"},
+			},
+		},
 	},
 }

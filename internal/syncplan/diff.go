@@ -2,15 +2,15 @@ package syncplan
 
 import (
 	"sort"
-	"strings"
 
+	"github.com/roshbhatia/specutil/internal/ident"
 	"github.com/roshbhatia/specutil/internal/ir"
 )
 
 // fuzzyThreshold is the minimum token-set similarity for diff to re-match a
 // would-be-new item against an orphaned lock entry, treating it as an edit
 // rather than a delete+add.
-const fuzzyThreshold = 0.5
+const fuzzyThreshold = ident.FuzzyThreshold
 
 // DriftItem is one entry in a diff report.
 type DriftItem struct {
@@ -113,28 +113,4 @@ func sortDrift(items []DriftItem) {
 
 // similarity is the Jaccard index over normalized token sets of two titles,
 // in [0,1]. It is symmetric and order-independent.
-func similarity(a, b string) float64 {
-	ta, tb := tokenSet(a), tokenSet(b)
-	if len(ta) == 0 && len(tb) == 0 {
-		return 1
-	}
-	inter := 0
-	for t := range ta {
-		if tb[t] {
-			inter++
-		}
-	}
-	union := len(ta) + len(tb) - inter
-	if union == 0 {
-		return 0
-	}
-	return float64(inter) / float64(union)
-}
-
-func tokenSet(s string) map[string]bool {
-	set := make(map[string]bool)
-	for _, tok := range strings.Fields(normalize(s)) {
-		set[tok] = true
-	}
-	return set
-}
+func similarity(a, b string) float64 { return ident.Similarity(a, b) }
