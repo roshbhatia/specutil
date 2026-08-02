@@ -248,6 +248,65 @@ func init() {
 	})
 
 	register(rule{
+		id:  "task-deps-acyclic",
+		doc: "declared task dependencies must not form a cycle",
+		eval: func(_ params, c *ir.Change) []Finding {
+			if c.Tasks == nil {
+				return nil
+			}
+			deps := map[string][]string{}
+			var order []string
+			for _, ph := range c.Tasks.Phases {
+				for _, it := range ph.Items {
+					if it.ID == "" {
+						continue
+					}
+					if _, seen := deps[it.ID]; !seen {
+						order = append(order, it.ID)
+					}
+					deps[it.ID] = append(deps[it.ID], it.Fields["deps"]...)
+				}
+			}
+			const (
+				unvisited = iota
+				onStack
+				done
+			)
+			state := map[string]int{}
+			var stack []string
+			var out []Finding
+			var walk func(string)
+			walk = func(id string) {
+				state[id] = onStack
+				stack = append(stack, id)
+				for _, dep := range deps[id] {
+					if _, known := deps[dep]; !known {
+						continue // task-deps-resolve already reports the dangling edge
+					}
+					switch state[dep] {
+					case unvisited:
+						walk(dep)
+					case onStack:
+						out = append(out, Finding{
+							File: "tasks.md",
+							Msg: fmt.Sprintf("task dependencies form a cycle: %s",
+								strings.Join(append(cycleFrom(stack, dep), dep), " -> ")),
+						})
+					}
+				}
+				stack = stack[:len(stack)-1]
+				state[id] = done
+			}
+			for _, id := range order {
+				if state[id] == unvisited {
+					walk(id)
+				}
+			}
+			return out
+		},
+	})
+
+	register(rule{
 		id:  "no-em-dash",
 		doc: "no artifact may contain an em-dash",
 		eval: func(_ params, c *ir.Change) []Finding {
@@ -374,6 +433,17 @@ func phaseLabel(ph ir.Phase) string {
 		return ph.Number + ". " + ph.Name
 	}
 	return ph.Name
+}
+
+// cycleFrom returns the suffix of stack beginning at id, naming the cycle a
+// back-edge to id closes.
+func cycleFrom(stack []string, id string) []string {
+	for i, s := range stack {
+		if s == id {
+			return append([]string(nil), stack[i:]...)
+		}
+	}
+	return append([]string(nil), stack...)
 }
 
 // findLine returns the 1-based number of the first line satisfying match, or 0.

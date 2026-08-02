@@ -66,6 +66,7 @@ var presets = map[string][]RuleConfig{
 			},
 		},
 		{ID: "task-deps-resolve"},
+		{ID: "task-deps-acyclic"},
 		{ID: "no-em-dash"},
 		{
 			ID: "bolded-bullet-lead",

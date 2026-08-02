@@ -272,6 +272,7 @@ Built-in rules:
 | `phase-marker-conditional` | a phase with one marker value declares its dependents |
 | `phase-task-pattern` | every phase contains a task matching a pattern |
 | `task-deps-resolve` | every declared task dependency names a real sibling |
+| `task-deps-acyclic` | declared task dependencies do not form a cycle |
 | `no-em-dash` | no artifact contains an em-dash |
 | `bolded-bullet-lead` | bullets do not open with a disallowed bolded term |
 | `review-decision-current` | a recorded review decision exists and still describes the artifacts |

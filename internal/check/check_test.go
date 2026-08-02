@@ -215,6 +215,57 @@ func TestDanglingTaskDependencyFails(t *testing.T) {
 	}
 }
 
+func TestCyclicTaskDependenciesFail(t *testing.T) {
+	c := good()
+	c.Tasks.Phases[0].Items[0].Fields = map[string][]string{"deps": {"1.2"}}
+	c.Tasks.Phases[0].Items[1].Fields = map[string][]string{"deps": {"1.1"}}
+	rep := roshRun(t, c)
+	if !firedRules(rep)["task-deps-acyclic"] {
+		t.Fatal("expected task-deps-acyclic to fire")
+	}
+	var joined string
+	for _, f := range rep.Findings {
+		joined += f.Msg + "\n"
+	}
+	for _, want := range []string{"1.1", "1.2", "->"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("expected the cycle path to name %q, got:\n%s", want, joined)
+		}
+	}
+}
+
+func TestSelfTaskDependencyFails(t *testing.T) {
+	c := good()
+	c.Tasks.Phases[0].Items[0].Fields = map[string][]string{"deps": {"1.1"}}
+	if !firedRules(roshRun(t, c))["task-deps-acyclic"] {
+		t.Error("a task depending on itself is a cycle")
+	}
+}
+
+// A dangling edge is task-deps-resolve's to report. Following it here would
+// either crash or invent a cycle that the author never wrote.
+func TestDanglingDependencyDoesNotFireAcyclic(t *testing.T) {
+	c := good()
+	c.Tasks.Phases[0].Items[0].Fields = map[string][]string{"deps": {"9.9"}}
+	if firedRules(roshRun(t, c))["task-deps-acyclic"] {
+		t.Error("task-deps-acyclic must not fire on an unresolved dependency")
+	}
+}
+
+// A diamond is not a cycle: two paths reconverging on one task must pass.
+func TestDiamondTaskDependenciesPass(t *testing.T) {
+	c := good()
+	c.Tasks.Phases[0].Items = []ir.TaskItem{
+		{ID: "1.1", Text: "Root"},
+		{ID: "1.2", Text: "Left", Fields: map[string][]string{"deps": {"1.1"}}},
+		{ID: "1.3", Text: "Right", Fields: map[string][]string{"deps": {"1.1"}}},
+		{ID: "1.4", Text: "Adversarial review (skill)", Fields: map[string][]string{"deps": {"1.2", "1.3"}}},
+	}
+	if firedRules(roshRun(t, c))["task-deps-acyclic"] {
+		t.Error("a diamond dependency graph is acyclic and must pass")
+	}
+}
+
 func TestEmDashFails(t *testing.T) {
 	c := good()
 	c.Proposal.Raw = strings.Replace(c.Proposal.Raw, "A reason.", "A reason — long.", 1)
