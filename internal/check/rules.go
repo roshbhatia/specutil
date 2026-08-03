@@ -198,6 +198,54 @@ func init() {
 	})
 
 	register(rule{
+		id: "phase-edges-declared",
+		doc: "a phase declaring when.marker=when.value must declare at least one task " +
+			"dependency (params: when {marker, value}, skipPhasePattern)",
+		eval: func(p params, c *ir.Change) []Finding {
+			when, _ := p["when"].(map[string]any)
+			if when == nil || c.Tasks == nil {
+				return nil
+			}
+			trigger := params(when).String("marker")
+			value := params(when).String("value")
+			if trigger == "" {
+				return nil
+			}
+			skip := compile(p.String("skipPhasePattern"))
+			var out []Finding
+			for _, ph := range c.Tasks.Phases {
+				if skipped(skip, ph) {
+					continue
+				}
+				got, ok := ph.Markers[trigger]
+				if !ok || !strings.EqualFold(got, value) {
+					continue
+				}
+				// One subtask is a phase, not a graph; there is nothing to order.
+				if len(ph.Items) < 2 {
+					continue
+				}
+				edges := false
+				for _, it := range ph.Items {
+					if len(it.DependsOn) > 0 {
+						edges = true
+						break
+					}
+				}
+				if !edges {
+					out = append(out, Finding{
+						File: "tasks.md",
+						Msg: fmt.Sprintf("phase %q is %s=%s with %d subtasks and no declared "+
+							"dependency, so nothing states the order",
+							phaseLabel(ph), trigger, value, len(ph.Items)),
+					})
+				}
+			}
+			return out
+		},
+	})
+
+	register(rule{
 		id:  "task-id-required",
 		doc: "every task must carry an N.M identifier",
 		eval: func(_ params, c *ir.Change) []Finding {

@@ -537,3 +537,23 @@ func TestChangeWithOnlyOneArtifactIsChecked(t *testing.T) {
 		t.Error("expected the proposal-sections rule to fire")
 	}
 }
+
+func TestGraphPhaseWithoutEdgesWarns(t *testing.T) {
+	c := good()
+	c.Tasks.Phases[0].Items = []ir.TaskItem{
+		{ID: "1.1", Text: "Do it"},
+		{ID: "1.2", Text: "Adversarial review (skill)"},
+	}
+	if !firedRules(roshRun(t, c))["phase-edges-declared"] {
+		t.Error("a multi-subtask graph phase with no dependency must be reported")
+	}
+}
+
+// One subtask is a phase, not a graph; there is no order to state.
+func TestSingleSubtaskGraphPhaseIsExempt(t *testing.T) {
+	c := good()
+	c.Tasks.Phases[0].Items = []ir.TaskItem{{ID: "1.1", Text: "Adversarial review (skill)"}}
+	if firedRules(roshRun(t, c))["phase-edges-declared"] {
+		t.Error("a one-subtask phase must not be asked to declare an order")
+	}
+}

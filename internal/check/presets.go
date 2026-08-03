@@ -77,6 +77,20 @@ var presets = map[string][]RuleConfig{
 			},
 		},
 		{ID: "task-deps-resolve"},
+		{
+			// A graph models fan-out, and its subtasks MAY carry a `deps:`, so a
+			// zero-edge graph is legal. It is still worth saying: the schema's own
+			// position is that N one-shot steps are "a graph with a dependency
+			// chain", and with no chain nothing states the order. Warn rather than
+			// error, because the fix is per-change judgment and a guessed edge is
+			// worse than an unstated one.
+			ID:       "phase-edges-declared",
+			Severity: SeverityWarn,
+			Params: map[string]any{
+				"when":             map[string]any{"marker": "shape", "value": "graph"},
+				"skipPhasePattern": "(?i)rollout",
+			},
+		},
 		{ID: "task-id-required"},
 		{ID: "task-deps-acyclic"},
 		{ID: "no-em-dash"},
