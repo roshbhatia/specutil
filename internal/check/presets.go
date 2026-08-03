@@ -34,13 +34,6 @@ var presets = map[string][]RuleConfig{
 			},
 		},
 		{
-			ID: "scenario-marker-coverage",
-			Params: map[string]any{
-				"marker": "polarity",
-				"value":  "negative",
-			},
-		},
-		{
 			ID: "phase-marker-required",
 			Params: map[string]any{
 				"marker": "shape",
@@ -72,6 +65,9 @@ var presets = map[string][]RuleConfig{
 			ID: "bolded-bullet-lead",
 			Params: map[string]any{
 				"allow": []string{
+					// POLARITY stays allowed: no preset requires a polarity marker
+					// any more, but archived and other-repo spec files still carry
+					// one, and rewriting them would be churn for no signal.
 					"WHEN", "THEN", "AND", "POLARITY", "SHAPE", "STOP", "MAX-ITERS", "BREAKING",
 				},
 			},
