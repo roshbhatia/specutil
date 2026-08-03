@@ -17,12 +17,20 @@ type Next struct {
 	Change string `json:"change"`
 	// Phase is the lowest-numbered phase still holding incomplete work. A phase
 	// is a boundary between runs, so readiness never crosses one.
-	Phase      string `json:"phase,omitempty"`
-	PhaseName  string `json:"phaseName,omitempty"`
-	Shape      string `json:"shape,omitempty"`
-	Ready      []Task `json:"ready"`
-	Blocked    []Task `json:"blocked,omitempty"`
-	Concurrent bool   `json:"concurrent"`
+	Phase     string `json:"phase,omitempty"`
+	PhaseName string `json:"phaseName,omitempty"`
+	Shape     string `json:"shape,omitempty"`
+	Ready     []Task `json:"ready"`
+	Blocked   []Task `json:"blocked,omitempty"`
+	// Concurrent is claimed only when the phase declares at least one dependency
+	// edge. A graph phase may legally declare none, but then "no edges" means the
+	// author never engaged with ordering rather than that the work is independent,
+	// and calling it concurrent sends a verify task out alongside the tasks it
+	// verifies.
+	Concurrent bool `json:"concurrent"`
+	// EdgesDeclared reports whether the phase carries any `deps:` at all, so a
+	// caller can tell "independent" from "unstated".
+	EdgesDeclared bool `json:"edgesDeclared"`
 	// Stop is a loop phase's exit, verbatim. It is deliberately not turned into a
 	// `loop-gate arm` invocation: a stop condition often names a file path in
 	// backticks, and guessing a command out of prose yields one that looks right
@@ -116,10 +124,17 @@ func ComputeNext(c *ir.Change) Next {
 		}
 	}
 
+	for _, it := range current.Items {
+		if len(it.DependsOn) > 0 {
+			out.EdgesDeclared = true
+			break
+		}
+	}
+
 	// Concurrency is a property of the shape, not of the count. A graph models
 	// fan-out; a loop re-runs the same tasks and must not be split across
 	// workers, because the second iteration depends on the first.
-	out.Concurrent = out.Shape == "graph" && countRunnable(out.Ready) > 1
+	out.Concurrent = out.Shape == "graph" && out.EdgesDeclared && countRunnable(out.Ready) > 1
 	return out
 }
 

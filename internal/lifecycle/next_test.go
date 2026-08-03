@@ -76,6 +76,33 @@ func TestPhasesOrderNumericallyNotLexically(t *testing.T) {
 
 // A loop re-runs the same tasks, so its next iteration reads what this one wrote
 // and the ready set must not be split across workers.
+// A graph phase may legally declare no edges, but then nothing states the order.
+// Claiming concurrency there would send a verify task out alongside the tasks it
+// verifies, which is how every seshy session's changes are written today.
+func TestGraphWithNoDeclaredEdgesIsNotConcurrent(t *testing.T) {
+	n := ComputeNext(change(phase("1", "Toolchain", "graph",
+		item("1.1", false), item("1.2", false), item("1.3", false))))
+	if n.EdgesDeclared {
+		t.Error("no subtask declares a dependency, so no edges are declared")
+	}
+	if n.Concurrent {
+		t.Error("a graph phase with no declared edges must not claim concurrency")
+	}
+	if len(n.Ready) != 3 {
+		t.Errorf("all three are still ready, got %d", len(n.Ready))
+	}
+}
+
+// One declared edge is enough: the author engaged with ordering, so a subtask
+// carrying none is genuinely independent.
+func TestOneDeclaredEdgeEnablesConcurrency(t *testing.T) {
+	n := ComputeNext(change(phase("1", "Build", "graph",
+		item("1.1", true), item("1.2", false), item("1.3", false, "1.1"))))
+	if !n.EdgesDeclared || !n.Concurrent {
+		t.Errorf("expected edges declared and concurrent, got %+v", n)
+	}
+}
+
 func TestLoopPhaseIsNeverConcurrent(t *testing.T) {
 	n := ComputeNext(change(phase("1", "Converge", "loop",
 		item("1.1", false), item("1.2", false))))

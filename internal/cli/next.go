@@ -102,8 +102,11 @@ func renderNext(n lifecycle.Next) string {
 	}
 
 	fmt.Fprintf(&b, "\nready (%d)", len(n.Ready))
-	if n.Concurrent {
+	switch {
+	case n.Concurrent:
 		fmt.Fprint(&b, ", runnable concurrently")
+	case n.Shape == "graph" && !n.EdgesDeclared && len(n.Ready) > 1:
+		fmt.Fprint(&b, ", order unstated: the phase declares no `deps:`, so run them in listed order")
 	}
 	fmt.Fprint(&b, ":\n")
 	for _, t := range n.Ready {
