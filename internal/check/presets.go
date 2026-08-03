@@ -65,16 +65,20 @@ var presets = map[string][]RuleConfig{
 			// done, and `loop-gate arm --until` has nothing to run.
 			ID:   "phase-marker-pattern",
 			Name: "stop-is-a-command",
-			// Warn, not error: the rule is MUST-level in the schema, but ten loop
-			// phases predate it. Blocking on them would invite a hurried command
-			// that passes without proving anything, which is worse than prose.
-			// Promote to error once they are converted.
+			// Warn, not error: the rule is MUST-level in the schema, but the loop
+			// phases written before it exists would all fail at once. Blocking on
+			// them invites a hurried command that passes without proving anything,
+			// which is worse than prose. Promote to error once they are converted.
 			Severity: SeverityWarn,
 			Params: map[string]any{
-				"marker":   "stop",
-				"when":     map[string]any{"marker": "shape", "value": "loop"},
-				"pattern":  "`[^`]+`",
-				"describe": "name a command in backticks",
+				"marker": "stop",
+				"when":   map[string]any{"marker": "shape", "value": "loop"},
+				// Any backtick span is too weak: a stop that says "`lib/x.nix` passes
+				// fixtures" names a file, not something to run, and passed. Require the
+				// span to open with a command. The vocabulary lives here, in the
+				// framework's preset, so the rule itself stays framework-agnostic.
+				"pattern":  "`(nix|nh|task|specutil|openspec|citelock|loop-gate|git|jq|go|python3?|bash|sh|shellcheck|shfmt|pytest|npm|bun|cargo|make)\\b[^`]*`",
+				"describe": "open a backtick span with a command",
 			},
 		},
 		{ID: "task-deps-resolve"},

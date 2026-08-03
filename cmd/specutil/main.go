@@ -18,6 +18,11 @@ func main() {
 		if cli.IsNoMapping(err) {
 			os.Exit(3)
 		}
+		// A `next` that cannot schedule pending work is a cycle, not a crash, and
+		// a runner loop must be able to tell the two apart.
+		if cli.IsDependencyCycle(err) {
+			os.Exit(2)
+		}
 		os.Exit(1)
 	}
 }

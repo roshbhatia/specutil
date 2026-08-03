@@ -901,8 +901,21 @@ const SUGGEST = {{.SuggestJSON}};
     const k = it.kind; if (!k || k === "task") return "";
     return '<span class="kind ' + esc(k) + '">' + esc(k) + "</span>";
   }
+  // A ticket id is only useful if it takes you to the ticket, so a recognised
+  // id becomes a link and anything else stays copyable text.
+  function refLink(id, cls, title) {
+    if (/^https?:\/\//.test(id)) {
+      const short = id.replace(/^https?:\/\/[^/]+\//, "").slice(0, 32) || id;
+      return '<a class="' + cls + '" href="' + esc(id) + '" target="_blank" rel="noopener" title="' + esc(title || id) + '">' + esc(short) + "</a>";
+    }
+    if (/^[A-Z]{2,10}-\d+$/.test(id)) {
+      return '<a class="' + cls + '" href="https://linear.app/search?q=' + encodeURIComponent(id) +
+        '" target="_blank" rel="noopener" title="Open in Linear">' + esc(id) + "</a>";
+    }
+    return '<span class="' + cls + '" title="' + esc(title || id) + '">' + esc(id) + "</span>";
+  }
   function extRefChips(it) {
-    return (it.externalRefs || []).map((r) => '<span class="ext-ref" title="' + esc(r.target) + '">' + esc(r.externalId) + "</span>").join("");
+    return (it.externalRefs || []).map((r) => refLink(r.externalId || "", "ext-ref", r.target)).join("");
   }
   function tagChips(it) {
     return (it.tags || []).map((t) => {
@@ -914,7 +927,7 @@ const SUGGEST = {{.SuggestJSON}};
     }).join("");
   }
   function inlineRefChips(it) {
-    return (it.inlineRefs || []).map((r) => '<span class="task-ref">' + esc(r) + '</span>').join("");
+    return (it.inlineRefs || []).map((r) => refLink(r, "task-ref")).join("");
   }
   // plainText strips markdown markers for use in title attributes
   function plainText(s) {

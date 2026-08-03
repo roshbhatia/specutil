@@ -62,6 +62,7 @@ func NewRootCmd(version ...string) *cobra.Command {
 		newLockCmd(),
 		newGraphCmd(),
 		newCheckCmd(),
+		newNextCmd(),
 		newReviewCmd(),
 		newWebCmd(),
 	)
