@@ -65,11 +65,6 @@ var presets = map[string][]RuleConfig{
 			// done, and `loop-gate arm --until` has nothing to run.
 			ID:   "phase-marker-pattern",
 			Name: "stop-is-a-command",
-			// Warn, not error: the rule is MUST-level in the schema, but the loop
-			// phases written before it exists would all fail at once. Blocking on
-			// them invites a hurried command that passes without proving anything,
-			// which is worse than prose. Promote to error once they are converted.
-			Severity: SeverityWarn,
 			Params: map[string]any{
 				"marker": "stop",
 				"when":   map[string]any{"marker": "shape", "value": "loop"},
