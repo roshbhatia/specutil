@@ -177,6 +177,40 @@ func TestPhaseWithoutShapeFails(t *testing.T) {
 	}
 }
 
+func TestPhaseWithDisallowedShapeFails(t *testing.T) {
+	c := good()
+	c.Tasks.Phases[0].Markers = map[string]string{"shape": "linear"}
+	rep := roshRun(t, c)
+	if !firedRules(rep)["phase-marker-required"] {
+		t.Fatal("a shape the framework does not define must not pass as declared")
+	}
+	var joined string
+	for _, f := range rep.Findings {
+		joined += f.Msg
+	}
+	for _, want := range []string{"linear", "loop", "graph"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("the finding should name %q, got: %s", want, joined)
+		}
+	}
+}
+
+func TestPhaseShapeIsCaseInsensitive(t *testing.T) {
+	c := good()
+	c.Tasks.Phases[0].Markers = map[string]string{"shape": "GRAPH"}
+	if firedRules(roshRun(t, c))["phase-marker-required"] {
+		t.Error("a marker value should match its allowed value regardless of case")
+	}
+}
+
+func TestTaskWithoutIdentifierFails(t *testing.T) {
+	c := good()
+	c.Tasks.Phases[0].Items[0].ID = ""
+	if !firedRules(roshRun(t, c))["task-id-required"] {
+		t.Error("a task with no N.M identifier drops out of the graph and must fail")
+	}
+}
+
 func TestRolloutPhaseIsExemptFromShape(t *testing.T) {
 	// The Rollout phase in good() declares no shape and must still pass.
 	if !roshRun(t, good()).OK() {

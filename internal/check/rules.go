@@ -115,24 +115,63 @@ func init() {
 	})
 
 	register(rule{
-		id:  "phase-marker-required",
-		doc: "every phase must declare the named marker (params: marker, skipPhasePattern)",
+		id: "phase-marker-required",
+		doc: "every phase must declare the named marker, and declare an allowed value " +
+			"for it when allowedValues is set (params: marker, allowedValues, skipPhasePattern)",
 		eval: func(p params, c *ir.Change) []Finding {
 			marker := p.String("marker")
 			if marker == "" || c.Tasks == nil {
 				return nil
 			}
+			// Presence alone lets a phase declare a value the framework does not
+			// define, which reads as a pass to every rule keyed on the marker.
+			allowed := p.Strings("allowedValues")
 			skip := compile(p.String("skipPhasePattern"))
 			var out []Finding
 			for _, ph := range c.Tasks.Phases {
 				if skipped(skip, ph) {
 					continue
 				}
-				if _, ok := ph.Markers[marker]; !ok {
+				got, ok := ph.Markers[marker]
+				if !ok {
 					out = append(out, Finding{
 						File: "tasks.md",
 						Msg:  fmt.Sprintf("phase %q declares no %s marker", phaseLabel(ph), marker),
 					})
+					continue
+				}
+				if len(allowed) > 0 && !containsFold(allowed, got) {
+					out = append(out, Finding{
+						File: "tasks.md",
+						Msg: fmt.Sprintf("phase %q declares %s=%s, which is not one of: %s",
+							phaseLabel(ph), marker, got, strings.Join(allowed, ", ")),
+					})
+				}
+			}
+			return out
+		},
+	})
+
+	register(rule{
+		id:  "task-id-required",
+		doc: "every task must carry an N.M identifier",
+		eval: func(_ params, c *ir.Change) []Finding {
+			if c.Tasks == nil {
+				return nil
+			}
+			// The parser leaves ID empty when the line does not match N.M. Such a
+			// task cannot be a dependency target and cannot be tracked by the
+			// apply phase, so it drops out of the graph without saying so.
+			var out []Finding
+			for _, ph := range c.Tasks.Phases {
+				for _, it := range ph.Items {
+					if it.ID == "" {
+						out = append(out, Finding{
+							File: "tasks.md",
+							Msg: fmt.Sprintf("a task in phase %q carries no N.M identifier: %q",
+								phaseLabel(ph), firstWords(it.Text, 10)),
+						})
+					}
 				}
 			}
 			return out
@@ -454,6 +493,26 @@ func findLine(text string, match func(string) bool) int {
 		}
 	}
 	return 0
+}
+
+// containsFold reports whether want appears in list, ignoring case.
+func containsFold(list []string, want string) bool {
+	for _, got := range list {
+		if strings.EqualFold(got, want) {
+			return true
+		}
+	}
+	return false
+}
+
+// firstWords returns at most n words of text, marking a truncation. A finding is
+// one line, and an untruncated task body can run to several hundred characters.
+func firstWords(text string, n int) string {
+	words := strings.Fields(text)
+	if len(words) <= n {
+		return strings.Join(words, " ")
+	}
+	return strings.Join(words[:n], " ") + " ..."
 }
 
 // findProseLine returns the 1-based number of the first line holding r in prose,

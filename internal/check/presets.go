@@ -36,7 +36,8 @@ var presets = map[string][]RuleConfig{
 		{
 			ID: "phase-marker-required",
 			Params: map[string]any{
-				"marker": "shape",
+				"marker":        "shape",
+				"allowedValues": []string{"loop", "graph"},
 				// A rollout slice sequences the impactful actions; it is exempt
 				// from declaring a work shape.
 				"skipPhasePattern": "(?i)rollout",
@@ -59,6 +60,7 @@ var presets = map[string][]RuleConfig{
 			},
 		},
 		{ID: "task-deps-resolve"},
+		{ID: "task-id-required"},
 		{ID: "task-deps-acyclic"},
 		{ID: "no-em-dash"},
 		{
