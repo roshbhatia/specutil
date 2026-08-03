@@ -92,6 +92,7 @@ var presets = map[string][]RuleConfig{
 			},
 		},
 		{ID: "task-id-required"},
+		{ID: "task-id-matches-phase"},
 		{ID: "task-deps-acyclic"},
 		{ID: "no-em-dash"},
 		{

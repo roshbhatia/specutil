@@ -559,3 +559,11 @@ func TestSingleSubtaskGraphPhaseIsExempt(t *testing.T) {
 		t.Error("a one-subtask phase must not be asked to declare an order")
 	}
 }
+
+func TestTaskNumberedForAnotherPhaseFails(t *testing.T) {
+	c := good()
+	c.Tasks.Phases[1].Items = []ir.TaskItem{{ID: "1.9", Text: "Apply: switch"}}
+	if !firedRules(roshRun(t, c))["task-id-matches-phase"] {
+		t.Error("a task carrying another phase's number must be reported")
+	}
+}

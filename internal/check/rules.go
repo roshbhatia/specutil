@@ -198,6 +198,40 @@ func init() {
 	})
 
 	register(rule{
+		id:  "task-id-matches-phase",
+		doc: "every task id must carry the number of the phase it sits in",
+		eval: func(_ params, c *ir.Change) []Finding {
+			if c.Tasks == nil {
+				return nil
+			}
+			// A task numbered for another phase reads as that phase's task to
+			// anything keyed on the id, so a dependency map silently merges the two
+			// and an edge resolves against the wrong subtask.
+			var out []Finding
+			for _, ph := range c.Tasks.Phases {
+				if ph.Number == "" {
+					continue
+				}
+				for _, it := range ph.Items {
+					if it.ID == "" {
+						continue
+					}
+					got, _, ok := strings.Cut(it.ID, ".")
+					if !ok || got == ph.Number {
+						continue
+					}
+					out = append(out, Finding{
+						File: "tasks.md",
+						Msg: fmt.Sprintf("task %s sits in phase %q but is numbered for phase %s",
+							it.ID, phaseLabel(ph), got),
+					})
+				}
+			}
+			return out
+		},
+	})
+
+	register(rule{
 		id: "phase-edges-declared",
 		doc: "a phase declaring when.marker=when.value must declare at least one task " +
 			"dependency (params: when {marker, value}, skipPhasePattern)",
