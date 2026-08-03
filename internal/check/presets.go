@@ -59,6 +59,24 @@ var presets = map[string][]RuleConfig{
 				"skipPhasePattern": "(?i)rollout",
 			},
 		},
+		{
+			// The schema's own words: "STOP is a command, not a wish." A prose STOP
+			// cannot be evaluated, so the loop ends when the model decides it is
+			// done, and `loop-gate arm --until` has nothing to run.
+			ID:   "phase-marker-pattern",
+			Name: "stop-is-a-command",
+			// Warn, not error: the rule is MUST-level in the schema, but ten loop
+			// phases predate it. Blocking on them would invite a hurried command
+			// that passes without proving anything, which is worse than prose.
+			// Promote to error once they are converted.
+			Severity: SeverityWarn,
+			Params: map[string]any{
+				"marker":   "stop",
+				"when":     map[string]any{"marker": "shape", "value": "loop"},
+				"pattern":  "`[^`]+`",
+				"describe": "name a command in backticks",
+			},
+		},
 		{ID: "task-deps-resolve"},
 		{ID: "task-id-required"},
 		{ID: "task-deps-acyclic"},

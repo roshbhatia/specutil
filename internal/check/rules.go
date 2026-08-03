@@ -153,6 +153,51 @@ func init() {
 	})
 
 	register(rule{
+		id: "phase-marker-pattern",
+		doc: "a phase marker's value must match the pattern, optionally only when " +
+			"another marker holds a value (params: marker, pattern, describe, when {marker, value})",
+		eval: func(p params, c *ir.Change) []Finding {
+			marker, pattern := p.String("marker"), p.String("pattern")
+			re := compile(pattern)
+			if marker == "" || re == nil || c.Tasks == nil {
+				return nil
+			}
+			describe := p.String("describe")
+			if describe == "" {
+				describe = "match " + pattern
+			}
+			when, _ := p["when"].(map[string]any)
+			trigger, value := "", ""
+			if when != nil {
+				trigger = params(when).String("marker")
+				value = params(when).String("value")
+			}
+			var out []Finding
+			for _, ph := range c.Tasks.Phases {
+				if trigger != "" {
+					got, ok := ph.Markers[trigger]
+					if !ok || !strings.EqualFold(got, value) {
+						continue
+					}
+				}
+				got, ok := ph.Markers[marker]
+				if !ok {
+					// Presence is phase-marker-conditional's job, not this rule's.
+					continue
+				}
+				if !re.MatchString(got) {
+					out = append(out, Finding{
+						File: "tasks.md",
+						Msg: fmt.Sprintf("phase %q declares a %s that does not %s: %s",
+							phaseLabel(ph), marker, describe, firstWords(got, 12)),
+					})
+				}
+			}
+			return out
+		},
+	})
+
+	register(rule{
 		id:  "task-id-required",
 		doc: "every task must carry an N.M identifier",
 		eval: func(_ params, c *ir.Change) []Finding {

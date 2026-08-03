@@ -237,6 +237,33 @@ func TestLoopPhaseWithoutStopAndCapFails(t *testing.T) {
 	}
 }
 
+func TestLoopStopMustNameACommand(t *testing.T) {
+	prose := good()
+	prose.Tasks.Phases[0].Markers = map[string]string{
+		"shape": "loop", "stop": "the settings are coherent", "maxIters": "3",
+	}
+	if !firedRules(roshRun(t, prose))["stop-is-a-command"] {
+		t.Error("a STOP nothing can evaluate must be reported")
+	}
+
+	cmd := good()
+	cmd.Tasks.Phases[0].Markers = map[string]string{
+		"shape": "loop", "stop": "`nix flake check` exits 0", "maxIters": "3",
+	}
+	if firedRules(roshRun(t, cmd))["stop-is-a-command"] {
+		t.Error("a STOP naming a command in backticks must pass")
+	}
+}
+
+// The rule is scoped to loops; a graph phase has no STOP to evaluate.
+func TestGraphPhaseIsExemptFromStopPattern(t *testing.T) {
+	c := good()
+	c.Tasks.Phases[0].Markers = map[string]string{"shape": "graph", "stop": "prose"}
+	if firedRules(roshRun(t, c))["stop-is-a-command"] {
+		t.Error("stop-is-a-command must only apply to loop phases")
+	}
+}
+
 func TestPhaseWithoutAdversarialReviewTaskFails(t *testing.T) {
 	c := good()
 	c.Tasks.Phases[0].Items = c.Tasks.Phases[0].Items[:1]
