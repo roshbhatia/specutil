@@ -28,6 +28,14 @@ tasks:
       mkdir -p {{.BIN_DIR}}
       GOBIN={{.BIN_DIR}} go install ./cmd/specutil
       echo "installed to {{.BIN_DIR}}/specutil"
+      # A nix profile entry shadows ~/.local/bin on PATH, so this build is not
+      # necessarily what `specutil` runs. Saying so beats silently testing a
+      # different binary than the one just built.
+      resolved=$(command -v specutil 2> /dev/null || true)
+      if [ -n "$resolved" ] && [ "$resolved" != "{{.BIN_DIR}}/specutil" ]; then
+        echo "warning: PATH resolves specutil to $resolved, not the binary just installed" >&2
+        echo "warning: run {{.BIN_DIR}}/specutil directly, or update the flake input and switch" >&2
+      fi
 
   clean:
     desc: Remove build artifacts and coverage output
