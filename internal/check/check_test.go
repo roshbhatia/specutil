@@ -136,10 +136,25 @@ func TestPairedBulletCountsPerBlockNotInAggregate(t *testing.T) {
 	}
 }
 
+// scenarioRun exercises scenario-marker-coverage on its own. The rule remains a
+// built-in for a framework that keeps a requirement spec, but no shipped preset
+// selects it: rosh-spec-driven states its acceptance criteria in the proposal.
+func scenarioRun(t *testing.T, c *ir.Change) *Report {
+	t.Helper()
+	rep, err := Run(Config{Rules: []RuleConfig{{
+		ID:     "scenario-marker-coverage",
+		Params: map[string]any{"marker": "polarity", "value": "negative"},
+	}}}, []*ir.Change{c})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	return rep
+}
+
 func TestRequirementWithoutNegativeScenarioFails(t *testing.T) {
 	c := good()
 	c.Specs[0].Requirements[0].Scenarios[1].Markers = map[string]string{"polarity": "positive"}
-	if !firedRules(roshRun(t, c))["scenario-marker-coverage"] {
+	if !firedRules(scenarioRun(t, c))["scenario-marker-coverage"] {
 		t.Error("expected scenario-marker-coverage to fire")
 	}
 }
@@ -149,7 +164,7 @@ func TestRemovedRequirementNeedsNoNegativeScenario(t *testing.T) {
 	c.Specs[0].Requirements = append(c.Specs[0].Requirements, ir.Requirement{
 		Name: "Gone", Delta: ir.DeltaRemoved,
 	})
-	if !roshRun(t, c).OK() {
+	if !scenarioRun(t, c).OK() {
 		t.Error("a removed requirement carries migration prose, not behavior, so it needs no scenario")
 	}
 }
@@ -277,6 +292,22 @@ func TestEmDashFails(t *testing.T) {
 		if f.Rule == "no-em-dash" && f.Line == 0 {
 			t.Error("an em-dash finding should carry the line it was found on")
 		}
+	}
+}
+
+func TestEmDashInCodePasses(t *testing.T) {
+	cases := map[string]string{
+		"inline span":  "A reason. Captured: `finished its turn — sysinit`.",
+		"fenced block": "A reason.\n\n```\nfinished its turn — sysinit\n```\n",
+	}
+	for name, replacement := range cases {
+		t.Run(name, func(t *testing.T) {
+			c := good()
+			c.Proposal.Raw = strings.Replace(c.Proposal.Raw, "A reason.", replacement, 1)
+			if firedRules(roshRun(t, c))["no-em-dash"] {
+				t.Error("an em-dash inside code is captured evidence, not prose")
+			}
+		})
 	}
 }
 

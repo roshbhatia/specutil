@@ -308,11 +308,11 @@ func init() {
 
 	register(rule{
 		id:  "no-em-dash",
-		doc: "no artifact may contain an em-dash",
+		doc: "no artifact may contain an em-dash in prose",
 		eval: func(_ params, c *ir.Change) []Finding {
 			var out []Finding
 			for _, a := range allArtifacts(c) {
-				if line := findLine(a.Text, func(l string) bool { return strings.ContainsRune(l, '—') }); line != 0 {
+				if line := findProseLine(a.Text, '—'); line != 0 {
 					out = append(out, Finding{
 						File: a.File, Line: line,
 						Msg: fmt.Sprintf("%s contains an em-dash; use a comma, colon, or new sentence", a.File),
@@ -454,4 +454,43 @@ func findLine(text string, match func(string) bool) int {
 		}
 	}
 	return 0
+}
+
+// findProseLine returns the 1-based number of the first line holding r in prose,
+// or 0. Code spans and fenced blocks carry captured output, a command, or a
+// quoted string, so a character there is evidence rather than authored prose and
+// rewriting it would falsify the record.
+func findProseLine(text string, r rune) int {
+	fenced := false
+	for i, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "```") {
+			fenced = !fenced
+			continue
+		}
+		if fenced {
+			continue
+		}
+		if strings.ContainsRune(stripCodeSpans(line), r) {
+			return i + 1
+		}
+	}
+	return 0
+}
+
+// stripCodeSpans drops every backtick-delimited span from a line. A span left
+// open runs to the end of the line, which keeps the rule from reporting text the
+// author may have meant as code.
+func stripCodeSpans(line string) string {
+	var prose strings.Builder
+	code := false
+	for _, c := range line {
+		if c == '`' {
+			code = !code
+			continue
+		}
+		if !code {
+			prose.WriteRune(c)
+		}
+	}
+	return prose.String()
 }
