@@ -42,7 +42,9 @@ func good() *ir.Change {
 					Markers: map[string]string{"shape": "graph"},
 					Items: []ir.TaskItem{
 						{ID: "1.1", Text: "Do it"},
-						{ID: "1.2", Text: "Adversarial review (skill)"},
+						// The graph phase declares an edge, so the fixture satisfies
+						// phase-edges-declared alongside every other preset rule.
+						{ID: "1.2", Text: "Adversarial review (skill)", DependsOn: []string{"1.1"}},
 					},
 				},
 				{
