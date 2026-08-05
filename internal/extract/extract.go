@@ -103,9 +103,9 @@ func (c Config) IsZero() bool {
 // name they describe. They are data, not behavior: nothing else in specutil
 // branches on a schema name.
 var presets = map[string]Config{
-	// rosh-spec-driven declares scenario polarity, phase shape with its loop
-	// bounds, and intra-phase task dependencies.
-	"rosh-spec-driven": {
+	// spec-driven declares scenario polarity, phase shape with its loop bounds,
+	// and intra-phase task dependencies.
+	"spec-driven": {
 		Markers: []Marker{
 			{Key: "polarity", Scope: ScopeScenario, Bullet: "POLARITY"},
 			{Key: "shape", Scope: ScopePhase, Bullet: "SHAPE"},
@@ -130,7 +130,7 @@ func Presets() []string {
 
 // HasPreset reports whether name is a built-in preset.
 func HasPreset(name string) bool {
-	_, ok := presets[name]
+	_, ok := presets[resolvePresetName(name)]
 	return ok
 }
 
@@ -141,7 +141,7 @@ func HasPreset(name string) bool {
 func Resolve(cfg Config) (Config, error) {
 	out := Config{Preset: cfg.Preset}
 	if cfg.Preset != "" {
-		base, ok := presets[cfg.Preset]
+		base, ok := presets[resolvePresetName(cfg.Preset)]
 		if !ok {
 			return Config{}, fmt.Errorf("unknown extract preset %q; available: %s",
 				cfg.Preset, strings.Join(Presets(), ", "))
@@ -453,4 +453,24 @@ func fieldValue(f Field, rest string) ([]string, int) {
 		}
 	}
 	return out, consumed
+}
+
+// aliases map retired schema names onto a live preset key. Archived changes pin
+// a schema in their .openspec.yaml and are history: rewriting them to chase a
+// rename would falsify the record, so the rename carries its old name forward
+// instead. Resolution consults aliases only after a direct hit fails, so an
+// alias can never shadow a real preset.
+var aliases = map[string]string{
+	"rosh-spec-driven": "spec-driven",
+}
+
+// resolvePresetName returns the live preset key for name.
+func resolvePresetName(name string) string {
+	if _, ok := presets[name]; ok {
+		return name
+	}
+	if target, ok := aliases[name]; ok {
+		return target
+	}
+	return name
 }

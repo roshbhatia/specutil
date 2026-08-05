@@ -10,7 +10,7 @@ import (
 	"github.com/roshbhatia/specutil/internal/review"
 )
 
-// good builds a change that satisfies every rule in the rosh-spec-driven
+// good builds a change that satisfies every rule in the spec-driven
 // preset. Each test then breaks exactly one thing, so a finding can only come
 // from the rule under test.
 func good() *ir.Change {
@@ -62,7 +62,7 @@ func good() *ir.Change {
 func roshRun(t *testing.T, c *ir.Change) *Report {
 	t.Helper()
 	approve(t, c)
-	rep, err := Run(Config{Preset: "rosh-spec-driven"}, []*ir.Change{c})
+	rep, err := Run(Config{Preset: "spec-driven"}, []*ir.Change{c})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestPairedBulletCountsPerBlockNotInAggregate(t *testing.T) {
 
 // scenarioRun exercises scenario-marker-coverage on its own. The rule remains a
 // built-in for a framework that keeps a requirement spec, but no shipped preset
-// selects it: rosh-spec-driven states its acceptance criteria in the proposal.
+// selects it: spec-driven states its acceptance criteria in the proposal.
 func scenarioRun(t *testing.T, c *ir.Change) *Report {
 	t.Helper()
 	rep, err := Run(Config{Rules: []RuleConfig{{
@@ -398,7 +398,7 @@ func TestResolveRejectsUnknownPresetRuleAndSeverity(t *testing.T) {
 		"unknown rule":     {Rules: []RuleConfig{{ID: "nope"}}},
 		"missing id":       {Rules: []RuleConfig{{Severity: SeverityWarn}}},
 		"unknown severity": {Rules: []RuleConfig{{ID: "no-em-dash", Severity: "loud"}}},
-		"disable unknown":  {Preset: "rosh-spec-driven", Disable: []string{"nope"}},
+		"disable unknown":  {Preset: "spec-driven", Disable: []string{"nope"}},
 	}
 	for name, cfg := range cases {
 		if _, err := Resolve(cfg); err == nil {
@@ -411,7 +411,7 @@ func TestDisableRemovesARule(t *testing.T) {
 	c := good()
 	c.Proposal.Raw = strings.Replace(c.Proposal.Raw, "A reason.", "A reason — long.", 1)
 	approve(t, c)
-	rep, err := Run(Config{Preset: "rosh-spec-driven", Disable: []string{"no-em-dash"}}, []*ir.Change{c})
+	rep, err := Run(Config{Preset: "spec-driven", Disable: []string{"no-em-dash"}}, []*ir.Change{c})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -425,7 +425,7 @@ func TestSeverityOverrideDowngradesToWarning(t *testing.T) {
 	c.Proposal.Raw = strings.Replace(c.Proposal.Raw, "A reason.", "A reason — long.", 1)
 	approve(t, c)
 	rep, err := Run(Config{
-		Preset: "rosh-spec-driven",
+		Preset: "spec-driven",
 		Rules:  []RuleConfig{{ID: "no-em-dash", Severity: SeverityWarn}},
 	}, []*ir.Change{c})
 	if err != nil {
@@ -444,7 +444,7 @@ func TestLocalRuleOverridesPresetByName(t *testing.T) {
 	c.Proposal.Raw = strings.Replace(c.Proposal.Raw, "- Do the thing", "- **Thing** does it", 1)
 	approve(t, c)
 	rep, err := Run(Config{
-		Preset: "rosh-spec-driven",
+		Preset: "spec-driven",
 		Rules: []RuleConfig{{
 			ID:     "bolded-bullet-lead",
 			Params: map[string]any{"allow": []string{"Thing", "WHEN", "THEN", "POLARITY", "SHAPE", "STOP", "MAX-ITERS"}},
@@ -476,12 +476,12 @@ func TestReportOrderIsStable(t *testing.T) {
 	c := good()
 	c.Proposal.Raw = "- **A** x\n- **B** y\n"
 	c.Design.Raw = ""
-	first, err := Run(Config{Preset: "rosh-spec-driven"}, []*ir.Change{c})
+	first, err := Run(Config{Preset: "spec-driven"}, []*ir.Change{c})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 5; i++ {
-		again, _ := Run(Config{Preset: "rosh-spec-driven"}, []*ir.Change{c})
+		again, _ := Run(Config{Preset: "spec-driven"}, []*ir.Change{c})
 		if len(again.Findings) != len(first.Findings) {
 			t.Fatalf("finding count unstable: %d vs %d", len(again.Findings), len(first.Findings))
 		}
@@ -508,7 +508,7 @@ func TestAbsentOptionalArtifactIsNotAViolation(t *testing.T) {
 // treats an absent artifact as nothing to check. A gate must never report that
 // as a pass.
 func TestChangeWithNoArtifactsFails(t *testing.T) {
-	rep, err := Run(Config{Preset: "rosh-spec-driven"}, []*ir.Change{{Name: "empty"}})
+	rep, err := Run(Config{Preset: "spec-driven"}, []*ir.Change{{Name: "empty"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -525,7 +525,7 @@ func TestChangeWithOnlyOneArtifactIsChecked(t *testing.T) {
 	c := &ir.Change{Name: "minimal", Proposal: &ir.Proposal{
 		Section: ir.Section{Raw: "## Why\n\nA reason.\n"},
 	}}
-	rep, err := Run(Config{Preset: "rosh-spec-driven"}, []*ir.Change{c})
+	rep, err := Run(Config{Preset: "spec-driven"}, []*ir.Change{c})
 	if err != nil {
 		t.Fatal(err)
 	}

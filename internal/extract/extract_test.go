@@ -10,7 +10,7 @@ import (
 
 func roshConfig(t *testing.T) Config {
 	t.Helper()
-	cfg, err := Resolve(Config{Preset: "rosh-spec-driven"})
+	cfg, err := Resolve(Config{Preset: "spec-driven"})
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -22,7 +22,7 @@ func TestResolveRejectsUnknownPreset(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error naming the available presets")
 	}
-	if !strings.Contains(err.Error(), "rosh-spec-driven") {
+	if !strings.Contains(err.Error(), "spec-driven") {
 		t.Errorf("error should list available presets, got %q", err)
 	}
 }
@@ -44,7 +44,7 @@ func TestResolveRejectsBadDeclarations(t *testing.T) {
 
 func TestResolveLetsLocalDeclarationOverridePreset(t *testing.T) {
 	cfg, err := Resolve(Config{
-		Preset:  "rosh-spec-driven",
+		Preset:  "spec-driven",
 		Markers: []Marker{{Key: "polarity", Scope: ScopeScenario, Bullet: "KIND"}},
 	})
 	if err != nil {

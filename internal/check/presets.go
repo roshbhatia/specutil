@@ -5,10 +5,12 @@ package check
 // that framework expects. Nothing in the rule implementations knows a framework
 // name, so a new framework is a new entry here and nothing else.
 var presets = map[string][]RuleConfig{
-	// rosh-spec-driven mirrors the rubric the specreview shell lint enforced,
-	// rule for rule, so a repository can drop that script and get the same
-	// verdicts from specutil.
-	"rosh-spec-driven": {
+	// spec-driven mirrors the rubric the specreview shell lint enforced, rule for
+	// rule, so a repository can drop that script and get the same verdicts from
+	// specutil. The key is openspec's own default schema name, so a repository
+	// that overrides the built-in `spec-driven` schema keeps its rubric without
+	// naming anything: config.yaml's `schema:` is the selector.
+	"spec-driven": {
 		{
 			ID:   "required-sections",
 			Name: "proposal-sections",
@@ -118,4 +120,24 @@ var presets = map[string][]RuleConfig{
 			},
 		},
 	},
+}
+
+// aliases map retired schema names onto a live preset key. Archived changes pin
+// a schema in their .openspec.yaml and are history: rewriting them to chase a
+// rename would falsify the record, so the rename carries its old name forward
+// instead. Resolution consults aliases only after a direct hit fails, so an
+// alias can never shadow a real preset.
+var aliases = map[string]string{
+	"rosh-spec-driven": "spec-driven",
+}
+
+// resolvePresetName returns the live preset key for name.
+func resolvePresetName(name string) string {
+	if _, ok := presets[name]; ok {
+		return name
+	}
+	if target, ok := aliases[name]; ok {
+		return target
+	}
+	return name
 }

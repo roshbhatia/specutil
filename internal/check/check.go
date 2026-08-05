@@ -134,7 +134,7 @@ func Presets() []string {
 
 // HasPreset reports whether name is a built-in preset.
 func HasPreset(name string) bool {
-	_, ok := presets[name]
+	_, ok := presets[resolvePresetName(name)]
 	return ok
 }
 
@@ -160,7 +160,7 @@ func (rc RuleConfig) instanceName() string {
 func Resolve(cfg Config) ([]resolved, error) {
 	var merged []RuleConfig
 	if cfg.Preset != "" {
-		base, ok := presets[cfg.Preset]
+		base, ok := presets[resolvePresetName(cfg.Preset)]
 		if !ok {
 			return nil, fmt.Errorf("unknown check preset %q; available: %s",
 				cfg.Preset, strings.Join(Presets(), ", "))

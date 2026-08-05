@@ -226,7 +226,7 @@ func TestCheckWithNoRubricIsANoOp(t *testing.T) {
 
 func TestCheckDetectsPresetFromSchemaAndFails(t *testing.T) {
 	dir := setupMinimalOpenspec(t, "rough")
-	writeSchema(t, dir, "rosh-spec-driven")
+	writeSchema(t, dir, "spec-driven")
 
 	out, _, err := run("-C", dir, "check")
 	if err == nil {
@@ -244,7 +244,7 @@ func TestCheckDetectsPresetFromSchemaAndFails(t *testing.T) {
 
 func TestCheckJSONOutput(t *testing.T) {
 	dir := setupMinimalOpenspec(t, "rough")
-	writeSchema(t, dir, "rosh-spec-driven")
+	writeSchema(t, dir, "spec-driven")
 
 	out, _, err := run("-C", dir, "check", "--as", "json")
 	if err == nil || !cli.IsCheckFailed(err) {
@@ -277,7 +277,7 @@ func TestCheckJSONOutput(t *testing.T) {
 
 func TestCheckUnknownFormatIsAnError(t *testing.T) {
 	dir := setupMinimalOpenspec(t, "rough")
-	writeSchema(t, dir, "rosh-spec-driven")
+	writeSchema(t, dir, "spec-driven")
 	if _, _, err := run("-C", dir, "check", "--as", "xml"); err == nil {
 		t.Error("expected an error naming the supported formats")
 	}
@@ -287,7 +287,7 @@ func TestCheckUnknownFormatIsAnError(t *testing.T) {
 // path; the repository root and change name are derived from the layout.
 func TestCheckAcceptsAChangeDirectory(t *testing.T) {
 	dir := setupMinimalOpenspec(t, "rough")
-	writeSchema(t, dir, "rosh-spec-driven")
+	writeSchema(t, dir, "spec-driven")
 
 	changeDir := filepath.Join(dir, "openspec", "changes", "rough")
 	out, _, err := run("check", changeDir)
@@ -301,7 +301,7 @@ func TestCheckAcceptsAChangeDirectory(t *testing.T) {
 
 func TestCheckPathFormMatchesNameForm(t *testing.T) {
 	dir := setupMinimalOpenspec(t, "rough")
-	writeSchema(t, dir, "rosh-spec-driven")
+	writeSchema(t, dir, "spec-driven")
 
 	byName, _, err1 := run("-C", dir, "check", "--change", "rough")
 	byPath, _, err2 := run("check", filepath.Join(dir, "openspec", "changes", "rough"))
