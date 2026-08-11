@@ -91,14 +91,15 @@ func TestReviewRuleFailsOnAnUnacceptedDecision(t *testing.T) {
 func TestReviewRuleFailsWhenTheArtifactsMovedAfterTheDecision(t *testing.T) {
 	c, repo := rooted(t)
 	writeRecord(t, c, repo, review.DecisionApproved)
-	c.Tasks.Raw += "- [ ] 1.3 Something nobody reviewed\n"
+	c.Tasks.Phases[0].Items = append(c.Tasks.Phases[0].Items,
+		ir.TaskItem{ID: "1.3", Text: "Something nobody reviewed"})
 
 	rep, err := Run(reviewRubric(nil), []*ir.Change{c})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if rep.OK() {
-		t.Fatal("an approval must not survive an edit to the artifacts it described")
+		t.Fatal("an approval must not survive work nobody reviewed being added")
 	}
 	if !strings.Contains(rep.Findings[0].Msg, "stale") {
 		t.Errorf("the finding should name staleness: %s", rep.Findings[0].Msg)

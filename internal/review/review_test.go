@@ -36,9 +36,27 @@ func TestChangeHashIsStableAndSensitive(t *testing.T) {
 	if review.ChangeHash(a) != review.ChangeHash(b) {
 		t.Fatal("identical changes must hash identically")
 	}
-	b.Tasks.Raw = "## 1. Build\n\n- [ ] 1.1 do the thing\n"
+	b.Proposal.Section.Raw = "## Why\n\nbecause of something else\n"
 	if review.ChangeHash(a) == review.ChangeHash(b) {
-		t.Fatal("an edited artifact must change the hash")
+		t.Fatal("an edited proposal must change the hash")
+	}
+}
+
+// The hash covers the shape of the task list, not its bytes. Recording progress
+// or evidence must not move it, or every step of the work restales the verdict.
+func TestChangeHashIgnoresTaskProgressAndEvidence(t *testing.T) {
+	base := review.ChangeHash(change("c", "do the thing"))
+
+	done := change("c", "do the thing")
+	done.Tasks.Phases[0].Items[0].Done = true
+	if review.ChangeHash(done) != base {
+		t.Error("ticking a task off must not change the hash")
+	}
+
+	noted := change("c", "do the thing")
+	noted.Tasks.Raw += "\n      Evidence: it builds.\n"
+	if review.ChangeHash(noted) != base {
+		t.Error("appending evidence under a task must not change the hash")
 	}
 }
 
@@ -76,18 +94,36 @@ func TestApplyThenBuildReportsCurrent(t *testing.T) {
 	}
 }
 
-func TestEditedArtifactMakesTheDecisionStale(t *testing.T) {
+func TestAddedTaskMakesTheDecisionStale(t *testing.T) {
 	c := change("c", "do the thing")
 	rec := review.Apply(c, &review.Feedback{
 		Schema: review.Schema, Change: "c", Decision: review.DecisionApproved,
 	})
-	c.Tasks.Raw += "- [ ] 1.2 and another\n"
+	c.Tasks.Phases[0].Items = append(c.Tasks.Phases[0].Items,
+		ir.TaskItem{ID: "1.2", Text: "and another"})
 	st := review.Build(c, rec)
 	if !st.Stale {
-		t.Fatal("editing an artifact after the decision must report stale")
+		t.Fatal("adding a task after the decision must report stale")
 	}
 	if !st.Gated() {
 		t.Fatal("a stale approval must gate")
+	}
+}
+
+// The counterpart to the test above: doing the approved work must not gate it.
+func TestFinishingTasksLeavesTheDecisionCurrent(t *testing.T) {
+	c := change("c", "do the thing")
+	rec := review.Apply(c, &review.Feedback{
+		Schema: review.Schema, Change: "c", Decision: review.DecisionApproved,
+	})
+	c.Tasks.Phases[0].Items[0].Done = true
+	c.Tasks.Raw += "\n      Evidence: verified against the built binary.\n"
+	st := review.Build(c, rec)
+	if st.Stale {
+		t.Fatal("finishing a task and recording evidence must not report stale")
+	}
+	if st.Gated() {
+		t.Fatal("progress on an approved change must not gate it")
 	}
 }
 

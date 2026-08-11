@@ -191,9 +191,9 @@ func (r *Record) Save(repoRoot, change string) error {
 	return os.WriteFile(path, b, 0o644)
 }
 
-// ChangeHash fingerprints everything a reviewer could have read: the retained
-// raw markdown of every artifact, in a fixed order. Any edit to any artifact
-// flips it, which is exactly when a prior verdict stops describing the change.
+// ChangeHash fingerprints what a reviewer actually approved: the raw markdown of
+// the artifacts that carry scope and intent, plus the shape of the task list. It
+// deliberately does not fold in the raw bytes of tasks.md; see tasksScope.
 func ChangeHash(c *ir.Change) string {
 	if c == nil {
 		return ""
@@ -212,7 +212,7 @@ func ChangeHash(c *ir.Change) string {
 		write("design", c.Design.Raw)
 	}
 	if c.Tasks != nil {
-		write("tasks", c.Tasks.Raw)
+		write("tasks", tasksScope(c.Tasks))
 	}
 	specs := append([]*ir.Spec{}, c.Specs...)
 	sort.SliceStable(specs, func(i, j int) bool { return specs[i].Capability < specs[j].Capability })
@@ -223,6 +223,35 @@ func ChangeHash(c *ir.Change) string {
 		write("spec/"+s.Capability, s.Raw)
 	}
 	return ident.Hash(b.String())
+}
+
+// tasksScope projects tasks.md down to the part a verdict is about: the phase
+// structure and the identity of each task. It drops the raw bytes, the checkbox
+// state, and every line indented under a task.
+//
+// Those are the record of the work rather than its scope, and they change on
+// every step of it. Folding in the raw bytes made a verdict go stale for ticking
+// a box or appending a finding, so the author had to re-stamp the decision to
+// record progress. That re-stamp carries no judgement, and a gate that fires
+// where no judgement is needed teaches people to clear it without reading.
+//
+// What still goes stale is what a reviewer would want to see again: adding a
+// task, dropping one, resequencing phases, or rewording a task past what
+// ident.Normalize absorbs.
+func tasksScope(t *ir.Tasks) string {
+	if t == nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, p := range t.Phases {
+		b.WriteString(ident.Normalize(p.Name))
+		b.WriteString("\x00")
+		for _, it := range p.Items {
+			b.WriteString(ident.Identity(p.Name, it.Text))
+			b.WriteString("\x00")
+		}
+	}
+	return b.String()
 }
 
 // Snapshot fingerprints every task in a change, keyed by identity. A duplicate
