@@ -4,6 +4,13 @@
   <p>Bridge your local spec workflow to the rest of your stack.</p>
 </div>
 
+> Archived on 2026-08-11. The source moved into
+> [roshbhatia/sysinit](https://github.com/roshbhatia/sysinit) under
+> `pkgs/specutil`, built by `overlays/specutil.nix`. sysinit is the only
+> consumer, and a separate repository meant a flake input, a second CI pipeline,
+> and a release step for a tool that ships to one machine. Read and change it
+> there; this tree is frozen at the state sysinit vendored.
+
 Write specs in OpenSpec, BMAD, or a plain `plan.md`. specutil renders them as shareable docs, syncs tasks to Linear, Notion, or GitHub Issues, and shows how your changes depend on each other — all from your repo, no manual copy-paste.
 
 ```
