@@ -314,6 +314,21 @@ func (p params) Strings(key string) []string {
 	return nil
 }
 
+// Int reads a whole-number parameter. YAML decodes an integer as int, and JSON
+// as float64, so both are accepted. A missing or non-numeric value yields 0,
+// which each rule reads as "unset" and skips on.
+func (p params) Int(key string) int {
+	switch t := p[key].(type) {
+	case int:
+		return t
+	case int64:
+		return int(t)
+	case float64:
+		return int(t)
+	}
+	return 0
+}
+
 // artifactText returns an artifact's retained raw markdown and the filename to
 // report against it. An absent artifact yields ok=false, which every rule
 // treats as "nothing to check" rather than a violation: an optional artifact

@@ -232,6 +232,42 @@ func init() {
 	})
 
 	register(rule{
+		id: "task-text-max-words",
+		doc: "a task's own line must stay under a word budget, so evidence goes " +
+			"below it rather than into it (params: max)",
+		eval: func(p params, c *ir.Change) []Finding {
+			max := p.Int("max")
+			if max <= 0 || c.Tasks == nil {
+				return nil
+			}
+			// A task line is the plan; the indented block under it is the record.
+			// They have opposite update rules, so merging them means every new fact
+			// rewrites a prior conclusion in place. Left alone, one task line grows
+			// into an incident log carrying its own strikethroughs and corrections,
+			// and no reader can tell what is still true from what was superseded.
+			//
+			// The indented block is not counted, because that is where the evidence
+			// is supposed to go.
+			var out []Finding
+			for _, ph := range c.Tasks.Phases {
+				for _, it := range ph.Items {
+					n := len(strings.Fields(it.Text))
+					if n <= max {
+						continue
+					}
+					out = append(out, Finding{
+						File: "tasks.md",
+						Msg: fmt.Sprintf("task %s runs %d words on its own line, over the %d-word budget; "+
+							"move the evidence and the history to an indented block under it",
+							taskLabel(it, ph), n, max),
+					})
+				}
+			}
+			return out
+		},
+	})
+
+	register(rule{
 		id: "phase-edges-declared",
 		doc: "a phase declaring when.marker=when.value must declare at least one task " +
 			"dependency (params: when {marker, value}, skipPhasePattern)",
@@ -599,6 +635,19 @@ func phaseLabel(ph ir.Phase) string {
 		return ph.Number + ". " + ph.Name
 	}
 	return ph.Name
+}
+
+// taskLabel names a task for a message. It prefers the id, and falls back to the
+// phase plus a truncated opening so an unnumbered task is still findable.
+func taskLabel(it ir.TaskItem, ph ir.Phase) string {
+	if it.ID != "" {
+		return it.ID
+	}
+	opening := it.Text
+	if len(opening) > 40 {
+		opening = opening[:40] + "..."
+	}
+	return fmt.Sprintf("%q in phase %s", opening, phaseLabel(ph))
 }
 
 // cycleFrom returns the suffix of stack beginning at id, naming the cycle a

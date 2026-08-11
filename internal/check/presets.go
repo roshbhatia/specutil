@@ -96,6 +96,15 @@ var presets = map[string][]RuleConfig{
 		{ID: "task-id-required"},
 		{ID: "task-id-matches-phase"},
 		{ID: "task-deps-acyclic"},
+		{
+			// 60 words is roughly four sentences: enough to state an outcome and
+			// its gate, not enough to hold a history. It warns rather than fails,
+			// because the fix is to move prose and an in-flight change should not
+			// be blocked from recording what it just learned.
+			ID:       "task-text-max-words",
+			Severity: SeverityWarn,
+			Params:   map[string]any{"max": 60},
+		},
 		{ID: "no-em-dash"},
 		{
 			ID: "bolded-bullet-lead",
