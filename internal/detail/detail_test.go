@@ -22,6 +22,10 @@ func mkChange(name string, done, total int) *ir.Change {
 	}
 }
 
+func Build(changes []*ir.Change) *Feed {
+	return BuildWith(changes, Options{})
+}
+
 func TestBuildIsDeterministic(t *testing.T) {
 	// Input order is intentionally unsorted to prove output is stable regardless.
 	changes := []*ir.Change{mkChange("gamma", 2, 2), mkChange("alpha", 0, 3), mkChange("beta", 1, 2)}
@@ -100,40 +104,6 @@ func TestBuildCarriesTaskContent(t *testing.T) {
 	}
 	if !c.Phases[0].Items[0].Done || c.Phases[0].Items[1].Done {
 		t.Errorf("done state wrong: %+v", c.Phases[0].Items)
-	}
-}
-
-func TestBuildWithRefsAnnotatesMatchingTasks(t *testing.T) {
-	c := &ir.Change{
-		Name: "mychange",
-		Tasks: &ir.Tasks{Phases: []ir.Phase{
-			{Number: "1", Name: "Setup", Items: []ir.TaskItem{
-				{Text: "Initialize module", Done: false},
-				{Text: "Write tests", Done: true},
-			}},
-		}},
-	}
-	refs := RefsByKey{
-		"mychange\x00Setup\x00Initialize module": []ExternalRef{
-			{Target: "linear", ExternalID: "ENG-1"},
-		},
-	}
-	f := BuildWithRefs([]*ir.Change{c}, refs)
-	items := f.Changes[0].Phases[0].Items
-	if len(items[0].ExternalRefs) != 1 || items[0].ExternalRefs[0].ExternalID != "ENG-1" {
-		t.Errorf("first item missing external ref: %+v", items[0].ExternalRefs)
-	}
-	if len(items[1].ExternalRefs) != 0 {
-		t.Errorf("second item should have no external refs: %+v", items[1].ExternalRefs)
-	}
-}
-
-func TestBuildWithNilRefsMatchesBuild(t *testing.T) {
-	changes := []*ir.Change{mkChange("x", 1, 2)}
-	a, _ := Build(changes).JSON()
-	b, _ := BuildWithRefs(changes, nil).JSON()
-	if !bytes.Equal(a, b) {
-		t.Fatalf("Build and BuildWithRefs(nil) should produce identical output")
 	}
 }
 

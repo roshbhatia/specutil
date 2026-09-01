@@ -8,6 +8,7 @@
 
   outputs =
     {
+      self,
       nixpkgs,
       flake-utils,
       ...
@@ -21,17 +22,22 @@
       {
         packages.default = pkgs.buildGoModule {
           pname = "specutil";
-          version = "0.1.0";
+          version = "0.2.0";
           src = ./.;
           # vendorHash is recomputed when the module graph changes; run
           # `nix build` and copy the hash it reports here on dependency bumps.
-          vendorHash = "sha256-p3W9SBXEWTL7rWpW95cOoNJ9CArJlAsi3Vfy/m1d2z0=";
-          subPackages = [ "cmd/specutil" ];
+          vendorHash = "sha256-ixr2zZD4er/XDdWYaBMEiuFk96p2bqk2AhIKMClbw0M=";
+          ldflags = [ "-s -w -X main.version=0.2.0" ];
           meta = {
             description = "Project OpenSpec change artifacts into other artifacts and visualizations";
+            homepage = "https://github.com/roshbhatia/specutil";
+            license = pkgs.lib.licenses.mit;
             mainProgram = "specutil";
+            platforms = pkgs.lib.platforms.unix;
           };
         };
+
+        checks.default = self.packages.${system}.default;
 
         # `nix fmt` is documented in the README and wired to `task fmt:nix`;
         # without this attribute both fail on a missing formatter output. A bare
@@ -42,14 +48,14 @@
           name = "specutil-nixfmt";
           runtimeInputs = [
             pkgs.fd
-            pkgs.nixfmt-rfc-style
+            pkgs.nixfmt
           ];
           text = ''
-            if [ "$#" -gt 0 ]; then
+            if [ "$#" -gt 0 ] && [ "''${1#-}" = "$1" ]; then
               exec nixfmt "$@"
             fi
 
-            exec fd --extension nix --type file --exec-batch nixfmt
+            exec fd --extension nix --type file --exec-batch nixfmt "$@"
           '';
         };
 
@@ -62,6 +68,7 @@
             pkgs.gofumpt
             pkgs.go-task
             pkgs.goreleaser
+            pkgs.ripgrep
             pkgs.shfmt
           ];
           shellHook = ''
@@ -75,9 +82,6 @@
       # when this flake is consumed as an input, so consumers can use them
       # directly as home.file sources without any build step.
       lib.skills = {
-        "sync-to-linear" = ./skills/sync-to-linear/SKILL.md;
-        "sync-to-notion" = ./skills/sync-to-notion/SKILL.md;
-        "sync-to-github-issues" = ./skills/sync-to-github-issues/SKILL.md;
         "discover-deps" = ./skills/discover-deps/SKILL.md;
         "review-change" = ./skills/review-change/SKILL.md;
       };

@@ -30,7 +30,7 @@ func repoRoot(t *testing.T) string {
 // move in and out of openspec/changes/ as work is archived.
 func examplesRepo(t *testing.T) string {
 	t.Helper()
-	return filepath.Join(repoRoot(t), "examples", "getting-started")
+	return filepath.Join(repoRoot(t), "internal", "provider", "openspec", "testdata")
 }
 
 func TestLoadRealChange(t *testing.T) {

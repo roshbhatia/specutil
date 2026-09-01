@@ -8,49 +8,32 @@ import (
 	"github.com/roshbhatia/specutil/internal/ir"
 )
 
-// Next answers one question: what runs now. A tasks.md declares a shape, a
-// dependency edge per subtask, and a stop condition, but nothing consumed any of
-// it while the work was being done, so the agent read the file top to bottom and
-// the declared graph stayed documentation. Deriving the answer here makes the
-// declaration load-bearing: the caller asks rather than re-reading the rules.
 type Next struct {
 	Change string `json:"change"`
-	// Phase is the lowest-numbered phase still holding incomplete work. A phase
-	// is a boundary between runs, so readiness never crosses one.
+
 	Phase     string `json:"phase,omitempty"`
 	PhaseName string `json:"phaseName,omitempty"`
 	Shape     string `json:"shape,omitempty"`
 	Ready     []Task `json:"ready"`
 	Blocked   []Task `json:"blocked,omitempty"`
-	// Concurrent is claimed only when the phase declares at least one dependency
-	// edge. A graph phase may legally declare none, but then "no edges" means the
-	// author never engaged with ordering rather than that the work is independent,
-	// and calling it concurrent sends a verify task out alongside the tasks it
-	// verifies.
+
 	Concurrent bool `json:"concurrent"`
-	// EdgesDeclared reports whether the phase carries any `deps:` at all, so a
-	// caller can tell "independent" from "unstated".
+
 	EdgesDeclared bool `json:"edgesDeclared"`
-	// Stop is a loop phase's exit, verbatim. It is deliberately not turned into a
-	// `loop-gate arm` invocation: a stop condition often names a file path in
-	// backticks, and guessing a command out of prose yields one that looks right
-	// and proves nothing. The reader arms the gate.
+
 	Stop string `json:"stop,omitempty"`
 	Done bool   `json:"done"`
 }
 
-// Task is one subtask in the answer, with the reason it is not ready.
 type Task struct {
-	ID       string   `json:"id"`
-	Kind     string   `json:"kind"`
-	Text     string   `json:"text"`
-	WaitsOn  []string `json:"waitsOn,omitempty"`
-	Gate     bool     `json:"gate"`
-	Adverse  bool     `json:"adversarialReview,omitempty"`
-	PhaseNum string   `json:"-"`
+	ID      string   `json:"id"`
+	Kind    string   `json:"kind"`
+	Text    string   `json:"text"`
+	WaitsOn []string `json:"waitsOn,omitempty"`
+	Gate    bool     `json:"gate"`
+	Adverse bool     `json:"adversarialReview,omitempty"`
 }
 
-// ComputeNext derives the ready set for a change.
 func ComputeNext(c *ir.Change) Next {
 	out := Next{Change: c.Name, Ready: []Task{}}
 	if c.Tasks == nil || len(c.Tasks.Phases) == 0 {
@@ -81,9 +64,6 @@ func ComputeNext(c *ir.Change) Next {
 		out.Stop = strings.Join(strings.Fields(stop), " ")
 	}
 
-	// A dependency is satisfied when it names a completed task. An edge naming
-	// nothing in this change is reported by task-deps-resolve, not here, so it is
-	// treated as satisfied rather than blocking the phase forever.
 	done := map[string]bool{}
 	known := map[string]bool{}
 	for _, ph := range phases {
@@ -109,13 +89,12 @@ func ComputeNext(c *ir.Change) Next {
 			}
 		}
 		t := Task{
-			ID:       it.ID,
-			Kind:     string(it.Kind),
-			Text:     strings.Join(strings.Fields(it.Text), " "),
-			WaitsOn:  waits,
-			Gate:     it.Kind == ir.KindApply || it.Kind == ir.KindConfirm,
-			Adverse:  strings.Contains(strings.ToLower(it.Text), "adversarial review"),
-			PhaseNum: current.Number,
+			ID:      it.ID,
+			Kind:    string(it.Kind),
+			Text:    strings.Join(strings.Fields(it.Text), " "),
+			WaitsOn: waits,
+			Gate:    it.Kind == ir.KindApply || it.Kind == ir.KindConfirm,
+			Adverse: strings.Contains(strings.ToLower(it.Text), "adversarial review"),
 		}
 		if len(waits) == 0 {
 			out.Ready = append(out.Ready, t)
@@ -131,15 +110,10 @@ func ComputeNext(c *ir.Change) Next {
 		}
 	}
 
-	// Concurrency is a property of the shape, not of the count. A graph models
-	// fan-out; a loop re-runs the same tasks and must not be split across
-	// workers, because the second iteration depends on the first.
 	out.Concurrent = out.Shape == "graph" && out.EdgesDeclared && countRunnable(out.Ready) > 1
 	return out
 }
 
-// countRunnable counts ready tasks a worker could take. A gate is the owner's
-// and an adversarial review wants fresh context, so neither is fan-out work.
 func countRunnable(ready []Task) int {
 	n := 0
 	for _, t := range ready {
@@ -159,7 +133,6 @@ func anyPending(p ir.Phase) bool {
 	return false
 }
 
-// phaseOrder sorts phases numerically so 10 follows 9 rather than 1.
 func phaseOrder(number string) int {
 	n, err := strconv.Atoi(strings.TrimSuffix(number, "."))
 	if err != nil {

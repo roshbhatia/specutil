@@ -254,14 +254,13 @@ func runReviewIngest(cmd *cobra.Command, args []string) error {
 		if err := rec.Save(repo, c.Name); err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.ErrOrStderr(), "wrote %s\n", review.RecordPath(repo, c.Name))
+		if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "wrote %s\n", review.RecordPath(repo, c.Name)); err != nil {
+			return err
+		}
 	}
 	return writeOut(cmd, []byte(review.Markdown(review.Build(c, rec))))
 }
 
-// readFeedbackSource reads the feedback document from a file argument, or from
-// stdin when the argument is absent or "-". Reading stdin is what makes a
-// clipboard paste work without a temporary file.
 func readFeedbackSource(cmd *cobra.Command, args []string) ([]byte, error) {
 	if len(args) == 0 || args[0] == "-" {
 		b, err := io.ReadAll(cmd.InOrStdin())
@@ -337,15 +336,12 @@ func runReviewSet(cmd *cobra.Command, args []string) error {
 	if err := rec.Save(repo, c.Name); err != nil {
 		return err
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "wrote %s\n", review.RecordPath(repo, c.Name))
+	if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "wrote %s\n", review.RecordPath(repo, c.Name)); err != nil {
+		return err
+	}
 	return writeOut(cmd, []byte(review.Markdown(review.Build(c, rec))))
 }
 
-// reviewOptions assembles the review facts a renderer needs: each task's drift
-// against the recorded verdict, the reviewer's standing comments, and the
-// verdict itself. An absent or unreadable record is skipped rather than failing
-// the render, for the same reason a missing lockfile is: a visualization must
-// still draw when only some changes have been reviewed.
 func reviewOptions(repo string, changes []*ir.Change) detail.Options {
 	opts := detail.Options{
 		Drift:  detail.DriftByKey{},
@@ -381,10 +377,6 @@ func reviewOptions(repo string, changes []*ir.Change) detail.Options {
 	return opts
 }
 
-// attachDiff collects the working-tree diff for --diff and attaches it to the
-// one change it belongs to. Feedback is recorded per change, so a diff shown
-// against no particular change could not be ingested; naming the change is
-// required rather than guessed, unless there is only one to guess at.
 func attachDiff(cmd *cobra.Command, repo string, changes []*ir.Change, opts *detail.Options) error {
 	on, _ := cmd.Flags().GetBool("diff")
 	if !on {
@@ -423,7 +415,9 @@ func attachDiff(cmd *cobra.Command, repo string, changes []*ir.Change, opts *det
 		return err
 	}
 	if d.Note != "" {
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: no diff collected: %s\n", d.Note)
+		if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "warning: no diff collected: %s\n", d.Note); err != nil {
+			return err
+		}
 	}
 	if opts.Diff == nil {
 		opts.Diff = detail.DiffByChange{}

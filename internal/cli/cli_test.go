@@ -15,7 +15,7 @@ import (
 func examplesDir() string {
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Join(filepath.Dir(file), "..", "..")
-	return filepath.Join(root, "examples", "getting-started")
+	return filepath.Join(root, "internal", "provider", "openspec", "testdata")
 }
 
 func run(args ...string) (stdout, stderr string, err error) {
@@ -80,26 +80,6 @@ func TestRenderUnknownTarget(t *testing.T) {
 	}
 }
 
-func TestPlanLinear(t *testing.T) {
-	out, _, err := run("-C", examplesDir(), "plan", "--target", "linear", "--change", "add-auth-layer")
-	if err != nil {
-		t.Fatalf("plan linear: %v", err)
-	}
-	if !strings.Contains(out, "add-auth-layer") {
-		t.Error("plan output missing change name")
-	}
-}
-
-func TestPlanGitHubIssues(t *testing.T) {
-	out, _, err := run("-C", examplesDir(), "plan", "--target", "github-issues", "--change", "add-auth-layer")
-	if err != nil {
-		t.Fatalf("plan github-issues: %v", err)
-	}
-	if !strings.Contains(out, "add-auth-layer") {
-		t.Error("plan github-issues output missing change name")
-	}
-}
-
 func TestGraphMermaid(t *testing.T) {
 	out, _, err := run("-C", examplesDir(), "graph", "--as", "mermaid")
 	if err != nil {
@@ -117,58 +97,6 @@ func TestGraphDot(t *testing.T) {
 	}
 	if !strings.Contains(out, "digraph") {
 		t.Error("graph dot output missing digraph keyword")
-	}
-}
-
-func TestDiffNoLock(t *testing.T) {
-	_, _, err := run("-C", examplesDir(), "diff", "--target", "linear", "--change", "add-auth-layer")
-	if err != nil {
-		t.Fatalf("diff with no lock: %v", err)
-	}
-}
-
-func TestLockSetGet(t *testing.T) {
-	dir := setupMinimalOpenspec(t, "test-change")
-	_, _, err := run("-C", dir, "lock", "set", "test-id", "ext-123", "--target", "linear", "--change", "test-change")
-	if err != nil {
-		t.Fatalf("lock set: %v", err)
-	}
-
-	out, _, err := run("-C", dir, "lock", "get", "test-id", "--target", "linear", "--change", "test-change")
-	if err != nil {
-		t.Fatalf("lock get: %v", err)
-	}
-	if !strings.Contains(out, "ext-123") {
-		t.Errorf("lock get output missing ext-123, got: %q", out)
-	}
-}
-
-func TestRenderBMAD(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	root := filepath.Join(filepath.Dir(file), "..", "..")
-	dir := filepath.Join(root, "examples", "bmad-project")
-
-	out, _, err := run("-C", dir, "--from", "bmad", "render", "--as", "rfc", "--change", "story-1.1")
-	if err != nil {
-		t.Fatalf("render bmad rfc: %v", err)
-	}
-	if !strings.Contains(out, "Story 1.1") {
-		t.Error("render bmad output missing the reader-facing title")
-	}
-}
-
-func TestRenderPlanMd(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	root := filepath.Join(filepath.Dir(file), "..", "..")
-	dir := filepath.Join(root, "examples", "plan-md")
-
-	// Use -C to set the repo root so the plan provider auto-discovers plan.md.
-	out, _, err := run("-C", dir, "--from", "plan", "render", "--as", "rfc")
-	if err != nil {
-		t.Fatalf("render plan.md rfc: %v", err)
-	}
-	if len(out) == 0 {
-		t.Error("render plan.md produced empty output")
 	}
 }
 
@@ -232,7 +160,7 @@ func TestCheckDetectsPresetFromSchemaAndFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a rubric violation for a change missing Non-goals and a shape")
 	}
-	if !cli.IsCheckFailed(err) {
+	if err.Error() != "check: rubric violated" {
 		t.Fatalf("expected the check sentinel, got %v", err)
 	}
 	for _, want := range []string{"proposal-sections", "phase-marker-required", "check: failed"} {
@@ -247,7 +175,7 @@ func TestCheckJSONOutput(t *testing.T) {
 	writeSchema(t, dir, "spec-driven")
 
 	out, _, err := run("-C", dir, "check", "--as", "json")
-	if err == nil || !cli.IsCheckFailed(err) {
+	if err == nil || err.Error() != "check: rubric violated" {
 		t.Fatalf("expected a rubric violation, got %v", err)
 	}
 	var report struct {
@@ -291,7 +219,7 @@ func TestCheckAcceptsAChangeDirectory(t *testing.T) {
 
 	changeDir := filepath.Join(dir, "openspec", "changes", "rough")
 	out, _, err := run("check", changeDir)
-	if err == nil || !cli.IsCheckFailed(err) {
+	if err == nil || err.Error() != "check: rubric violated" {
 		t.Fatalf("expected a rubric violation, got %v", err)
 	}
 	if !strings.Contains(out, "rough") {
@@ -305,7 +233,7 @@ func TestCheckPathFormMatchesNameForm(t *testing.T) {
 
 	byName, _, err1 := run("-C", dir, "check", "--change", "rough")
 	byPath, _, err2 := run("check", filepath.Join(dir, "openspec", "changes", "rough"))
-	if !cli.IsCheckFailed(err1) || !cli.IsCheckFailed(err2) {
+	if err1 == nil || err2 == nil || err1.Error() != "check: rubric violated" || err2.Error() != "check: rubric violated" {
 		t.Fatalf("both forms should fail the rubric: %v / %v", err1, err2)
 	}
 	if byName != byPath {

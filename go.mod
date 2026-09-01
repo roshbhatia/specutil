@@ -1,9 +1,10 @@
 module github.com/roshbhatia/specutil
 
-go 1.24.0
+go 1.26
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
+	github.com/roshbhatia/go-utils v0.2.0
 	github.com/spf13/cobra v1.10.2
 	github.com/yuin/goldmark v1.8.2
 	gopkg.in/yaml.v3 v3.0.1

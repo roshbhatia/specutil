@@ -5,10 +5,6 @@ import (
 	"strings"
 )
 
-// Markdown renders a status as the brief an agent acts on. It leads with the
-// verdict, then the work the verdict implies, in the order the author should
-// deal with it: removals first (a task the reviewer wants gone should not be
-// started), then comments, then what moved after the review.
 func Markdown(st *Status) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Review: %s\n\n", st.Change)
@@ -99,7 +95,6 @@ func Markdown(st *Status) string {
 	return b.String()
 }
 
-// shortSHA abbreviates a commit for a human reader.
 func shortSHA(s string) string {
 	if len(s) > 12 {
 		return s[:12]
@@ -116,8 +111,6 @@ func writeItem(b *strings.Builder, is ItemStatus) {
 	}
 }
 
-// oneLine flattens a task's text so a multi-line item still renders as one
-// bullet.
 func oneLine(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
