@@ -1,6 +1,9 @@
 package vcs_test
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -119,7 +122,9 @@ func TestParseIsTolerantOfGarbage(t *testing.T) {
 	if files := vcs.Parse(""); len(files) != 0 {
 		t.Errorf("empty input should yield no files, got %+v", files)
 	}
-	if files := vcs.Parse("not a diff at all\njust some text\n"); len(files) != 0 {
+	if files := vcs.Parse(`not a diff at all
+just some text
+`); len(files) != 0 {
 		t.Errorf("non-diff input should yield no files, got %+v", files)
 	}
 }
@@ -134,6 +139,39 @@ func TestCollectOutsideAGitTreeIsNotAnError(t *testing.T) {
 	}
 	if len(d.Files) != 0 {
 		t.Errorf("got %d files, want 0", len(d.Files))
+	}
+}
+
+func TestCollectIgnoresInheritedGitRouting(t *testing.T) {
+	repo := t.TempDir()
+	runGit := func(args ...string) {
+		t.Helper()
+		command := exec.Command("git", append([]string{"-C", repo}, args...)...)
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v: %s", args, err, output)
+		}
+	}
+	runGit("init", "-q")
+	runGit("config", "user.email", "test@example.com")
+	runGit("config", "user.name", "Test")
+	path := filepath.Join(repo, "file.txt")
+	if err := os.WriteFile(path, []byte("before\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit("add", "file.txt")
+	runGit("commit", "-qm", "initial")
+	if err := os.WriteFile(path, []byte("after\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("GIT_DIR", filepath.Join(t.TempDir(), "missing.git"))
+	t.Setenv("GIT_WORK_TREE", t.TempDir())
+	diff, err := vcs.Collect(repo, "", nil)
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if len(diff.Files) != 1 || diff.Files[0].Path != "file.txt" {
+		t.Fatalf("collect followed inherited Git routing: %+v", diff.Files)
 	}
 }
 

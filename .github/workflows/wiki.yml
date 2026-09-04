@@ -61,17 +61,18 @@ jobs:
           # Replace relative asset paths with raw GitHub URLs so the wiki can render them
           awk '/^## /{found=1} !found{print}' README.md \
             | sed 's|src="assets/|src="https://raw.githubusercontent.com/${{ github.repository }}/main/assets/|g' \
+            | sed 's|(docs/|(https://raw.githubusercontent.com/${{ github.repository }}/main/docs/|g' \
             > wiki/Home.md
           printf '\n---\n> This wiki is auto-generated. Edit source files in the repo, not here.\n\n**Pages**\n- [[Installation]]\n- [[Providers]]\n- [[CLI-Reference]]\n- [[Examples]]\n- [[Skills]]\n- [[Contributing]]\n' >> wiki/Home.md
 
           # Installation
-          awk '/^## Installation/,/^## [^I]/' README.md | head -n -1 > wiki/Installation.md
+          awk '/^## Install$/{found=1} found && /^## Configuration$/{exit} found{print}' README.md > wiki/Installation.md
 
           # Providers
           {
             echo "# Providers"
             echo ""
-            awk '/^## Quickstart/,/^## Commands/' README.md | head -n -1
+            awk '/^## Optional integrations/{found=1; next} found && /^## /{exit} found{print}' README.md
           } > wiki/Providers.md
 
           # CLI Reference — generated from binary --help output
@@ -82,22 +83,23 @@ jobs:
             echo ""
             echo "## specutil"
             echo '```'
-            "$BIN" --help 2>&1 || true
+            "$BIN" --help 2>&1
             echo '```'
             echo ""
-            for verb in render plan diff lock graph web; do
+            for verb in render graph check next review provider web completion; do
               echo "## specutil $verb"
               echo '```'
-              "$BIN" "$verb" --help 2>&1 || true
+              "$BIN" "$verb" --help 2>&1
               echo '```'
               echo ""
             done
-            echo "## specutil lock get / set"
-            echo '```'
-            "$BIN" lock get --help 2>&1 || true
-            echo ""
-            "$BIN" lock set --help 2>&1 || true
-            echo '```'
+            for verb in diff show ingest set; do
+              echo "## specutil review $verb"
+              echo '```'
+              "$BIN" review "$verb" --help 2>&1
+              echo '```'
+              echo ""
+            done
           } > wiki/"CLI-Reference.md"
 
           # Examples — collate all examples/*/README.md

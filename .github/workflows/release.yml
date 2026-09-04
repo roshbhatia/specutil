@@ -22,11 +22,15 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Verify tag matches the Nix package
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: grep -F "version = \"${RELEASE_VERSION#v}\";" flake.nix
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Uncomment once roshbhatia/homebrew-tap exists and the secret is set:
-          # HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

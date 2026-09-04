@@ -17,13 +17,45 @@ func good() *ir.Change {
 	return &ir.Change{
 		Name: "demo",
 		Proposal: &ir.Proposal{
-			Section: ir.Section{Raw: "## Why\n\nA reason.\n\n## What Changes\n\n- Do the thing\n\n### Non-goals\n\n- Not this\n\n## Behavior\n\nMust do:\n\n- The thing happens, decided by `run it`\n"},
+			Section: ir.Section{Raw: `## Why
+
+A reason.
+
+## What Changes
+
+- Do the thing
+
+### Non-goals
+
+- Not this
+
+## Behavior
+
+Must do:
+
+- The thing happens, decided by ` + "`run it`" + `
+`},
 		},
 		Design: &ir.Design{
-			Section: ir.Section{Raw: "## Decisions\n\n- Decision: use X\n  - Alternative rejected: Y\n\n## Rollout & Gating\n\nBuild, then switch.\n\n## Adversarial Review\n\nPer the skill.\n"},
+			Section: ir.Section{Raw: `## Decisions
+
+- Decision: use X
+  - Alternative rejected: Y
+
+## Rollout & Gating
+
+Build, then switch.
+
+## Adversarial Review
+
+Per the skill.
+`},
 		},
 		Specs: []*ir.Spec{{
-			Section:    ir.Section{Raw: "## ADDED Requirements\n\n### Requirement: It works\n"},
+			Section: ir.Section{Raw: `## ADDED Requirements
+
+### Requirement: It works
+`},
 			Capability: "cap",
 			Requirements: []ir.Requirement{{
 				Name:  "It works",
@@ -35,7 +67,11 @@ func good() *ir.Change {
 			}},
 		}},
 		Tasks: &ir.Tasks{
-			Section: ir.Section{Raw: "## 1. Build\n\n- [ ] 1.1 Do it\n- [ ] 1.2 Adversarial review\n"},
+			Section: ir.Section{Raw: `## 1. Build
+
+- [ ] 1.1 Do it
+- [ ] 1.2 Adversarial review
+`},
 			Phases: []ir.Phase{
 				{
 					Number: "1", Name: "Build",
@@ -104,7 +140,10 @@ func TestPresetPassesAWellFormedChange(t *testing.T) {
 
 func TestMissingNonGoalsFails(t *testing.T) {
 	c := good()
-	c.Proposal.Raw = strings.Replace(c.Proposal.Raw, "### Non-goals\n\n- Not this\n", "", 1)
+	c.Proposal.Raw = strings.Replace(c.Proposal.Raw, `### Non-goals
+
+- Not this
+`, "", 1)
 	if !firedRules(roshRun(t, c))["proposal-sections"] {
 		t.Error("expected proposal-sections to fire")
 	}
@@ -129,10 +168,21 @@ func TestDecisionWithoutRejectedAlternativeFails(t *testing.T) {
 // Two alternatives under one decision must not cover a bare decision elsewhere.
 func TestPairedBulletCountsPerBlockNotInAggregate(t *testing.T) {
 	c := good()
-	c.Design.Raw = "## Decisions\n\n" +
-		"- Decision: A\n  - Alternative rejected: a1\n  - Alternative rejected: a2\n" +
-		"- Decision: B\n" +
-		"\n## Rollout & Gating\n\nx\n\n## Adversarial Review\n\ny\n"
+	c.Design.Raw = `## Decisions
+
+- Decision: A
+  - Alternative rejected: a1
+  - Alternative rejected: a2
+- Decision: B
+
+## Rollout & Gating
+
+x
+
+## Adversarial Review
+
+y
+`
 	if !firedRules(roshRun(t, c))["paired-bullet"] {
 		t.Error("a bare second decision must fail even when the first has two alternatives")
 	}
@@ -360,8 +410,13 @@ func TestEmDashFails(t *testing.T) {
 
 func TestEmDashInCodePasses(t *testing.T) {
 	cases := map[string]string{
-		"inline span":  "A reason. Captured: `finished its turn — sysinit`.",
-		"fenced block": "A reason.\n\n```\nfinished its turn — sysinit\n```\n",
+		"inline span": "A reason. Captured: `finished its turn — sysinit`.",
+		"fenced block": `A reason.
+
+` + "```" + `
+finished its turn — sysinit
+` + "```" + `
+`,
 	}
 	for name, replacement := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -384,9 +439,19 @@ func TestBoldedBulletLeadFails(t *testing.T) {
 
 func TestAllowedBoldedBulletLeadsPass(t *testing.T) {
 	c := good()
-	c.Specs[0].Raw = "### Requirement: x\n\n#### Scenario: y\n" +
-		"- **POLARITY** negative\n- **WHEN** a thing\n- **THEN** another\n"
-	c.Tasks.Raw = "## 1. Build\n\n- **SHAPE** loop\n- **STOP** green\n- **MAX-ITERS** 3\n"
+	c.Specs[0].Raw = `### Requirement: x
+
+#### Scenario: y
+- **POLARITY** negative
+- **WHEN** a thing
+- **THEN** another
+`
+	c.Tasks.Raw = `## 1. Build
+
+- **SHAPE** loop
+- **STOP** green
+- **MAX-ITERS** 3
+`
 	if !roshRun(t, c).OK() {
 		t.Errorf("the format keywords must be allowed as bolded leads: %+v", roshRun(t, c).Findings)
 	}
@@ -474,7 +539,9 @@ func TestEmptyConfigChecksNothing(t *testing.T) {
 
 func TestReportOrderIsStable(t *testing.T) {
 	c := good()
-	c.Proposal.Raw = "- **A** x\n- **B** y\n"
+	c.Proposal.Raw = `- **A** x
+- **B** y
+`
 	c.Design.Raw = ""
 	first, err := Run(Config{Preset: "spec-driven"}, []*ir.Change{c})
 	if err != nil {
@@ -523,7 +590,10 @@ func TestChangeWithNoArtifactsFails(t *testing.T) {
 // One artifact is a legitimately minimal change, not an empty directory.
 func TestChangeWithOnlyOneArtifactIsChecked(t *testing.T) {
 	c := &ir.Change{Name: "minimal", Proposal: &ir.Proposal{
-		Section: ir.Section{Raw: "## Why\n\nA reason.\n"},
+		Section: ir.Section{Raw: `## Why
+
+A reason.
+`},
 	}}
 	rep, err := Run(Config{Preset: "spec-driven"}, []*ir.Change{c})
 	if err != nil {

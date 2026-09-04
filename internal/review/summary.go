@@ -1,98 +1,95 @@
 package review
 
 import (
-	"fmt"
+	"bytes"
 	"strings"
+	"text/template"
 )
 
+var markdownTemplate = template.Must(template.New("review-markdown").Funcs(template.FuncMap{
+	"hunkLocation": func(h HunkStatus) string {
+		if h.Header == "" {
+			return h.File
+		}
+		return h.File + " " + oneLine(h.Header)
+	},
+	"lines": func(value string) []string {
+		lines := strings.Split(strings.TrimSpace(value), "\n")
+		for index := range lines {
+			lines[index] = strings.TrimSpace(lines[index])
+		}
+		return lines
+	},
+	"oneLine":  oneLine,
+	"shortSHA": shortSHA,
+}).Parse(`{{define "item"}}- [{{.Phase}}] {{oneLine .Text}}
+{{if .Comment}}{{range lines .Comment}}  > {{.}}
+{{end}}{{end}}{{end}}# Review: {{.Status.Change}}
+
+{{if not .Status.Reviewed}}Decision: none recorded. This change has not been reviewed.
+{{else}}Decision: {{.Status.Decision}}
+{{if .Status.Stale}}Status: stale. The artifacts changed after this decision (reviewed {{.Status.ReviewHash}}, now {{.Status.ChangeHash}}).
+{{else}}Status: current. The artifacts match what was reviewed.
+{{end}}{{if .Status.Note}}
+## Note
+
+{{.Status.Note}}
+{{end}}{{if .ChangeComment}}
+## Change comment
+
+{{.ChangeComment}}
+{{end}}{{if .Status.Dropped}}
+## Requested removals
+
+{{range .Status.Dropped}}{{template "item" .}}{{end}}{{end}}{{if .Comments}}
+## Comments
+
+{{range .Comments}}{{template "item" .}}{{end}}{{end}}{{if .Status.Hunks}}
+## Code comments
+
+{{range .Status.Hunks}}- {{hunkLocation .}}
+{{range lines .Comment}}  > {{.}}
+{{end}}{{end}}{{end}}{{if .Moved}}
+## Changed since review
+
+{{range .Moved}}- [{{.Phase}}] {{oneLine .Text}} ({{.Drift}})
+{{end}}{{end}}{{if .Status.BaseCommit}}
+Code reviewed from {{shortSHA .Status.BaseCommit}}. Run ` + "`specutil review diff {{.Status.Change}}`" + ` for what moved since.
+{{end}}{{if .NoOpen}}
+No open comments and no drift since the review.
+{{end}}{{end}}`))
+
+type markdownData struct {
+	Status        *Status
+	ChangeComment string
+	Comments      []ItemStatus
+	Moved         []ItemStatus
+	NoOpen        bool
+}
+
 func Markdown(st *Status) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "# Review: %s\n\n", st.Change)
-
-	if !st.Reviewed {
-		b.WriteString("Decision: none recorded. This change has not been reviewed.\n")
-		return b.String()
-	}
-
-	fmt.Fprintf(&b, "Decision: %s\n", st.Decision)
-	if st.Stale {
-		fmt.Fprintf(&b, "Status: stale. The artifacts changed after this decision (reviewed %s, now %s).\n",
-			st.ReviewHash, st.ChangeHash)
-	} else {
-		b.WriteString("Status: current. The artifacts match what was reviewed.\n")
-	}
-
-	if st.Note != "" {
-		b.WriteString("\n## Note\n\n")
-		b.WriteString(st.Note)
-		b.WriteString("\n")
-	}
-
-	for _, a := range st.Annotations {
-		if a.Scope == ScopeChange && strings.TrimSpace(a.Comment) != "" {
-			b.WriteString("\n## Change comment\n\n")
-			b.WriteString(a.Comment)
-			b.WriteString("\n")
+	data := markdownData{Status: st}
+	for _, annotation := range st.Annotations {
+		if annotation.Scope == ScopeChange && strings.TrimSpace(annotation.Comment) != "" {
+			data.ChangeComment = annotation.Comment
 			break
 		}
 	}
-
-	if len(st.Dropped) > 0 {
-		b.WriteString("\n## Requested removals\n\n")
-		for _, is := range st.Dropped {
-			writeItem(&b, is)
+	for _, item := range st.Items {
+		if item.Comment != "" && item.Action != ActionDrop {
+			data.Comments = append(data.Comments, item)
+		}
+		if item.Drift == DriftNew || item.Drift == DriftChanged {
+			data.Moved = append(data.Moved, item)
 		}
 	}
+	data.NoOpen = len(st.Dropped) == 0 && len(data.Comments) == 0 && len(data.Moved) == 0 && len(st.Hunks) == 0
 
-	var comments []ItemStatus
-	for _, is := range st.Items {
-		if is.Comment != "" && is.Action != ActionDrop {
-			comments = append(comments, is)
-		}
+	var rendered bytes.Buffer
+	if err := markdownTemplate.Execute(&rendered, data); err != nil {
+		panic(err)
 	}
-	if len(comments) > 0 {
-		b.WriteString("\n## Comments\n\n")
-		for _, is := range comments {
-			writeItem(&b, is)
-		}
-	}
-
-	if len(st.Hunks) > 0 {
-		b.WriteString("\n## Code comments\n\n")
-		for _, h := range st.Hunks {
-			loc := h.File
-			if h.Header != "" {
-				loc += " " + oneLine(h.Header)
-			}
-			fmt.Fprintf(&b, "- %s\n", loc)
-			for _, line := range strings.Split(strings.TrimSpace(h.Comment), "\n") {
-				fmt.Fprintf(&b, "  > %s\n", strings.TrimSpace(line))
-			}
-		}
-	}
-
-	var moved []ItemStatus
-	for _, is := range st.Items {
-		if is.Drift == DriftNew || is.Drift == DriftChanged {
-			moved = append(moved, is)
-		}
-	}
-	if len(moved) > 0 {
-		b.WriteString("\n## Changed since review\n\n")
-		for _, is := range moved {
-			fmt.Fprintf(&b, "- [%s] %s (%s)\n", is.Phase, oneLine(is.Text), is.Drift)
-		}
-	}
-
-	if st.BaseCommit != "" {
-		fmt.Fprintf(&b, "\nCode reviewed from %s. Run `specutil review diff %s` for what moved since.\n",
-			shortSHA(st.BaseCommit), st.Change)
-	}
-
-	if len(st.Dropped) == 0 && len(comments) == 0 && len(moved) == 0 && len(st.Hunks) == 0 {
-		b.WriteString("\nNo open comments and no drift since the review.\n")
-	}
-	return b.String()
+	return rendered.String()
 }
 
 func shortSHA(s string) string {
@@ -100,15 +97,6 @@ func shortSHA(s string) string {
 		return s[:12]
 	}
 	return s
-}
-
-func writeItem(b *strings.Builder, is ItemStatus) {
-	fmt.Fprintf(b, "- [%s] %s\n", is.Phase, oneLine(is.Text))
-	if is.Comment != "" {
-		for _, line := range strings.Split(strings.TrimSpace(is.Comment), "\n") {
-			fmt.Fprintf(b, "  > %s\n", strings.TrimSpace(line))
-		}
-	}
 }
 
 func oneLine(s string) string {

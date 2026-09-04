@@ -1,8 +1,10 @@
 package render
 
 import (
+	"bytes"
 	"sort"
 	"strings"
+	"text/template"
 
 	"github.com/roshbhatia/specutil/internal/export"
 	"github.com/roshbhatia/specutil/internal/ir"
@@ -43,7 +45,6 @@ var mappings = map[string]Mapping{
 		},
 	},
 	"tickets": {
-
 		Fields: []Field{
 			{"summary", proposalWhy},
 		},
@@ -123,67 +124,85 @@ func designOpenQuestions(c *ir.Change) string {
 }
 
 func guideLevel(c *ir.Change) string {
-	var b strings.Builder
+	data := struct {
+		Capabilities []ir.Capability
+		Context      string
+	}{}
 	if c.Proposal != nil {
-		caps := append(append([]ir.Capability{}, c.Proposal.Capabilities.New...), c.Proposal.Capabilities.Modified...)
-		for _, cap := range caps {
-			b.WriteString("- **")
-			b.WriteString(cap.Name)
-			b.WriteString("**")
-			if cap.Description != "" {
-				b.WriteString(" — ")
-				b.WriteString(cap.Description)
-			}
-			b.WriteString("\n")
-		}
+		data.Capabilities = append(append([]ir.Capability{}, c.Proposal.Capabilities.New...), c.Proposal.Capabilities.Modified...)
 	}
 	if c.Design != nil && c.Design.Context != "" {
-		if b.Len() > 0 {
-			b.WriteString("\n")
-		}
-		b.WriteString(c.Design.Context)
+		data.Context = c.Design.Context
 	}
-	return strings.TrimRight(b.String(), "\n")
+	var rendered bytes.Buffer
+	if err := guideTemplate.Execute(&rendered, data); err != nil {
+		panic(err)
+	}
+	return strings.TrimRight(rendered.String(), "\n")
 }
+
+var guideTemplate = template.Must(template.New("guide").Parse(`{{range .Capabilities}}- **{{.Name}}**{{if .Description}} — {{.Description}}{{end}}
+{{end}}{{if and .Capabilities .Context}}
+{{end}}{{.Context}}`))
+
+type specStep struct {
+	Keyword string
+	Text    string
+}
+
+type specCriterion struct {
+	Name  string
+	Steps []specStep
+}
+
+type specGroup struct {
+	Requirement string
+	Text        string
+	Criteria    []specCriterion
+}
+
+var specsTemplate = template.Must(template.New("specs").Parse(`{{range .}}#### {{.Requirement}}
+
+{{if .Text}}{{.Text}}
+
+{{end}}{{range .Criteria}}- **{{.Name}}**
+{{range .Steps}}  - {{if .Keyword}}{{.Keyword}} {{end}}{{.Text}}
+{{end}}{{end}}
+{{end}}`))
 
 func specsMarkdown(c *ir.Change) string {
 	specs := append([]*ir.Spec{}, c.Specs...)
 	sort.SliceStable(specs, func(i, j int) bool { return specs[i].Capability < specs[j].Capability })
 	sorted := &ir.Change{Name: c.Name, Specs: specs}
 
-	var b strings.Builder
+	var groups []specGroup
 	for _, group := range export.BuildChange(sorted).CriteriaByRequirement() {
-		b.WriteString("#### ")
-		b.WriteString(group.Requirement)
-		b.WriteString("\n\n")
-		if text := requirementText(specs, group.Requirement); text != "" {
-			b.WriteString(text)
-			b.WriteString("\n\n")
+		view := specGroup{
+			Requirement: group.Requirement,
+			Text:        requirementText(specs, group.Requirement),
 		}
 		for _, cr := range group.Criteria {
-			b.WriteString("- **")
-			b.WriteString(cr.Name)
-			b.WriteString("**\n")
-			writeSteps(&b, "Given", cr.Given)
-			writeSteps(&b, "When", cr.When)
-			writeSteps(&b, "Then", cr.Then)
-			writeSteps(&b, "", cr.Steps)
+			criterion := specCriterion{Name: cr.Name}
+			criterion.Steps = appendSteps(criterion.Steps, "Given", cr.Given)
+			criterion.Steps = appendSteps(criterion.Steps, "When", cr.When)
+			criterion.Steps = appendSteps(criterion.Steps, "Then", cr.Then)
+			criterion.Steps = appendSteps(criterion.Steps, "", cr.Steps)
+			view.Criteria = append(view.Criteria, criterion)
 		}
-		b.WriteString("\n")
+		groups = append(groups, view)
 	}
-	return strings.TrimRight(b.String(), "\n")
+	var rendered bytes.Buffer
+	if err := specsTemplate.Execute(&rendered, groups); err != nil {
+		panic(err)
+	}
+	return strings.TrimRight(rendered.String(), "\n")
 }
 
-func writeSteps(b *strings.Builder, keyword string, steps []string) {
-	for _, s := range steps {
-		b.WriteString("  - ")
-		if keyword != "" {
-			b.WriteString(keyword)
-			b.WriteString(" ")
-		}
-		b.WriteString(s)
-		b.WriteString("\n")
+func appendSteps(target []specStep, keyword string, steps []string) []specStep {
+	for _, text := range steps {
+		target = append(target, specStep{Keyword: keyword, Text: text})
 	}
+	return target
 }
 
 func requirementText(specs []*ir.Spec, want string) string {

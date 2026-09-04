@@ -16,11 +16,15 @@ func change(name string, tasks ...string) *ir.Change {
 		items = append(items, ir.TaskItem{Text: t, Kind: ir.KindPlain})
 	}
 	return &ir.Change{
-		Name:     name,
-		Proposal: &ir.Proposal{Why: "because", Section: ir.Section{Raw: "## Why\n\nbecause\n"}},
+		Name: name,
+		Proposal: &ir.Proposal{Why: "because", Section: ir.Section{Raw: `## Why
+
+because
+`}},
 		Tasks: &ir.Tasks{
-			Section: ir.Section{Raw: "## 1. Build\n"},
-			Phases:  []ir.Phase{{Number: "1", Name: "Build", Items: items}},
+			Section: ir.Section{Raw: `## 1. Build
+`},
+			Phases: []ir.Phase{{Number: "1", Name: "Build", Items: items}},
 		},
 	}
 }
@@ -36,7 +40,10 @@ func TestChangeHashIsStableAndSensitive(t *testing.T) {
 	if review.ChangeHash(a) != review.ChangeHash(b) {
 		t.Fatal("identical changes must hash identically")
 	}
-	b.Proposal.Section.Raw = "## Why\n\nbecause of something else\n"
+	b.Proposal.Section.Raw = `## Why
+
+because of something else
+`
 	if review.ChangeHash(a) == review.ChangeHash(b) {
 		t.Fatal("an edited proposal must change the hash")
 	}
@@ -54,7 +61,9 @@ func TestChangeHashIgnoresTaskProgressAndEvidence(t *testing.T) {
 	}
 
 	noted := change("c", "do the thing")
-	noted.Tasks.Raw += "\n      Evidence: it builds.\n"
+	noted.Tasks.Raw += `
+      Evidence: it builds.
+`
 	if review.ChangeHash(noted) != base {
 		t.Error("appending evidence under a task must not change the hash")
 	}
@@ -117,7 +126,9 @@ func TestFinishingTasksLeavesTheDecisionCurrent(t *testing.T) {
 		Schema: review.Schema, Change: "c", Decision: review.DecisionApproved,
 	})
 	c.Tasks.Phases[0].Items[0].Done = true
-	c.Tasks.Raw += "\n      Evidence: verified against the built binary.\n"
+	c.Tasks.Raw += `
+      Evidence: verified against the built binary.
+`
 	st := review.Build(c, rec)
 	if st.Stale {
 		t.Fatal("finishing a task and recording evidence must not report stale")

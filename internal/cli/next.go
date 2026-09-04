@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"text/template"
 
 	"github.com/roshbhatia/specutil/internal/lifecycle"
 	"github.com/spf13/cobra"
@@ -13,24 +15,29 @@ func newNextCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "next [change]",
 		Short: "Report which subtasks are runnable now",
-		Long: "Answers one question: what runs now.\n\n" +
-			"A tasks.md declares a shape, a dependency edge per subtask, and a stop\n" +
-			"condition. Without a consumer those declarations are documentation, and the\n" +
-			"work gets done top to bottom whatever the graph says. This reads them.\n\n" +
-			"Readiness never crosses a phase, because a phase is a boundary between runs.\n" +
-			"The reported phase is the lowest-numbered one still holding pending work; the\n" +
-			"ready set is every pending subtask in it whose dependencies are complete.\n\n" +
-			"A graph phase with more than one runnable subtask reports concurrent, so the\n" +
-			"caller can fan out. A loop phase does not: its next iteration reads the state\n" +
-			"the current one writes. Owner gates and adversarial reviews are never counted\n" +
-			"as fan-out work.\n\n" +
-			"Exit codes:\n" +
-			"  0  a ready set was reported, or every task is complete\n" +
-			"  2  work remains but nothing is runnable, which means a dependency cycle\n\n" +
-			"Typical invocations:\n" +
-			"  specutil next                      # the active change\n" +
-			"  specutil next my-change            # one change\n" +
-			"  specutil next --as json | jq       # drive a runner from the ready set",
+		Long: `Answers one question: what runs now.
+
+A tasks.md declares a shape, a dependency edge per subtask, and a stop
+condition. Without a consumer those declarations are documentation, and the
+work gets done top to bottom whatever the graph says. This reads them.
+
+Readiness never crosses a phase, because a phase is a boundary between runs.
+The reported phase is the lowest-numbered one still holding pending work; the
+ready set is every pending subtask in it whose dependencies are complete.
+
+A graph phase with more than one runnable subtask reports concurrent, so the
+caller can fan out. A loop phase does not: its next iteration reads the state
+the current one writes. Owner gates and adversarial reviews are never counted
+as fan-out work.
+
+Exit codes:
+  0  a ready set was reported, or every task is complete
+  2  work remains but nothing is runnable, which means a dependency cycle
+
+Typical invocations:
+  specutil next                      # the active change
+  specutil next my-change            # one change
+  specutil next --as json | jq       # drive a runner from the ready set`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: runNext,
 	}
@@ -79,45 +86,41 @@ func IsDependencyCycle(err error) bool {
 	return ok
 }
 
-func renderNext(n lifecycle.Next) string {
-	var b strings.Builder
-	if n.Done {
-		fmt.Fprintf(&b, "%s: every task is complete\n", n.Change)
-		return b.String()
-	}
+var nextTemplate = template.Must(template.New("next").Funcs(template.FuncMap{
+	"firstWords": firstWords,
+	"join":       strings.Join,
+	"label":      label,
+}).Parse(`{{if .Next.Done}}{{.Next.Change}}: every task is complete
+{{else}}{{.Next.Change}}
+phase {{.Next.Phase}}. {{.Next.PhaseName}} ({{.Shape}})
+{{if .Next.Stop}}
+stop: {{.Next.Stop}}
+{{end}}
+ready ({{len .Next.Ready}}){{if .Next.Concurrent}}, runnable concurrently{{else if .OrderUnstated}}, order unstated: the phase declares no ` + "`deps:`" + `, so run them in listed order{{end}}:
+{{if .Next.Ready}}{{range .Next.Ready}}{{printf "  %-6s %-8s %s\n" .ID (label .) (firstWords .Text 14)}}{{end}}{{else}}  none
+{{end}}{{if .Next.Blocked}}
+blocked ({{len .Next.Blocked}}):
+{{range .Next.Blocked}}{{printf "  %-6s waits on %s\n" .ID (join .WaitsOn ", ")}}{{end}}{{end}}{{end}}`))
 
+func renderNext(n lifecycle.Next) string {
 	shape := n.Shape
 	if shape == "" {
 		shape = "no shape declared"
 	}
-	fmt.Fprintf(&b, "%s\nphase %s. %s (%s)\n", n.Change, n.Phase, n.PhaseName, shape)
-
-	if n.Stop != "" {
-		fmt.Fprintf(&b, "\nstop: %s\n", n.Stop)
+	data := struct {
+		Next          lifecycle.Next
+		Shape         string
+		OrderUnstated bool
+	}{
+		Next:          n,
+		Shape:         shape,
+		OrderUnstated: n.Shape == "graph" && !n.EdgesDeclared && len(n.Ready) > 1,
 	}
-
-	fmt.Fprintf(&b, "\nready (%d)", len(n.Ready))
-	switch {
-	case n.Concurrent:
-		fmt.Fprint(&b, ", runnable concurrently")
-	case n.Shape == "graph" && !n.EdgesDeclared && len(n.Ready) > 1:
-		fmt.Fprint(&b, ", order unstated: the phase declares no `deps:`, so run them in listed order")
+	var rendered bytes.Buffer
+	if err := nextTemplate.Execute(&rendered, data); err != nil {
+		panic(err)
 	}
-	fmt.Fprint(&b, ":\n")
-	for _, t := range n.Ready {
-		fmt.Fprintf(&b, "  %-6s %-8s %s%s\n", t.ID, label(t), firstWords(t.Text, 14), "")
-	}
-	if len(n.Ready) == 0 {
-		fmt.Fprint(&b, "  none\n")
-	}
-
-	if len(n.Blocked) > 0 {
-		fmt.Fprintf(&b, "\nblocked (%d):\n", len(n.Blocked))
-		for _, t := range n.Blocked {
-			fmt.Fprintf(&b, "  %-6s waits on %s\n", t.ID, strings.Join(t.WaitsOn, ", "))
-		}
-	}
-	return b.String()
+	return rendered.String()
 }
 
 func label(t lifecycle.Task) string {

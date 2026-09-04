@@ -11,7 +11,8 @@ func wordsChange(text string) *ir.Change {
 	return &ir.Change{
 		Name: "c",
 		Tasks: &ir.Tasks{
-			Section: ir.Section{Raw: "## 1. Build\n"},
+			Section: ir.Section{Raw: `## 1. Build
+`},
 			Phases: []ir.Phase{{
 				Number: "1", Name: "Build",
 				Items: []ir.TaskItem{{ID: "1.1", Text: text}},

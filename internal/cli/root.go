@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"bytes"
 	"crypto/rand"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -11,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"text/template"
 
 	"github.com/roshbhatia/specutil/internal/check"
 	"github.com/roshbhatia/specutil/internal/detail"
@@ -47,7 +50,13 @@ func NewRootCmd(version ...string) *cobra.Command {
 		newNextCmd(),
 		newReviewCmd(),
 		newWebCmd(),
+		newProviderCmd(),
+		newConfigCmd(),
+		newCompletionCmd(root),
+		newGenerateCmd(root),
+		newValuesCmd(),
 	)
+	root.CompletionOptions.DisableDefaultCmd = true
 	return root
 }
 
@@ -55,17 +64,20 @@ func newRenderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "render [change]",
 		Short: "Render a change into a shareable document (rfc|design|tickets)",
-		Long: "Projects an OpenSpec change into a human-readable document for sharing with\n" +
-			"stakeholders. Three output formats are supported:\n\n" +
-			"  rfc      — RFC-style proposal doc (Why, What Changes, Requirements)\n" +
-			"  design   — Technical design doc (Context, Goals, Decisions, Rollout)\n" +
-			"  tickets  — Flat task checklist suitable for copy-paste into a tracker\n\n" +
-			"Output goes to stdout by default; use -o to write a file. Combine with\n" +
-			"git hooks or CI to auto-generate docs on change commits, or run manually\n" +
-			"when preparing a design review or sprint planning session.\n\n" +
-			"Typical invocations:\n" +
-			"  specutil render --as rfc --change my-change\n" +
-			"  specutil render --as tickets -o tickets.md",
+		Long: `Projects an OpenSpec change into a human-readable document for sharing with
+stakeholders. Three output formats are supported:
+
+  rfc      — RFC-style proposal doc (Why, What Changes, Requirements)
+  design   — Technical design doc (Context, Goals, Decisions, Rollout)
+  tickets  — Flat task checklist suitable for copy-paste into a tracker
+
+Output goes to stdout by default; use -o to write a file. Combine with
+git hooks or CI to auto-generate docs on change commits, or run manually
+when preparing a design review or sprint planning session.
+
+Typical invocations:
+  specutil render --as rfc --change my-change
+  specutil render --as tickets -o tickets.md`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: runRender,
 	}
@@ -153,28 +165,32 @@ func newGraphCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "graph",
 		Short: "Output the cross-change dependency graph in various formats",
-		Long: "Projects the cross-change dependency DAG into a machine-readable format for\n" +
-			"integration with external tools. Primarily used by the skills and CI scripts;\n" +
-			"for interactive browsing use `specutil web` instead.\n\n" +
-			"Output formats:\n" +
-			"  json     — Full graph model (nodes + edges) as JSON [default]\n" +
-			"  mermaid  — Mermaid graph definition for embedding in docs or GitHub\n" +
-			"  dot      — Graphviz DOT format for rendering with graphviz tools\n" +
-			"  detail   — Per-change ticket detail feed (same as DETAIL in web view)\n\n" +
-			"The --suggest flag infers candidate edges from shared capabilities without\n" +
-			"writing anything. Pair with --harness to use an AI model (claude, gemini,\n" +
-			"codex, pi, or any binary on PATH) for deeper semantic analysis.\n\n" +
-			"Typical invocations:\n" +
-			"  specutil graph --as mermaid                      # insert into a doc or README\n" +
-			"  specutil graph --suggest                         # discover implied edges\n" +
-			"  specutil graph --suggest --harness claude        # AI-powered discovery\n" +
-			"  specutil graph --as json | jq                    # pipe to other tools",
+		Long: `Projects the cross-change dependency DAG into a machine-readable format for
+integration with external tools. Primarily used by the skills and CI scripts;
+for interactive browsing use ` + "`specutil web`" + ` instead.
+
+Output formats:
+  json     — Full graph model (nodes + edges) as JSON [default]
+  mermaid  — Mermaid graph definition for embedding in docs or GitHub
+  dot      — Graphviz DOT format for rendering with graphviz tools
+  detail   — Per-change ticket detail feed (same as DETAIL in web view)
+
+The --suggest flag infers candidate edges from shared capabilities without
+writing anything. Pair it with an installed suggestion provider for deeper
+semantic analysis. The optional command provider can run any configured agent.
+
+Typical invocations:
+  specutil graph --as mermaid                      # insert into a doc or README
+  specutil graph --suggest                         # discover implied edges
+  specutil graph --suggest --provider command --command my-agent
+  specutil graph --as json | jq                    # pipe to other tools`,
 		Args: cobra.NoArgs,
 		RunE: runGraph,
 	}
 	cmd.Flags().String("as", "json", "output format: json|mermaid|dot|detail")
 	cmd.Flags().Bool("suggest", false, "infer candidate edges from shared capabilities (read-only)")
-	cmd.Flags().String("harness", "", "AI harness for --suggest: claude|gemini|codex|pi|<binary> (default: heuristic only)")
+	cmd.Flags().String("provider", "", "external suggestion provider (default: heuristic only)")
+	cmd.Flags().String("command", "", "executable passed to the optional command provider")
 	cmd.Flags().StringP("out", "o", "", "write output to a file instead of stdout")
 	return cmd
 }
@@ -190,16 +206,20 @@ func runGraph(cmd *cobra.Command, args []string) error {
 	}
 
 	if suggest, _ := cmd.Flags().GetBool("suggest"); suggest {
-		harness, _ := cmd.Flags().GetString("harness")
+		provider, _ := cmd.Flags().GetString("provider")
+		command, _ := cmd.Flags().GetString("command")
 		var cands []graph.Candidate
-		if harness != "" {
-			if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "running %s harness for dependency suggestions...\n", harness); err != nil {
+		if provider != "" || command != "" {
+			if provider == "" {
+				provider = "command"
+			}
+			if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "running %s suggestion provider...\n", provider); err != nil {
 				return err
 			}
 			var herr error
-			cands, herr = graph.HarnessSuggest(changes, harness)
+			cands, herr = graph.ProviderSuggest(cmd.Context(), changes, provider, command, repo)
 			if herr != nil {
-				return fmt.Errorf("harness suggest: %w", herr)
+				return fmt.Errorf("provider suggest: %w", herr)
 			}
 		} else {
 			cands = graph.Suggest(changes)
@@ -253,23 +273,27 @@ func newCheckCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "check [change]",
 		Short: "Validate changes against the rubric declared in specutil.yaml",
-		Long: "Checks each change against a declared rubric and exits non-zero when any\n" +
-			"rule is violated, so it works as a pre-commit hook or a CI gate.\n\n" +
-			"Rules are generic and parameterized; the repository supplies the specifics\n" +
-			"under `check:` in openspec/specutil.yaml. When that block is absent and\n" +
-			"openspec/config.yaml names a schema specutil ships a preset for, that preset\n" +
-			"applies automatically. A repository with neither is not checked.\n\n" +
-			"Every rule reads only what the author stated: a heading that is present, a\n" +
-			"marker that is declared, a bullet that follows another. None infers intent\n" +
-			"from prose, so two runs over the same input always agree.\n\n" +
-			"Exit codes:\n" +
-			"  0  every rule passed (warnings may still be reported)\n" +
-			"  1  at least one error-severity rule was violated\n\n" +
-			"Typical invocations:\n" +
-			"  specutil check                     # every change\n" +
-			"  specutil check my-change           # one change\n" +
-			"  specutil check --as json | jq      # machine-readable findings\n" +
-			"  specutil check --list-rules        # what the resolved rubric enforces",
+		Long: `Checks each change against a declared rubric and exits non-zero when any
+rule is violated, so it works as a pre-commit hook or a CI gate.
+
+Rules are generic and parameterized; the repository supplies the specifics
+under ` + "`check:`" + ` in openspec/specutil.yaml. When that block is absent and
+openspec/config.yaml names a schema specutil ships a preset for, that preset
+applies automatically. A repository with neither is not checked.
+
+Every rule reads only what the author stated: a heading that is present, a
+marker that is declared, a bullet that follows another. None infers intent
+from prose, so two runs over the same input always agree.
+
+Exit codes:
+  0  every rule passed (warnings may still be reported)
+  1  at least one error-severity rule was violated
+
+Typical invocations:
+  specutil check                     # every change
+  specutil check my-change           # one change
+  specutil check --as json | jq      # machine-readable findings
+  specutil check --list-rules        # what the resolved rubric enforces`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: runCheck,
 	}
@@ -392,70 +416,106 @@ func changeDirTarget(arg string) (repo, name string, ok bool) {
 
 var errCheckFailed = errors.New("check: rubric violated")
 
+type checkTextFinding struct {
+	Severity string
+	Rule     string
+	Message  string
+	Location string
+}
+
+type checkTextSection struct {
+	Change   string
+	Header   bool
+	Findings []checkTextFinding
+}
+
+//go:embed check-output.txt.tmpl
+var checkOutputSource string
+
+var checkOutputTemplate = template.Must(
+	template.New("check-output").Parse(checkOutputSource),
+)
+
 func checkText(r *check.Report) string {
-	var b strings.Builder
+	data := struct {
+		Sections []checkTextSection
+		OK       bool
+		Count    int
+		Noun     string
+		Warnings int
+		Errors   int
+	}{
+		OK:       r.OK(),
+		Count:    len(r.Checked),
+		Noun:     "changes",
+		Warnings: r.Warnings(),
+		Errors:   r.Errors(),
+	}
+	if data.Count == 1 {
+		data.Noun = "change"
+	}
 	change := ""
-	for _, f := range r.Findings {
-		if f.Change != change {
-			change = f.Change
-			fmt.Fprintf(&b, "\n%s\n", change)
+	for index, finding := range r.Findings {
+		if index == 0 || change != finding.Change {
+			change = finding.Change
+			data.Sections = append(data.Sections, checkTextSection{
+				Change: finding.Change,
+				Header: finding.Change != "" || index > 0,
+			})
 		}
-		loc := f.File
-		if f.Line > 0 {
-			loc = fmt.Sprintf("%s:%d", f.File, f.Line)
+		location := finding.File
+		if finding.Line > 0 {
+			location = fmt.Sprintf("%s:%d", finding.File, finding.Line)
 		}
-		if loc != "" {
-			loc = " (" + loc + ")"
+		if location != "" {
+			location = " (" + location + ")"
 		}
-		fmt.Fprintf(&b, "  %-5s %-24s %s%s\n", f.Severity, f.Rule, f.Msg, loc)
+		section := &data.Sections[len(data.Sections)-1]
+		section.Findings = append(section.Findings, checkTextFinding{
+			Severity: string(finding.Severity),
+			Rule:     finding.Rule,
+			Message:  finding.Msg,
+			Location: location,
+		})
 	}
-	if len(r.Findings) > 0 {
-		b.WriteString("\n")
+
+	var rendered bytes.Buffer
+	if err := checkOutputTemplate.Execute(&rendered, data); err != nil {
+		panic(err)
 	}
-	noun := "changes"
-	if len(r.Checked) == 1 {
-		noun = "change"
-	}
-	if r.OK() {
-		fmt.Fprintf(&b, "check: passed for %d %s", len(r.Checked), noun)
-		if w := r.Warnings(); w > 0 {
-			fmt.Fprintf(&b, " (%d warning(s))", w)
-		}
-		b.WriteString("\n")
-		return b.String()
-	}
-	fmt.Fprintf(&b, "check: failed for %d %s: %d error(s)", len(r.Checked), noun, r.Errors())
-	if w := r.Warnings(); w > 0 {
-		fmt.Fprintf(&b, ", %d warning(s)", w)
-	}
-	b.WriteString("\n")
-	return b.String()
+	return rendered.String()
 }
 
 func newWebCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "web",
 		Short: "Open a browser view of the change board, dependency graph, and task details",
-		Long: "Renders all OpenSpec changes into a self-contained HTML file and opens it\n" +
-			"in the default browser. The page has three views:\n\n" +
-			"  Kanban  — lifecycle board (proposed / active / archived) with per-change\n" +
-			"            progress meters. Click a card to open the detail drilldown.\n\n" +
-			"  Graph   — dependency DAG laid out in waves. A wave is the set of changes\n" +
-			"            whose prerequisites are all satisfied at the same depth, so every\n" +
-			"            change in a wave can be worked in parallel. Node color encodes\n" +
-			"            readiness (ready / in progress / blocked / waiting / done).\n\n" +
-			"  Detail  — per-change drilldown: execution plan (stages → tasks), Why /\n" +
-			"            What Changes narrative, outstanding tasks, and per-stage chart.\n\n" +
-			"Every task takes a comment or a removal request, and the Detail view collects\n" +
-			"a decision. 'Copy feedback' and 'Download' produce the JSON that\n" +
-			"`specutil review ingest` folds back into the change. Nothing is posted: there\n" +
-			"is no server behind the page.\n\n" +
-			"Pass --diff to review the working-tree code alongside the plan. It runs git\n" +
-			"locally, needs --change to say which change the diff belongs to, and defaults\n" +
-			"its base to the commit recorded at that change's last review.\n\n" +
-			"A fresh file is written to the system temp directory on each invocation so\n" +
-			"you always see current data; old files accumulate in /tmp and can be cleared\n" +
-			"periodically. Pass -o to write a specific path or '-' for stdout.",
+		Long: `Renders all OpenSpec changes into a self-contained HTML file and opens it
+in the default browser. The page has three views:
+
+  Kanban  — lifecycle board (proposed / active / archived) with per-change
+            progress meters. Click a card to open the detail drilldown.
+
+  Graph   — dependency DAG laid out in waves. A wave is the set of changes
+            whose prerequisites are all satisfied at the same depth, so every
+            change in a wave can be worked in parallel. Node color encodes
+            readiness (ready / in progress / blocked / waiting / done).
+
+  Detail  — per-change drilldown: execution plan (stages → tasks), Why /
+            What Changes narrative, outstanding tasks, and per-stage chart.
+
+Every task takes a comment or a removal request, and the Detail view collects
+a decision. 'Copy feedback' and 'Download' produce the JSON that
+` + "`specutil review ingest`" + ` folds back into the change. Nothing is posted: there
+is no server behind the page.
+
+Pass --diff to review the working-tree code alongside the plan. It runs git
+locally, needs --change to say which change the diff belongs to, and defaults
+its base to the commit recorded at that change's last review.
+
+A fresh file is written to the system temp directory on each invocation so
+you always see current data; old files accumulate in /tmp and can be cleared
+periodically. Pass -o to write a specific path or '-' for stdout.`,
 		Args: cobra.NoArgs,
 		RunE: runWeb,
 	}

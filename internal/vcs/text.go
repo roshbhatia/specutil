@@ -1,47 +1,51 @@
 package vcs
 
 import (
+	"bytes"
 	"fmt"
-	"strings"
+	"text/template"
 )
 
+var diffTextTemplate = template.Must(template.New("diff-text").Funcs(template.FuncMap{
+	"heading": func(file File) string {
+		switch file.Status {
+		case StatusRenamed:
+			return fmt.Sprintf("%s (renamed from %s)", file.Path, file.OldPath)
+		case StatusBinary:
+			return fmt.Sprintf("%s (binary)", file.Path)
+		default:
+			return fmt.Sprintf("%s (%s)", file.Path, file.Status)
+		}
+	},
+	"marker": marker,
+}).Parse(`{{if .Diff.Note}}No diff: {{.Diff.Note}}
+{{else if not .Files}}No changes against {{.Diff.Base}}.
+{{else}}{{.Files}} {{.Noun}} changed against {{.Diff.Base}}: +{{.Added}} -{{.Deleted}}
+{{range .Diff.Files}}
+{{heading .}}
+{{range .Hunks}}  {{.Header}}  [{{.Identity}}]
+{{range .Lines}}  {{marker .Kind}}{{.Text}}
+{{end}}{{end}}{{end}}{{end}}`))
+
 func (d *Diff) Text() string {
-	var b strings.Builder
 	files, added, deleted := d.Stats()
-
-	if d.Note != "" {
-		fmt.Fprintf(&b, "No diff: %s\n", d.Note)
-		return b.String()
-	}
-	if files == 0 {
-		fmt.Fprintf(&b, "No changes against %s.\n", d.Base)
-		return b.String()
-	}
-
 	noun := "files"
 	if files == 1 {
 		noun = "file"
 	}
-	fmt.Fprintf(&b, "%d %s changed against %s: +%d -%d\n", files, noun, d.Base, added, deleted)
+	data := struct {
+		Diff    *Diff
+		Files   int
+		Noun    string
+		Added   int
+		Deleted int
+	}{Diff: d, Files: files, Noun: noun, Added: added, Deleted: deleted}
 
-	for _, f := range d.Files {
-		b.WriteString("\n")
-		switch f.Status {
-		case StatusRenamed:
-			fmt.Fprintf(&b, "%s (renamed from %s)\n", f.Path, f.OldPath)
-		case StatusBinary:
-			fmt.Fprintf(&b, "%s (binary)\n", f.Path)
-		default:
-			fmt.Fprintf(&b, "%s (%s)\n", f.Path, f.Status)
-		}
-		for _, h := range f.Hunks {
-			fmt.Fprintf(&b, "  %s  [%s]\n", h.Header, h.Identity)
-			for _, l := range h.Lines {
-				fmt.Fprintf(&b, "  %s%s\n", marker(l.Kind), l.Text)
-			}
-		}
+	var rendered bytes.Buffer
+	if err := diffTextTemplate.Execute(&rendered, data); err != nil {
+		panic(err)
 	}
-	return b.String()
+	return rendered.String()
 }
 
 func marker(kind string) string {

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -13,9 +12,7 @@ import (
 )
 
 func examplesDir() string {
-	_, file, _, _ := runtime.Caller(0)
-	root := filepath.Join(filepath.Dir(file), "..", "..")
-	return filepath.Join(root, "internal", "provider", "openspec", "testdata")
+	return filepath.Join("..", "provider", "openspec", "testdata")
 }
 
 func run(args ...string) (stdout, stderr string, err error) {
@@ -109,11 +106,21 @@ func setupMinimalOpenspec(t *testing.T, changeName string) string {
 		t.Fatalf("mkdir %s: %v", changeDir, err)
 	}
 	if err := os.WriteFile(filepath.Join(changeDir, "proposal.md"),
-		[]byte("## Why\n\nTest change.\n\n## What Changes\n\n- Something.\n"), 0o644); err != nil {
+		[]byte(`## Why
+
+Test change.
+
+## What Changes
+
+- Something.
+`), 0o644); err != nil {
 		t.Fatalf("write proposal: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(changeDir, "tasks.md"),
-		[]byte("## 1. Build\n\n- [ ] 1.1 Do the thing\n"), 0o644); err != nil {
+		[]byte(`## 1. Build
+
+- [ ] 1.1 Do the thing
+`), 0o644); err != nil {
 		t.Fatalf("write tasks: %v", err)
 	}
 	return dir

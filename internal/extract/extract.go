@@ -37,27 +37,27 @@ func FieldTypes() []string {
 }
 
 type Marker struct {
-	Key string `yaml:"key"`
+	Key string `json:"key" yaml:"key"`
 
-	Scope Scope `yaml:"scope"`
+	Scope Scope `json:"scope" yaml:"scope" jsonschema:"enum=phase,enum=task,enum=scenario,enum=requirement"`
 
-	Bullet string `yaml:"bullet"`
+	Bullet string `json:"bullet" yaml:"bullet"`
 }
 
 type Field struct {
-	Key string `yaml:"key"`
+	Key string `json:"key" yaml:"key"`
 
-	Scope Scope `yaml:"scope"`
+	Scope Scope `json:"scope" yaml:"scope" jsonschema:"enum=phase,enum=task,enum=scenario,enum=requirement"`
 
-	Label string `yaml:"label"`
+	Label string `json:"label" yaml:"label"`
 
-	Type FieldType `yaml:"type"`
+	Type FieldType `json:"type" yaml:"type" jsonschema:"enum=string,enum=list,enum=taskRefs"`
 }
 
 type Config struct {
-	Preset  string   `yaml:"preset"`
-	Markers []Marker `yaml:"markers"`
-	Fields  []Field  `yaml:"fields"`
+	Preset  string   `json:"preset,omitempty"  yaml:"preset"`
+	Markers []Marker `json:"markers,omitempty" yaml:"markers"`
+	Fields  []Field  `json:"fields,omitempty"  yaml:"fields"`
 }
 
 func (c Config) IsZero() bool {

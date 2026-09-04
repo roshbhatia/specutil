@@ -61,6 +61,22 @@ tasks:
     desc: Run tests as CI does (race + coverage artifact)
     cmd: go test -race -coverprofile={{.COVER_OUT}} ./...
 
+  generate:
+    desc: Generate README help, config schema, and shell completions
+    cmd: go run ./cmd/specutil generate
+
+  generate:check:
+    desc: Check generated artifacts are current
+    cmd: go run ./cmd/specutil generate --check
+
+  completion:check:
+    desc: Parse all published shell completions
+    cmds:
+      - bash -n completions/specutil.bash
+      - zsh -n completions/specutil.zsh
+      - fish -n completions/specutil.fish
+      - nu --no-config-file --no-std-lib -c 'source completions/specutil.nu'
+
   # ── Lint / vet ─────────────────────────────────────────────────────────────
 
   lint:
@@ -113,7 +129,7 @@ tasks:
 
   release:dry:
     desc: Dry-run a release with goreleaser (snapshot, no publish)
-    cmd: goreleaser release --snapshot --clean
+    cmd: HOMEBREW_TAP_TOKEN=snapshot-token goreleaser release --snapshot --clean
 
   release:check:
     desc: Validate the goreleaser config
@@ -123,5 +139,5 @@ tasks:
 
   check:
     desc: Full pre-commit check (vet, fmt check, tests with race)
-    deps: [vet, fmt:check, fmt:sh:check]
+    deps: [vet, fmt:check, fmt:sh:check, generate:check, completion:check]
     cmd: go test -race ./...

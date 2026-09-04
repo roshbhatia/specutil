@@ -1,0 +1,181 @@
+{
+  "$defs": {
+    "projectChangeConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "projectCheckConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "disable": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "preset": {
+          "type": "string"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/projectCheckRule"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "projectCheckRule": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warn"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "projectEdgeConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "projectExtractConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/projectExtractField"
+          },
+          "type": "array"
+        },
+        "markers": {
+          "items": {
+            "$ref": "#/$defs/projectExtractMarker"
+          },
+          "type": "array"
+        },
+        "preset": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "projectExtractField": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "phase",
+            "task",
+            "scenario",
+            "requirement"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "string",
+            "list",
+            "taskRefs"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "scope",
+        "label",
+        "type"
+      ],
+      "type": "object"
+    },
+    "projectExtractMarker": {
+      "additionalProperties": false,
+      "properties": {
+        "bullet": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "phase",
+            "task",
+            "scenario",
+            "requirement"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "scope",
+        "bullet"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "changes": {
+      "additionalProperties": {
+        "$ref": "#/$defs/projectChangeConfig"
+      },
+      "type": "object"
+    },
+    "check": {
+      "$ref": "#/$defs/projectCheckConfig"
+    },
+    "edges": {
+      "items": {
+        "$ref": "#/$defs/projectEdgeConfig"
+      },
+      "type": "array"
+    },
+    "extract": {
+      "$ref": "#/$defs/projectExtractConfig"
+    }
+  },
+  "title": "specutil project configuration",
+  "type": "object"
+}

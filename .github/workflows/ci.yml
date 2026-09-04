@@ -8,28 +8,63 @@ on:
 
 jobs:
   test:
-    name: Test
-    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86-64
+            os: ubuntu-24.04
+          - name: Linux ARM64
+            os: ubuntu-24.04-arm
+          - name: macOS ARM64
+            os: macos-14
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - uses: DeterminateSystems/nix-installer-action@v20
+
+      - name: Format and generate
+        run: |
+          nix fmt -- --check
+          nix develop -c gofumpt -l . | tee /tmp/gofumpt.out
+          test ! -s /tmp/gofumpt.out
+          nix develop -c go run ./cmd/specutil generate --check
+
+      - name: Go checks
+        run: |
+          nix develop -c go vet ./...
+          nix develop -c go test -race ./...
+
+      - name: Shell completions
+        run: |
+          nix develop -c bash -n completions/specutil.bash
+          nix develop -c zsh -n completions/specutil.zsh
+          nix develop -c fish -n completions/specutil.fish
+          nix develop -c nu --no-config-file --no-std-lib -c 'source completions/specutil.nu'
+
+      - name: Nix checks
+        run: nix flake check
+
+  release:
+    name: Release archive
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
         with:
-          go-version-file: go.mod
-          cache: true
+          fetch-depth: 0
 
-      - name: vet
-        run: go vet ./...
+      - uses: DeterminateSystems/nix-installer-action@v20
 
-      - name: test
-        run: go test -race -coverprofile=coverage.out ./...
-
-      - name: build
-        run: go build ./...
-
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage
-          path: coverage.out
+      - name: Snapshot archives and cask
+        env:
+          HOMEBREW_TAP_TOKEN: snapshot-token
+        run: |
+          nix develop -c goreleaser check
+          nix develop -c goreleaser release --snapshot --clean
+          find dist -type f -name specutil -perm -111 -print -quit | grep .
+          archive=$(find dist -maxdepth 1 -name '*linux_amd64.tar.gz' -print -quit)
+          test -n "$archive"
+          tar -tzf "$archive" | grep -Fx completions/specutil.nu
+          find dist -path '*Casks/specutil.rb' -type f -print -quit | grep .

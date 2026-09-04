@@ -44,21 +44,21 @@ func (r *Report) Warnings() int { return len(r.Findings) - r.Errors() }
 func (r *Report) OK() bool { return r.Errors() == 0 }
 
 type RuleConfig struct {
-	ID string `yaml:"id"`
+	ID string `json:"id" yaml:"id"`
 
-	Name string `yaml:"name"`
+	Name string `json:"name,omitempty" yaml:"name"`
 
-	Severity Severity `yaml:"severity"`
+	Severity Severity `json:"severity,omitempty" yaml:"severity" jsonschema:"enum=error,enum=warn"`
 
-	Params map[string]any `yaml:",inline"`
+	Params map[string]any `json:"params,omitempty" yaml:",inline"`
 }
 
 type Config struct {
-	Preset string `yaml:"preset"`
+	Preset string `json:"preset,omitempty" yaml:"preset"`
 
-	Rules []RuleConfig `yaml:"rules"`
+	Rules []RuleConfig `json:"rules,omitempty" yaml:"rules"`
 
-	Disable []string `yaml:"disable"`
+	Disable []string `json:"disable,omitempty" yaml:"disable"`
 }
 
 func (c Config) IsZero() bool {

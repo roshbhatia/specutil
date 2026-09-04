@@ -19,23 +19,27 @@ func newReviewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "review",
 		Short: "Record a human verdict on a change and report what moved since",
-		Long: "Carries a reviewer's decision back to the agent that wrote the change.\n\n" +
-			"  review show    — the standing verdict, open comments, and drift\n" +
-			"  review diff    — the working-tree diff since the review, hunk by hunk\n" +
-			"  review ingest  — fold an annotation export from `specutil web` into the record\n" +
-			"  review set     — record a decision directly, without the browser\n\n" +
-			"The record lives at openspec/changes/<name>/specutil.review.yaml and\n" +
-			"fingerprints the artifacts it describes. When the artifacts change, the\n" +
-			"decision is reported as stale rather than silently continuing to apply, and\n" +
-			"each task is classified as new, changed, or unchanged against what was read.\n\n" +
-			"Staleness is decided by content hash, never by a timestamp, so the same\n" +
-			"inputs always produce the same verdict and a record survives a rebase.\n\n" +
-			"The loop:\n" +
-			"  1. specutil web                          # annotate tasks, pick a decision\n" +
-			"  2. Export from the page (copy or download the JSON)\n" +
-			"  3. specutil review ingest feedback.json  # record it, print the brief\n" +
-			"  4. The agent reads the brief and revises\n" +
-			"  5. specutil review show                  # what drifted since the review",
+		Long: `Carries a reviewer's decision back to the agent that wrote the change.
+
+  review show    — the standing verdict, open comments, and drift
+  review diff    — the working-tree diff since the review, hunk by hunk
+  review ingest  — fold an annotation export from ` + "`specutil web`" + ` into the record
+  review set     — record a decision directly, without the browser
+
+The record lives at openspec/changes/<name>/specutil.review.yaml and
+fingerprints the artifacts it describes. When the artifacts change, the
+decision is reported as stale rather than silently continuing to apply, and
+each task is classified as new, changed, or unchanged against what was read.
+
+Staleness is decided by content hash, never by a timestamp, so the same
+inputs always produce the same verdict and a record survives a rebase.
+
+The loop:
+  1. specutil web                          # annotate tasks, pick a decision
+  2. Export from the page (copy or download the JSON)
+  3. specutil review ingest feedback.json  # record it, print the brief
+  4. The agent reads the brief and revises
+  5. specutil review show                  # what drifted since the review`,
 	}
 	cmd.AddCommand(newReviewShowCmd(), newReviewIngestCmd(), newReviewSetCmd(), newReviewDiffCmd())
 	return cmd
@@ -45,21 +49,25 @@ func newReviewDiffCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff [change]",
 		Short: "Show the working-tree diff since a change was reviewed",
-		Long: "Prints what moved in the working tree since the review, so a reviewer sees the\n" +
-			"code a change produced and not only the plan that described it.\n\n" +
-			"The base defaults to the commit recorded when the decision was taken, so with\n" +
-			"no flags this answers \"what did the agent do after I looked at this\". Without a\n" +
-			"review record it falls back to HEAD, which shows uncommitted work.\n\n" +
-			"Each hunk carries an identity computed from its changed lines, never from line\n" +
-			"numbers, so a comment written against a hunk survives edits elsewhere in the\n" +
-			"file. That identity is what the browser page writes into an annotation.\n\n" +
-			"This reads the local git working tree by running git. It contacts no remote and\n" +
-			"reads no credentials. Outside a git working tree it reports an empty diff.\n\n" +
-			"Typical invocations:\n" +
-			"  specutil review diff my-change                 # since the review\n" +
-			"  specutil review diff --base main               # against a branch\n" +
-			"  specutil review diff my-change --spec-only     # just the change artifacts\n" +
-			"  specutil review diff --as json | jq '.files[].path'",
+		Long: `Prints what moved in the working tree since the review, so a reviewer sees the
+code a change produced and not only the plan that described it.
+
+The base defaults to the commit recorded when the decision was taken, so with
+no flags this answers "what did the agent do after I looked at this". Without a
+review record it falls back to HEAD, which shows uncommitted work.
+
+Each hunk carries an identity computed from its changed lines, never from line
+numbers, so a comment written against a hunk survives edits elsewhere in the
+file. That identity is what the browser page writes into an annotation.
+
+This reads the local git working tree by running git. It contacts no remote and
+reads no credentials. Outside a git working tree it reports an empty diff.
+
+Typical invocations:
+  specutil review diff my-change                 # since the review
+  specutil review diff --base main               # against a branch
+  specutil review diff my-change --spec-only     # just the change artifacts
+  specutil review diff --as json | jq '.files[].path'`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: runReviewDiff,
 	}
@@ -125,14 +133,16 @@ func newReviewShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show [change]",
 		Short: "Report the recorded decision, open comments, and drift since review",
-		Long: "Prints the standing review verdict for a change, whether it still describes\n" +
-			"the current artifacts, which tasks were added or reworded since, and any\n" +
-			"comment the reviewer left. With no change named, every change is reported.\n\n" +
-			"Exit code is 0 whether or not a decision exists; use `specutil check` with the\n" +
-			"review-decision-current rule to gate on it.\n\n" +
-			"Typical invocations:\n" +
-			"  specutil review show my-change\n" +
-			"  specutil review show --as json | jq '.[] | select(.stale)'",
+		Long: `Prints the standing review verdict for a change, whether it still describes
+the current artifacts, which tasks were added or reworded since, and any
+comment the reviewer left. With no change named, every change is reported.
+
+Exit code is 0 whether or not a decision exists; use ` + "`specutil check`" + ` with the
+review-decision-current rule to gate on it.
+
+Typical invocations:
+  specutil review show my-change
+  specutil review show --as json | jq '.[] | select(.stale)'`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: runReviewShow,
 	}
@@ -196,18 +206,21 @@ func newReviewIngestCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ingest [file]",
 		Short: "Fold an annotation export from the web page into the review record",
-		Long: "Reads the JSON that `specutil web` exports after a reviewer annotates a\n" +
-			"change, writes it to openspec/changes/<name>/specutil.review.yaml, and prints\n" +
-			"the brief the agent should act on: requested removals first, then comments,\n" +
-			"then anything that drifted.\n\n" +
-			"The file argument may be '-' or omitted to read stdin, so a clipboard paste\n" +
-			"works directly:\n\n" +
-			"  pbpaste | specutil review ingest\n" +
-			"  specutil review ingest ~/Downloads/specutil-feedback.json\n" +
-			"  specutil review ingest feedback.json --dry-run   # print, write nothing\n\n" +
-			"The fingerprints written to the record come from the artifacts on disk now,\n" +
-			"not from the export. An author who edited between exporting and ingesting\n" +
-			"gets a record reported as stale rather than one that blesses unread text.",
+		Long: `Reads the JSON that ` + "`specutil web`" + ` exports after a reviewer annotates a
+change, writes it to openspec/changes/<name>/specutil.review.yaml, and prints
+the brief the agent should act on: requested removals first, then comments,
+then anything that drifted.
+
+The file argument may be '-' or omitted to read stdin, so a clipboard paste
+works directly:
+
+  pbpaste | specutil review ingest
+  specutil review ingest ~/Downloads/specutil-feedback.json
+  specutil review ingest feedback.json --dry-run   # print, write nothing
+
+The fingerprints written to the record come from the artifacts on disk now,
+not from the export. An author who edited between exporting and ingesting
+gets a record reported as stale rather than one that blesses unread text.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: runReviewIngest,
 	}
@@ -283,15 +296,18 @@ func newReviewSetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set [change]",
 		Short: "Record a decision on a change without going through the browser",
-		Long: "Writes a review decision straight to the record. Use this when the review\n" +
-			"happened somewhere else (a pull request, a meeting) and only the verdict needs\n" +
-			"to reach the gate.\n\n" +
-			"Accepted decisions: approved, changes-requested, commented.\n\n" +
-			"Existing task comments are retained, so approving after addressing feedback\n" +
-			"does not erase what was said. Pass --clear-comments to drop them.\n\n" +
-			"Typical invocations:\n" +
-			"  specutil review set my-change --decision approved\n" +
-			"  specutil review set my-change --decision changes-requested --note 'split phase 2'",
+		Long: `Writes a review decision straight to the record. Use this when the review
+happened somewhere else (a pull request, a meeting) and only the verdict needs
+to reach the gate.
+
+Accepted decisions: approved, changes-requested, commented.
+
+Existing task comments are retained, so approving after addressing feedback
+does not erase what was said. Pass --clear-comments to drop them.
+
+Typical invocations:
+  specutil review set my-change --decision approved
+  specutil review set my-change --decision changes-requested --note 'split phase 2'`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: runReviewSet,
 	}

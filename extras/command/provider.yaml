@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../../schema/provider.schema.json
+version: provider/v1
+name: command
+description: Ask an external command to suggest dependency edges
+command: [specutil-provider-command]
+actions:
+  graph.suggest:
+    description: Suggest dependency edges from the normalized change prompt
+defaults:
+  timeout: 10m
+  priority: 100

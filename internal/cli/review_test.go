@@ -153,7 +153,11 @@ func TestReviewSetThenDriftAppearsInTheDetailFeed(t *testing.T) {
 	// Add a task; it must read as new against the reviewed baseline.
 	tasks := filepath.Join(dir, "openspec", "changes", "widget", "tasks.md")
 	if werr := os.WriteFile(tasks,
-		[]byte("## 1. Build\n\n- [ ] 1.1 Do the thing\n- [ ] 1.2 Do a second unrelated thing\n"), 0o644); werr != nil {
+		[]byte(`## 1. Build
+
+- [ ] 1.1 Do the thing
+- [ ] 1.2 Do a second unrelated thing
+`), 0o644); werr != nil {
 		t.Fatalf("rewriting tasks.md: %v", werr)
 	}
 	out, _, err = run("-C", dir, "graph", "--as", "detail")
@@ -253,7 +257,10 @@ func TestReviewDiffShowsUncommittedWork(t *testing.T) {
 	gitInit(t, dir)
 
 	tasks := filepath.Join(dir, "openspec", "changes", "widget", "tasks.md")
-	if err := os.WriteFile(tasks, []byte("## 1. Build\n\n- [ ] 1.1 Do the thing differently\n"), 0o644); err != nil {
+	if err := os.WriteFile(tasks, []byte(`## 1. Build
+
+- [ ] 1.1 Do the thing differently
+`), 0o644); err != nil {
 		t.Fatalf("rewriting tasks.md: %v", err)
 	}
 
@@ -363,7 +370,10 @@ func TestWebDiffEmbedsTheDiffForAnnotation(t *testing.T) {
 	dir := setupMinimalOpenspec(t, "widget")
 	gitInit(t, dir)
 	tasks := filepath.Join(dir, "openspec", "changes", "widget", "tasks.md")
-	if err := os.WriteFile(tasks, []byte("## 1. Build\n\n- [ ] 1.1 Do the thing differently\n"), 0o644); err != nil {
+	if err := os.WriteFile(tasks, []byte(`## 1. Build
+
+- [ ] 1.1 Do the thing differently
+`), 0o644); err != nil {
 		t.Fatalf("rewriting tasks.md: %v", err)
 	}
 

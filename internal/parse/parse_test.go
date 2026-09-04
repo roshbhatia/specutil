@@ -189,7 +189,11 @@ Text.
 	}
 
 	// Sanity: an ADDED requirement with no scenarios still warns.
-	_, warns = ParseSpec("specs/x/spec.md", "x", "## ADDED Requirements\n\n### Requirement: Empty\nText.\n")
+	_, warns = ParseSpec("specs/x/spec.md", "x", `## ADDED Requirements
+
+### Requirement: Empty
+Text.
+`)
 	found := false
 	for _, w := range warns {
 		if strings.Contains(w.Msg, "has no scenarios") {
@@ -245,7 +249,16 @@ func TestParseTasks(t *testing.T) {
 }
 
 func TestSplitSectionsIgnoresFencedHeadings(t *testing.T) {
-	src := "## Real\n\ntext\n\n" + "```\n## Not a heading\n```\n\n## AlsoReal\n"
+	src := `## Real
+
+text
+
+` + "```" + `
+## Not a heading
+` + "```" + `
+
+## AlsoReal
+`
 	_, roots := SplitSections(src)
 	if len(roots) != 2 {
 		t.Fatalf("expected 2 roots (fenced heading ignored), got %d: %+v", len(roots), titles(roots))

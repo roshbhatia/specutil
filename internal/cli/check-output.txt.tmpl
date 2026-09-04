@@ -1,0 +1,4 @@
+{{range .Sections}}{{if .Header}}
+{{.Change}}
+{{end}}{{range .Findings}}{{printf "  %-5s %-24s %s%s\n" .Severity .Rule .Message .Location}}{{end}}{{end}}{{if .Sections}}
+{{end}}check: {{if .OK}}passed for {{.Count}} {{.Noun}}{{if .Warnings}} ({{.Warnings}} warning(s)){{end}}{{else}}failed for {{.Count}} {{.Noun}}: {{.Errors}} error(s){{if .Warnings}}, {{.Warnings}} warning(s){{end}}{{end}}

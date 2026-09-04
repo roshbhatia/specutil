@@ -266,7 +266,32 @@ func buildCriterion(capability, requirement string, sc ir.Scenario) Criterion {
 	return c
 }
 
-var negativeNameRe = regexp.MustCompile(`(?i)\b(invalid|missing|expired|malformed|unauthori[sz]ed|forbidden|reject|refus|denied|fail|error|absent|unknown|conflict|duplicate|not found|empty|bad|timeout|corrupt)`)
+var negativeNameTerms = []string{
+	"invalid",
+	"missing",
+	"expired",
+	"malformed",
+	`unauthori[sz]ed`,
+	"forbidden",
+	"reject",
+	"refus",
+	"denied",
+	"fail",
+	"error",
+	"absent",
+	"unknown",
+	"conflict",
+	"duplicate",
+	"not found",
+	"empty",
+	"bad",
+	"timeout",
+	"corrupt",
+}
+
+var negativeNameRe = regexp.MustCompile(
+	`(?i)\b(` + strings.Join(negativeNameTerms, "|") + `)`,
+)
 
 func isNegative(sc ir.Scenario) bool {
 	if p, ok := sc.Markers["polarity"]; ok {

@@ -2,6 +2,7 @@ package graph
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -60,7 +61,10 @@ func TestLoadManifestReadsEdgesList(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "openspec"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	src := "edges:\n  - from: A\n    to: B\n"
+	src := `edges:
+  - from: A
+    to: B
+`
 	if err := os.WriteFile(filepath.Join(dir, ManifestFile), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -205,12 +209,29 @@ func TestLoadManifestAbsentIsEmpty(t *testing.T) {
 	}
 }
 
+func TestLoadManifestRejectsUnknownProjectFields(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(directory, "openspec"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, ManifestFile), []byte("unknown: true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadManifest(directory); err == nil {
+		t.Fatal("unknown project configuration must fail instead of being ignored")
+	}
+}
+
 func TestLoadManifestParses(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "openspec"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	content := "changes:\n  add-auth:\n    depends_on:\n      - add-db\n"
+	content := `changes:
+  add-auth:
+    depends_on:
+      - add-db
+`
 	if err := os.WriteFile(filepath.Join(dir, ManifestFile), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +272,10 @@ func TestBuildSuggestPrompt(t *testing.T) {
 		}},
 		{Name: "no-proposal"},
 	}
-	prompt := buildSuggestPrompt(changes)
+	prompt, err := buildSuggestPrompt(changes)
+	if err != nil {
+		t.Fatalf("build prompt: %v", err)
+	}
 	for _, want := range []string{
 		"add-db", "need persistence", "adds postgres",
 		"Adds capability: storage", "Modifies capability: config",
@@ -263,7 +287,7 @@ func TestBuildSuggestPrompt(t *testing.T) {
 	}
 }
 
-func TestParseHarnessOutput(t *testing.T) {
+func TestParseSuggestionOutput(t *testing.T) {
 	known := map[string]bool{"add-db": true, "add-auth": true}
 
 	cases := []struct {
@@ -283,8 +307,10 @@ func TestParseHarnessOutput(t *testing.T) {
 			wantN: 0,
 		},
 		{
-			name:  "strips markdown fences",
-			raw:   []byte("```json\n{\"suggestions\":[{\"from\":\"add-db\",\"to\":\"add-auth\",\"reason\":\"r\"}]}\n```"),
+			name: "strips markdown fences",
+			raw: []byte("```json" + `
+{"suggestions":[{"from":"add-db","to":"add-auth","reason":"r"}]}
+` + "```"),
 			wantN: 1,
 		},
 		{
@@ -305,7 +331,7 @@ func TestParseHarnessOutput(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := parseHarnessOutput(tc.raw, known)
+			got, err := parseSuggestionOutput(tc.raw, known)
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("err = %v, wantErr = %v", err, tc.wantErr)
 			}
@@ -316,9 +342,9 @@ func TestParseHarnessOutput(t *testing.T) {
 	}
 }
 
-func TestHarnessSuggestRejectsEmptyName(t *testing.T) {
-	_, err := HarnessSuggest(nil, "")
+func TestProviderSuggestRejectsEmptyName(t *testing.T) {
+	_, err := ProviderSuggest(context.Background(), nil, "", "", ".")
 	if err == nil {
-		t.Fatal("expected error for empty harness name")
+		t.Fatal("expected error for empty provider name")
 	}
 }

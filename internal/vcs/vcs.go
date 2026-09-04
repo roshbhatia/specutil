@@ -103,7 +103,9 @@ func Collect(repo, base string, paths []string) (*Diff, error) {
 		args = append(args, "--")
 		args = append(args, paths...)
 	}
-	out, err := exec.Command("git", args...).Output()
+	command := exec.Command("git", args...)
+	command.Env = git.CleanEnv()
+	out, err := command.Output()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok && len(ee.Stderr) > 0 {
 			return nil, fmt.Errorf("git diff %s: %s", base, strings.TrimSpace(string(ee.Stderr)))
@@ -139,7 +141,9 @@ func untracked(repo string, paths []string) []File {
 		args = append(args, "--")
 		args = append(args, paths...)
 	}
-	out, err := exec.Command("git", args...).Output()
+	command := exec.Command("git", args...)
+	command.Env = git.CleanEnv()
+	out, err := command.Output()
 	if err != nil {
 		return nil
 	}
@@ -149,8 +153,10 @@ func untracked(repo string, paths []string) []File {
 			continue
 		}
 
-		raw, _ := exec.Command("git", "-C", repo, "--no-pager", "diff", "--no-color",
-			"--no-ext-diff", "-U3", "--no-index", os.DevNull, name).Output()
+		command := exec.Command("git", "-C", repo, "--no-pager", "diff", "--no-color",
+			"--no-ext-diff", "-U3", "--no-index", os.DevNull, name)
+		command.Env = git.CleanEnv()
+		raw, _ := command.Output()
 		for _, f := range Parse(string(raw)) {
 			f.Path = name
 			f.OldPath = ""

@@ -1,7 +1,9 @@
 package graph
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -15,12 +17,12 @@ import (
 const ManifestFile = "openspec/specutil.yaml"
 
 type Manifest struct {
-	Changes map[string]ManifestEntry `yaml:"changes"`
-	Edges   []Edge                   `yaml:"edges"`
+	Changes map[string]ManifestEntry `json:"changes,omitempty" yaml:"changes"`
+	Edges   []Edge                   `json:"edges,omitempty"   yaml:"edges"`
 
-	Extract extract.Config `yaml:"extract"`
+	Extract extract.Config `json:"extract,omitempty" yaml:"extract"`
 
-	Check check.Config `yaml:"check"`
+	Check check.Config `json:"check,omitempty" yaml:"check"`
 }
 
 func (m *Manifest) CheckConfig(repoRoot string) (check.Config, error) {
@@ -62,7 +64,7 @@ func detectSchemaName(repoRoot string) string {
 }
 
 type ManifestEntry struct {
-	DependsOn []string `yaml:"depends_on"`
+	DependsOn []string `json:"depends_on,omitempty" yaml:"depends_on"`
 }
 
 func LoadManifest(repoRoot string) (*Manifest, error) {
@@ -75,7 +77,16 @@ func LoadManifest(repoRoot string) (*Manifest, error) {
 		return nil, fmt.Errorf("reading %s: %w", path, err)
 	}
 	var m Manifest
-	if err := yaml.Unmarshal(b, &m); err != nil {
+	decoder := yaml.NewDecoder(bytes.NewReader(b))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&m); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return nil, fmt.Errorf("parsing %s: expected one YAML document", path)
+		}
 		return nil, fmt.Errorf("parsing %s: %w", path, err)
 	}
 	return &m, nil

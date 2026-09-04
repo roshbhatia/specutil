@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"text/template"
 
 	"github.com/roshbhatia/specutil/internal/ir"
 )
@@ -19,9 +20,9 @@ func (g *Graph) Project(format string) ([]byte, error) {
 	case "json":
 		return g.json()
 	case "mermaid":
-		return g.mermaid(), nil
+		return g.mermaid()
 	case "dot":
-		return g.dot(), nil
+		return g.dot()
 	default:
 		return nil, fmt.Errorf("unknown graph format %q; supported formats: %s",
 			format, strings.Join(SupportedFormats(), ", "))
@@ -39,30 +40,39 @@ func (g *Graph) json() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (g *Graph) mermaid() []byte {
-	var b strings.Builder
-	b.WriteString("graph TD\n")
-	for _, n := range g.Nodes {
-		fmt.Fprintf(&b, "  %s[%q]\n", mermaidID(n.ID), n.Label)
-	}
-	for _, e := range g.Edges {
-		fmt.Fprintf(&b, "  %s --> %s\n", mermaidID(e.From), mermaidID(e.To))
-	}
-	return []byte(b.String())
+var graphTemplateFunctions = template.FuncMap{
+	"id": mermaidID,
+	"quote": func(value string) string {
+		return fmt.Sprintf("%q", value)
+	},
 }
 
-func (g *Graph) dot() []byte {
-	var b strings.Builder
-	b.WriteString("digraph specutil {\n")
-	b.WriteString("  rankdir=LR;\n")
-	for _, n := range g.Nodes {
-		fmt.Fprintf(&b, "  %q [label=%q];\n", n.ID, n.Label)
+var mermaidTemplate = template.Must(template.New("mermaid").Funcs(graphTemplateFunctions).Parse(`graph TD
+{{range .Nodes}}  {{id .ID}}[{{quote .Label}}]
+{{end}}{{range .Edges}}  {{id .From}} --> {{id .To}}
+{{end}}`))
+
+var dotTemplate = template.Must(template.New("dot").Funcs(graphTemplateFunctions).Parse(`digraph specutil {
+  rankdir=LR;
+{{range .Nodes}}  {{quote .ID}} [label={{quote .Label}}];
+{{end}}{{range .Edges}}  {{quote .From}} -> {{quote .To}};
+{{end}}}
+`))
+
+func (g *Graph) mermaid() ([]byte, error) {
+	var b bytes.Buffer
+	if err := mermaidTemplate.Execute(&b, g); err != nil {
+		return nil, fmt.Errorf("render mermaid graph: %w", err)
 	}
-	for _, e := range g.Edges {
-		fmt.Fprintf(&b, "  %q -> %q;\n", e.From, e.To)
+	return b.Bytes(), nil
+}
+
+func (g *Graph) dot() ([]byte, error) {
+	var b bytes.Buffer
+	if err := dotTemplate.Execute(&b, g); err != nil {
+		return nil, fmt.Errorf("render dot graph: %w", err)
 	}
-	b.WriteString("}\n")
-	return []byte(b.String())
+	return b.Bytes(), nil
 }
 
 func mermaidID(s string) string {
