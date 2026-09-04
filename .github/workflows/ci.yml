@@ -57,14 +57,15 @@ jobs:
 
       - uses: DeterminateSystems/nix-installer-action@v20
 
-      - name: Snapshot archives and cask
-        env:
-          HOMEBREW_TAP_TOKEN: snapshot-token
+      - name: Snapshot archives
         run: |
           nix develop -c goreleaser check
           nix develop -c goreleaser release --snapshot --clean
           find dist -type f -name specutil -perm -111 -print -quit | grep .
+          test "$(find dist -maxdepth 1 -name '*.tar.gz' | wc -l)" -eq 4
+          test -s dist/checksums.txt
           archive=$(find dist -maxdepth 1 -name '*linux_amd64.tar.gz' -print -quit)
           test -n "$archive"
           tar -tzf "$archive" | grep -Fx completions/specutil.nu
-          find dist -path '*Casks/specutil.rb' -type f -print -quit | grep .
+          tar -tzf "$archive" | grep -Fx schema/specutil.schema.json
+          tar -tzf "$archive" | grep -Fx schema/provider.schema.json
