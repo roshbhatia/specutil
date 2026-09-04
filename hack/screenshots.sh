@@ -8,10 +8,10 @@ mkdir -p "$output_dir"
 
 media_fingerprint() {
   {
-    printf '%s\n' flake.lock flake.nix go.mod go.sum README.md hack/specutil.tape hack/screenshots.sh
+    printf '%s\n' flake.lock flake.nix go.mod go.sum hack/specutil.tape hack/screenshots.sh
     find cmd internal extras -type f \
       \( -name '*.go' -o -name '*.tmpl' -o -name '*.yaml' -o -name '*.nix' \) \
-      ! -name '*_test.go' -print | sort
+      ! -name '*_test.go' -print | LC_ALL=C sort
   } | while IFS= read -r path; do
     sha256sum "$path"
   done | sha256sum | cut -d ' ' -f 1
