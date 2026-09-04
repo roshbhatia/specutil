@@ -12,6 +12,8 @@ builds:
     binary: specutil
     env:
       - CGO_ENABLED=0
+    flags: [-trimpath]
+    mod_timestamp: "{{ .CommitTimestamp }}"
     goos:
       - linux
       - darwin
@@ -31,6 +33,10 @@ archives:
       - README.md
       - src: completions/*
         dst: completions
+      - src: schema/*.cue
+        dst: schema
+      - src: schema/*.json
+        dst: schema
 
 checksum:
   name_template: "checksums.txt"
@@ -44,26 +50,3 @@ release:
 
 changelog:
   use: github-native
-
-homebrew_casks:
-  - name: specutil
-    ids: [specutil]
-    binaries: [specutil]
-    homepage: https://github.com/roshbhatia/specutil
-    description: Project OpenSpec changes into review-ready outputs
-    license: MIT
-    completions:
-      bash: completions/specutil.bash
-      zsh: completions/specutil.zsh
-      fish: completions/specutil.fish
-    hooks:
-      post:
-        install: |
-          system_command "/bin/mkdir", args: ["-p", "#{HOMEBREW_PREFIX}/share/nushell/vendor/autoload"]
-          system_command "/bin/cp", args: ["#{staged_path}/completions/specutil.nu", "#{HOMEBREW_PREFIX}/share/nushell/vendor/autoload/specutil.nu"]
-        uninstall: |
-          system_command "/bin/rm", args: ["-f", "#{HOMEBREW_PREFIX}/share/nushell/vendor/autoload/specutil.nu"]
-    repository:
-      owner: roshbhatia
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
